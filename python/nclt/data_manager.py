@@ -11,9 +11,11 @@ import Queue
 
 class DataManager:
 
-  def __init__(self, dirname, dim=[64, 64, 64, 1]):
+  def __init__(self, dirname, batch_size = 1, dim=[128, 128, 128, 1]):
     self.dirname = dirname
     self.dim = dim
+
+    self.batch_size = batch_size
 
     files = [f for f in listdir(dirname) if isfile(join(dirname, f))]
 
@@ -24,7 +26,7 @@ class DataManager:
     self.idx_at = 0
 
     # Start load threads
-    self.data_queue = Queue.Queue(maxsize=128)
+    self.data_queue = Queue.Queue(maxsize=1024)
 
     self.load_threads = []
 
@@ -46,90 +48,44 @@ class DataManager:
 
     fp = open(path, 'r')
 
-    # parameters
-    resolution = struct.unpack('f', fp.read(4))[0]
-    num_voxels = struct.unpack('L', fp.read(8))[0]
-
-    #print 'Have %d voxels at %5.3f m' % (num_voxels, resolution)
-
-    # Load locations and log-likelihoods
-    locs = struct.unpack('iii'*num_voxels, fp.read(4*3*num_voxels))
-    lls = struct.unpack('f'*num_voxels, fp.read(4*num_voxels))
+    # We have a dense array of voxels
+    num_voxels = 128*128*128
+    grid_bin = struct.unpack('i'*num_voxels, fp.read(4*num_voxels))
 
     # Done with file
     fp.close()
 
     # Build grid
-    grid = np.zeros(self.dim)
-
-    # Convert to numpy
-    locs = np.asarray(locs)
-    lls = np.asarray(lls)
-
-    # decompose and center
-    locs_is = locs[0::3] + self.dim[0]/2
-    locs_js = locs[1::3] + self.dim[1]/2
-    locs_ks = locs[2::3] + self.dim[2]/2
-
-    # find locations that are within the dimensions of our grid
-    locs_is_valid = np.logical_and(locs_is >= 0, locs_is < self.dim[0])
-    locs_js_valid = np.logical_and(locs_js >= 0, locs_js < self.dim[1])
-    locs_ks_valid = np.logical_and(locs_ks >= 0, locs_ks < self.dim[2])
-
-    # sample
-    locs_valid = np.logical_and(locs_is_valid, np.logical_and(locs_js_valid, locs_ks_valid))
-    locs_is = locs_is[locs_valid]
-    locs_js = locs_js[locs_valid]
-    locs_ks = locs_ks[locs_valid]
-    lls = lls[locs_valid]
-
-    # find occupied and free
-    lls_pos = lls > 0
-    lls_neg = lls < 0
-
-    # subsample
-    is_pos = locs_is[lls_pos]
-    js_pos = locs_js[lls_pos]
-    ks_pos = locs_ks[lls_pos]
-
-    is_neg = locs_is[lls_neg]
-    js_neg = locs_js[lls_neg]
-    ks_neg = locs_ks[lls_neg]
-
-    # assign in grid
-    grid[is_pos, js_pos, ks_pos] = 1
-    grid[is_neg, js_neg, ks_neg] = -1
+    grid = np.asarray(grid_bin)
+    grid = np.reshape(grid, [128, 128, 128, 1])
 
     return grid
 
   def load_files(self):
     while True:
-      self.data_queue.put(self.load_next_occ_grid())
+      batch = np.empty([self.batch_size] + self.dim)
+      for i in range(self.batch_size):
+        batch[i, :, :, :] = self.load_next_occ_grid()
 
-  def get_full_samples(self, n=1):
-    res = np.zeros([n] + self.dim)
+      self.data_queue.put(batch)
 
-    for i in range(n):
-      item = self.data_queue.get()
-      res[i, :, :, :, :] = item
-      self.data_queue.task_done()
+  def get_next_batch(self):
+    item = self.data_queue.get()
+    self.data_queue.task_done()
 
-    return res
+    return item
+
+  def queue_size(self):
+    return self.data_queue.qsize()
 
 if __name__ == '__main__':
   import matplotlib.pyplot as plt
   from mpl_toolkits.mplot3d import Axes3D
 
-  dm = DataManager('/ssd/nclt_og_data/2012-08-04/')
+  dm = DataManager('/ssd/nclt_og_data_dense/2012-08-04/')
 
   start = time.time()
-  grid = dm.get_full_samples(10)
-  end = time.time()
-  print end-start
-  print grid.shape
-
-  start = time.time()
-  grid = dm.get_full_samples(10)
+  grid = dm.get_next_batch(10)
   end = time.time()
   print end-start
   print grid.shape

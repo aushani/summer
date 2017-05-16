@@ -8,9 +8,10 @@ class ALI:
 
   def __init__(self, sess, data_dim, z_dim):
 
-    self.dm = DataManager('/ssd/nclt_og_data/2012-08-04/', data_dim)
+    self.batch_size = 1
+
+    self.dm = DataManager('/ssd/nclt_og_data_dense/2012-08-04/', batch_size = self.batch_size, dim=data_dim)
     #self.dm = DataManager('/home/aushani/ramdisk/', data_dim)
-    self.batch_size = 8
 
     self.sess = sess
 
@@ -69,7 +70,9 @@ class ALI:
         H_conv = tf.layers.conv3d(inputs=prev_res, filters=stage_layers[i], kernel_size=[4, 4, 4],
                                     padding="same", activation=tf.nn.relu)
 
-        H_i = tf.layers.max_pooling3d(inputs=H_conv, pool_size=[2, 2, 2], strides=2)
+        H_mp = tf.layers.max_pooling3d(inputs=H_conv, pool_size=[2, 2, 2], strides=2)
+        H_bn = tf.layers.batch_normalization(inputs=H_mp)
+        H_i = H_bn
 
         print 'Encoder conv layer %d:' % (i), H_i.get_shape().as_list()
         prev_res = H_i
@@ -78,11 +81,12 @@ class ALI:
       last_shape = prev_res.get_shape().as_list()
       n = last_shape[1]*last_shape[2]*last_shape[3]*last_shape[4]
       flat = tf.reshape(prev_res, shape=[-1, n])
-      dense = tf.layers.dense(inputs=flat, units=self.z_dim)
+      fc = tf.layers.dense(inputs=flat, units=self.z_dim)
+      fc_bn = tf.layers.batch_normalization(inputs=fc)
 
-      print 'Encoder dense layer:', dense.get_shape().as_list()
+      print 'Encoder fully connected layer:', fc_bn.get_shape().as_list()
 
-      return dense
+      return fc_bn
 
 
   def make_decoder(self, z):
@@ -92,11 +96,12 @@ class ALI:
     with tf.variable_scope('Decoder'):
       # Dense layer
       dense_flat = tf.layers.dense(inputs=z, units=stage_layers[0]*base_dim*base_dim*base_dim)
-      dense = tf.reshape(dense_flat, shape=[-1, base_dim, base_dim, base_dim, stage_layers[0]])
+      fc = tf.reshape(dense_flat, shape=[-1, base_dim, base_dim, base_dim, stage_layers[0]])
+      fc_bn = tf.layers.batch_normalization(inputs=fc)
 
-      print 'Decoder dense layer:', dense.get_shape().as_list()
+      print 'Decoder fully connected layer:', fc_bn.get_shape().as_list()
 
-      prev_res = dense
+      prev_res = fc_bn
 
       for i in range(len(stage_layers)):
         next_layers = 1
@@ -112,7 +117,9 @@ class ALI:
                                     [self.batch_size, 2*dims[1], 2*dims[2], 2*dims[3], next_layers],
                                     strides=[1, 2, 2, 2, 1], padding="SAME")
 
-        H_i = tf.nn.relu(H_conv + b_i)
+        H_bn = tf.layers.batch_normalization(inputs=H_conv)
+
+        H_i = tf.nn.relu(H_bn + b_i)
 
         print 'Decoder layer %d:' % (i), H_i.get_shape().as_list()
         prev_res = H_i
@@ -131,7 +138,10 @@ class ALI:
         H_conv = tf.layers.conv3d(inputs=prev_res, filters=stage_layers[i], kernel_size=[4, 4, 4],
                                     padding="same", activation=tf.nn.relu)
 
-        H_i = tf.layers.max_pooling3d(inputs=H_conv, pool_size=[2, 2, 2], strides=2)
+        H_mp = tf.layers.max_pooling3d(inputs=H_conv, pool_size=[2, 2, 2], strides=2)
+        H_bn = tf.layers.batch_normalization(inputs=H_mp)
+
+        H_i = H_bn
 
         print 'X discriminator conv layer %d:' % (i), H_i.get_shape().as_list()
         prev_res = H_i
@@ -140,12 +150,13 @@ class ALI:
       last_shape = prev_res.get_shape().as_list()
       n = last_shape[1]*last_shape[2]*last_shape[3]*last_shape[4]
       flat = tf.reshape(prev_res, shape=[-1, n])
-      dense = tf.layers.dense(inputs=flat, units=self.z_dim, activation=tf.nn.relu)
+      fc = tf.layers.dense(inputs=flat, units=self.z_dim, activation=tf.nn.relu)
+      fc_bn = tf.layers.batch_normalization(inputs=fc)
 
-      print 'X discriminator dense layer:', dense.get_shape().as_list()
+      print 'X discriminator fully connected layer:', fc_bn.get_shape().as_list()
 
       # Now add decision layer
-      dc = tf.layers.dense(inputs=dense, units=2)
+      dc = tf.layers.dense(inputs=fc_bn, units=2)
       print 'X discriminator decision layer:', dc.get_shape().as_list()
 
       return dc
@@ -158,14 +169,18 @@ class ALI:
 
     with tf.variable_scope('Z_discriminator', reuse=reuse):
       for i in range(len(stage_layers)):
-        H_i = tf.layers.dense(inputs=prev_res, units=stage_layers[i], activation=tf.nn.relu)
+        H_fc = tf.layers.dense(inputs=prev_res, units=stage_layers[i], activation=tf.nn.relu)
+        H_bn = tf.layers.batch_normalization(inputs=H_fc)
+        H_i = H_bn
+
         print 'Z discriminator dense layer %d:' % (i), H_i.get_shape().as_list()
         prev_res = H_i
 
       # Decision layer
-      res = tf.layers.dense(inputs=prev_res, units=2)
-      print 'Z discriminator decision layer:', H_i.get_shape().as_list()
-      return res
+      fc = tf.layers.dense(inputs=prev_res, units=2)
+      fc_bn = tf.layers.batch_normalization(inputs=fc)
+      print 'Z discriminator decision layer:', fc_bn.get_shape().as_list()
+      return fc_bn
 
   def train(self):
     # Get vars
@@ -182,17 +197,18 @@ class ALI:
 
     self.writer = tf.summary.FileWriter('./logs', self.sess.graph)
 
-    steps = 1000
+    steps = 10000
 
     load_time = 0
     train_time = 0
+    summary_time = 0
     stats_step = 10
 
     for step in xrange(steps):
 
       # Get data
       tic_load = time.time()
-      batch_data = self.dm.get_full_samples(self.batch_size)
+      batch_data = self.dm.get_next_batch()
       batch_z = np.random.normal(0, 1, [self.batch_size, self.z_dim])
       toc_load = time.time()
       load_time += toc_load - tic_load
@@ -202,25 +218,31 @@ class ALI:
       _, summary_d = self.sess.run([d_optim, self.discriminator_loss_summary], feed_dict = fd)
       _, summary_g = self.sess.run([g_optim, self.generator_loss_summary], feed_dict = fd)
       toc_train = time.time()
-      train_time = toc_train - tic_train
+      train_time += toc_train - tic_train
 
+      tic_summary = time.time()
       self.writer.add_summary(summary_d, step)
       self.writer.add_summary(summary_g, step)
+      toc_summary = time.time()
+      summary_time += toc_summary - tic_summary
 
       if step % stats_step == 0:
         print '------------------------------'
         print '  Training Step %04d' % (step)
         print ''
-        print '  Waiting %5.3f sec / step for loading' % (load_time / stats_step)
+        print '  Waiting %5.3f sec / step for loading (%d queued)' % (load_time / stats_step, self.dm.queue_size())
         print '  Waiting %5.3f sec / step for training' % (train_time / stats_step)
+        print '  Waiting %5.3f sec / step for summary' % (summary_time / stats_step)
         print ''
 
         load_time = 0
         train_time = 0
+        summary_time = 0
 
     print 'Press Enter to continue'
     raw_input()
 
 with tf.Session() as sess:
-  ali = ALI(sess, [64, 64, 64, 1], 1024)
+  ali = ALI(sess, [128, 128, 128, 1], 1024)
+
   ali.train()
