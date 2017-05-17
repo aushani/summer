@@ -11,7 +11,7 @@ import Queue
 
 class DataManager:
 
-  def __init__(self, dirname, batch_size = 1, dim=[128, 128, 128, 1]):
+  def __init__(self, dirname, batch_size = 1, dim=[32, 32, 32, 1]):
     self.dirname = dirname
     self.dim = dim
 
@@ -49,15 +49,15 @@ class DataManager:
     fp = open(path, 'r')
 
     # We have a dense array of voxels
-    num_voxels = 128*128*128
-    grid_bin = struct.unpack('i'*num_voxels, fp.read(4*num_voxels))
+    num_voxels = 32*32*32
+    grid_bin = struct.unpack('f'*num_voxels, fp.read(4*num_voxels))
 
     # Done with file
     fp.close()
 
     # Build grid
     grid = np.asarray(grid_bin)
-    grid = np.reshape(grid, [128, 128, 128, 1])
+    grid = np.reshape(grid, [32, 32, 32, 1])
 
     return grid
 
@@ -78,17 +78,54 @@ class DataManager:
   def queue_size(self):
     return self.data_queue.qsize()
 
+  def save(self, grid, path):
+    locs = []
+    lls = []
+
+    for i in range(self.dim[0]):
+      for j in range(self.dim[1]):
+        for k in range(self.dim[2]):
+          if abs(grid[i, j, k]) > 1e-2:
+            locs.append(i-self.dim[0]/2)
+            locs.append(j-self.dim[1]/2)
+            locs.append(k-self.dim[2]/2)
+
+            p = (grid[i, j, k] + 1) / 2
+            if p < 0.01:
+              p = 0.01
+            elif p>0.99:
+              p = 0.99
+
+            ll = np.log(p/(1-p))
+
+            lls.append(ll)
+
+    fp = open(path, 'w')
+
+    resolution = 1.0
+    fp.write(struct.pack('f', resolution))
+
+    num_voxels = len(lls)
+    fp.write(struct.pack('L', num_voxels))
+
+    fp.write(struct.pack('iii'*num_voxels, *locs))
+    fp.write(struct.pack('f'*num_voxels, *lls))
+
+    fp.close()
+
 if __name__ == '__main__':
   import matplotlib.pyplot as plt
   from mpl_toolkits.mplot3d import Axes3D
 
-  dm = DataManager('/ssd/nclt_og_data_dense/2012-08-04/')
+  dm = DataManager('/ssd/nclt_og_data_dense_1m/2012-08-04/')
 
   start = time.time()
-  grid = dm.get_next_batch(10)
+  grid = dm.get_next_batch()
   end = time.time()
   print end-start
   print grid.shape
+
+  dm.save(np.squeeze(grid), 'test.sog')
 
   raw_input("Press enter to plot occ grid")
 
