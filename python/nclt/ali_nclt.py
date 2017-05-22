@@ -8,7 +8,7 @@ class ALI:
 
   def __init__(self, sess, data_dim, z_dim):
 
-    self.batch_size = 32
+    self.batch_size = 4
 
     self.use_batch_normalization = True
 
@@ -89,7 +89,7 @@ class ALI:
       last_shape = prev_res.get_shape().as_list()
       n = last_shape[1]*last_shape[2]*last_shape[3]*last_shape[4]
       flat = tf.reshape(prev_res, shape=[-1, n])
-      fc = tf.layers.dense(inputs=flat, units=2*self.z_dim)
+      fc = tf.layers.dense(inputs=flat, units=2*self.z_dim, activation=tf.nn.relu)
 
       if self.use_batch_normalization:
         fc_bn = tf.layers.batch_normalization(inputs=fc)
@@ -107,29 +107,30 @@ class ALI:
 
 
   def make_decoder(self, z):
-    stage_layers = [256, 128, 64, 32, 16]
+    dense_input_layers = 2
+    stage_layers = [16, 8]
     base_dim = self.data_dim[0]/(2**len(stage_layers))
 
     with tf.variable_scope('Decoder'):
-      # Dense layer
-      dense_flat = tf.layers.dense(inputs=z, units=stage_layers[0]*base_dim*base_dim*base_dim)
-      fc = tf.reshape(dense_flat, shape=[-1, base_dim, base_dim, base_dim, stage_layers[0]])
+      # Dense input layers
+      prev_res = z
+      for i in range(dense_input_layers):
+        dense = tf.layers.dense(inputs=prev_res, units=stage_layers[0]*base_dim*base_dim*base_dim, activation=tf.nn.relu)
+        if self.use_batch_normalization:
+          dense = tf.layers.batch_normalization(inputs=dense)
 
-      if self.use_batch_normalization:
-        input_layer = tf.layers.batch_normalization(inputs=fc)
-      else:
-        input_layer = fc
+        print 'Decoder dense input layer %d:' % (i), dense.get_shape().as_list()
 
-      print 'Decoder fully connected input layer:', input_layer.get_shape().as_list()
 
-      prev_res = input_layer
+      prev_res = tf.reshape(dense, shape=[-1, base_dim, base_dim, base_dim, stage_layers[0]])
+      print 'Decoder final input layer:', prev_res.get_shape().as_list()
 
       for i in range(len(stage_layers)-1):
         next_layers = stage_layers[i+1]
 
         dims = prev_res.get_shape().as_list()
 
-        W_i = tf.get_variable('W%d' % (i), [4, 4, 4, next_layers, stage_layers[i]])
+        W_i = tf.get_variable('W%d' % (i), [8, 8, 8, next_layers, stage_layers[i]])
         b_i = tf.get_variable('b%d' % (i), [next_layers])
         H_conv = tf.nn.conv3d_transpose(prev_res, W_i,
                                     [self.batch_size, 2*dims[1], 2*dims[2], 2*dims[3], next_layers],
@@ -193,11 +194,7 @@ class ALI:
         prev_res = H_i
 
       # Decision layer
-      fc = tf.layers.dense(inputs=prev_res, units=2)
-      if self.use_batch_normalization:
-        dc = tf.layers.batch_normalization(inputs=fc)
-      else:
-        dc = fc
+      dc = tf.layers.dense(inputs=prev_res, units=2)
 
       print 'Discriminator decision layer:', dc.get_shape().as_list()
       return dc
@@ -210,8 +207,10 @@ class ALI:
 
     learning_rate = 1e-3
     beta1 = 0.9
-    d_optim = tf.train.AdamOptimizer().minimize(self.discriminator_loss, var_list=self.d_vars)
-    g_optim = tf.train.AdamOptimizer().minimize(self.generator_loss, var_list=self.g_vars)
+    #d_optim = tf.train.AdamOptimizer().minimize(self.discriminator_loss, var_list=self.d_vars)
+    #g_optim = tf.train.AdamOptimizer().minimize(self.generator_loss, var_list=self.g_vars)
+    d_optim = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(self.discriminator_loss, var_list=self.d_vars)
+    g_optim = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(self.generator_loss, var_list=self.g_vars)
 
     tf.global_variables_initializer().run()
 
@@ -222,8 +221,9 @@ class ALI:
 
     load_time = 0
     train_time = 0
-    summary_time = 0
-    stats_step = 100
+    d_steps = 0
+    g_steps = 0
+    stats_step = 1000
 
     # For samples
     sample_size = self.batch_size
@@ -237,22 +237,25 @@ class ALI:
       tic_load = time.time()
       batch_data = self.dm.get_next_batch()
       batch_z = np.random.normal(0, 1, [self.batch_size, self.z_dim])
+      fd = {self.real_data: batch_data, self.z: batch_z}
       toc_load = time.time()
       load_time += toc_load - tic_load
 
+      # Figure out which one to train
+      d_loss = self.discriminator_loss.eval(fd)
+      g_loss = self.generator_loss.eval(fd)
+
       tic_train = time.time()
-      fd = {self.real_data: batch_data, self.z: batch_z}
-      _, summary_d = self.sess.run([d_optim, d_sums], feed_dict = fd)
-      _, summary_g = self.sess.run([g_optim, g_sums], feed_dict = fd)
+      if d_loss > g_loss:
+        _, summary_d = self.sess.run([d_optim, d_sums], feed_dict = fd)
+        self.writer.add_summary(summary_d, step)
+        d_steps += 1
+      else:
+        _, summary_g = self.sess.run([g_optim, g_sums], feed_dict = fd)
+        self.writer.add_summary(summary_g, step)
+        g_steps += 1
       toc_train = time.time()
       train_time += toc_train - tic_train
-
-      # Generate summaries
-      tic_summary = time.time()
-      self.writer.add_summary(summary_d, step)
-      self.writer.add_summary(summary_g, step)
-      toc_summary = time.time()
-      summary_time += toc_summary - tic_summary
 
       if step % stats_step == 0:
         print '------------------------------'
@@ -260,11 +263,13 @@ class ALI:
         print ''
         print '  Waiting %5.3f sec / step for loading (%d queued)' % (load_time / stats_step, self.dm.queue_size())
         print '  Waiting %5.3f sec / step for training' % (train_time / stats_step)
-        print '  Waiting %5.3f sec / step for summary' % (summary_time / stats_step)
+        print '  %04d steps for discriminator' % (d_steps)
+        print '  %04d steps for generator' % (g_steps)
 
         load_time = 0
         train_time = 0
-        summary_time = 0
+        d_steps = 0
+        g_steps = 0
 
         save_path = saver.save(sess, "./model.ckpt")
 
@@ -278,8 +283,8 @@ class ALI:
         #print 'syth', self.query_softmax.eval({self.query_data: query_data, self.query_z: query_z})
 
         # Generate eval
-        fd = {self.z: sample_z}
-        sample_grids = self.decoder.eval(fd)
+        fd_eval = {self.z: sample_z}
+        sample_grids = self.decoder.eval(fd_eval)
         print '  Range of sample grids: ', np.min(sample_grids[:]), np.max(sample_grids[:])
 
         # Save
@@ -287,6 +292,9 @@ class ALI:
           g = np.squeeze(sample_grids[i, :, :, :, 0])
           self.dm.save(g, 'syth_iter_%06d_%02d.sog' % (step / stats_step, i))
 
+        print ''
+        print 'Real: ', tf.nn.softmax(self.discriminator_real).eval(fd)
+        print 'Syth: ', tf.nn.softmax(self.discriminator_syth).eval(fd)
         print ''
 
       step += 1

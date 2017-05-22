@@ -8,7 +8,7 @@ class GAN:
 
   def __init__(self, sess, data_dim, z_dim):
 
-    self.batch_size = 32
+    self.batch_size = 4
 
     self.use_batch_normalization = True
 
@@ -117,7 +117,7 @@ class GAN:
 
   def make_discriminator(self, x, reuse=False):
 
-    stage2_layers = [64, 32, 16]
+    stage2_layers = []
 
     with tf.variable_scope('Discriminator', reuse=reuse):
 
@@ -154,8 +154,10 @@ class GAN:
 
     learning_rate = 1e-3
     beta1 = 0.9
-    d_optim = tf.train.AdamOptimizer().minimize(self.discriminator_loss, var_list=self.d_vars)
-    g_optim = tf.train.AdamOptimizer().minimize(self.generator_loss, var_list=self.g_vars)
+    #d_optim = tf.train.AdamOptimizer().minimize(self.discriminator_loss, var_list=self.d_vars)
+    #g_optim = tf.train.AdamOptimizer().minimize(self.generator_loss, var_list=self.g_vars)
+    d_optim = tf.train.GradientDescentOptimizer(learning_rate=0.01).minimize(self.discriminator_loss, var_list=self.d_vars)
+    g_optim = tf.train.GradientDescentOptimizer(learning_rate=0.01).minimize(self.generator_loss, var_list=self.g_vars)
 
     tf.global_variables_initializer().run()
 
@@ -166,8 +168,9 @@ class GAN:
 
     load_time = 0
     train_time = 0
-    summary_time = 0
-    stats_step = 100
+    d_steps = 0
+    g_steps = 0
+    stats_step = 1000
 
     # For samples
     sample_size = self.batch_size
@@ -181,22 +184,25 @@ class GAN:
       tic_load = time.time()
       batch_data = self.dm.get_next_batch()
       batch_z = np.random.normal(0, 1, [self.batch_size, self.z_dim])
+      fd = {self.real_data: batch_data, self.z: batch_z}
       toc_load = time.time()
       load_time += toc_load - tic_load
 
+      # Figure out which one to train
+      d_loss = self.discriminator_loss.eval(fd)
+      g_loss = self.generator_loss.eval(fd)
+
       tic_train = time.time()
-      fd = {self.real_data: batch_data, self.z: batch_z}
-      _, summary_d = self.sess.run([d_optim, d_sums], feed_dict = fd)
-      _, summary_g = self.sess.run([g_optim, g_sums], feed_dict = fd)
+      if d_loss > g_loss:
+        _, summary_d = self.sess.run([d_optim, d_sums], feed_dict = fd)
+        self.writer.add_summary(summary_d, step)
+        d_steps += 1
+      else:
+        _, summary_g = self.sess.run([g_optim, g_sums], feed_dict = fd)
+        self.writer.add_summary(summary_g, step)
+        g_steps += 1
       toc_train = time.time()
       train_time += toc_train - tic_train
-
-      # Generate summaries
-      tic_summary = time.time()
-      self.writer.add_summary(summary_d, step)
-      self.writer.add_summary(summary_g, step)
-      toc_summary = time.time()
-      summary_time += toc_summary - tic_summary
 
       if step % stats_step == 0:
         print '------------------------------'
@@ -204,18 +210,21 @@ class GAN:
         print ''
         print '  Waiting %5.3f sec / step for loading (%d queued)' % (load_time / stats_step, self.dm.queue_size())
         print '  Waiting %5.3f sec / step for training' % (train_time / stats_step)
-        print '  Waiting %5.3f sec / step for summary' % (summary_time / stats_step)
+        print '  %04d steps for discriminator' % (d_steps)
+        print '  %04d steps for generator' % (g_steps)
 
         load_time = 0
         train_time = 0
-        summary_time = 0
+        d_steps = 0
+        g_steps = 0
 
         save_path = saver.save(sess, "./model.ckpt")
 
         # Generate eval
-        fd = {self.z: sample_z}
-        sample_grids = self.decoder.eval(fd)
+        fd_eval = {self.z: sample_z}
+        sample_grids = self.decoder.eval(fd_eval)
         print '  Range of sample grids: ', np.min(sample_grids[:]), np.max(sample_grids[:])
+        print '  Range of data grids: ', np.min(batch_data[:]), np.max(batch_data[:])
 
         # Save
         for i in range(sample_size):
@@ -223,6 +232,10 @@ class GAN:
           self.dm.save(g, 'syth_iter_%06d_%02d.sog' % (step / stats_step, i))
 
         print ''
+        print 'Real: ', tf.nn.softmax(self.discriminator_real).eval(fd)
+        print 'Syth: ', tf.nn.softmax(self.discriminator_syth).eval(fd)
+        print ''
+
 
       step += 1
 
