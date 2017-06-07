@@ -12,9 +12,7 @@ class GAN:
 
     self.use_batch_normalization = True
 
-    #self.dm = DataManager('/ssd/nclt_og_data_dense/2012-08-04/', batch_size = self.batch_size, dim=data_dim)
-    self.dm = DataManager('/ssd/nclt_og_data_dense_1m/2012-08-04/', batch_size = self.batch_size, dim=data_dim)
-    #self.dm = DataManager('/home/aushani/ramdisk/', data_dim)
+    self.dm = DataManager('/home/aushani/data/shapenet_dim32_df/', batch_size = self.batch_size)
 
     self.sess = sess
 
@@ -44,11 +42,6 @@ class GAN:
     self.discriminator_loss = tf.add(self.discriminator_loss_real, self.discriminator_loss_syth,
                                     name='discriminator_loss')
 
-    # Evalualation
-    self.query_data = tf.placeholder(tf.float32, [None] +  self.data_dim, name='query_data')
-    self.query_logits = self.make_discriminator(self.query_data, reuse=True)
-    self.query_softmax = tf.nn.softmax(self.query_logits)
-
     # Summaries
     self.generator_loss_summary = tf.summary.scalar('generator_loss_summary', self.generator_loss)
     self.discriminator_real_loss_summary = tf.summary.scalar('discriminator_real_loss_summary', self.discriminator_loss_real)
@@ -56,7 +49,8 @@ class GAN:
     self.discriminator_loss_summary = tf.summary.scalar('discriminator_loss_summary', self.discriminator_loss)
 
   def make_decoder(self, z):
-    stage_layers = [256, 128, 64, 32, 16]
+    sf = 10
+    stage_layers = [sf*64, sf*32, sf*16]
     base_dim = self.data_dim[0]/(2**len(stage_layers))
 
     with tf.variable_scope('Decoder'):
@@ -96,8 +90,8 @@ class GAN:
       # Output layer
       dims = prev_res.get_shape().as_list()
 
-      W_i = tf.get_variable('W_out', [4, 4, 4, 1, stage_layers[-1]])
-      b_i = tf.get_variable('b_out', [1])
+      W_i = tf.get_variable('W_out', [4, 4, 4, 2, stage_layers[-1]])
+      b_i = tf.get_variable('b_out', [2])
       H_conv = tf.nn.conv3d_transpose(prev_res, W_i,
                                   [self.batch_size, self.data_dim[0], self.data_dim[1], self.data_dim[2], self.data_dim[3]],
                                   strides=[1, 2, 2, 2, 1], padding="SAME")
@@ -109,7 +103,10 @@ class GAN:
         H_out = tf.nn.bias_add(H_conv, b_i)
 
       # for enforcing range is [-1, 1]
-      H_out = 2*tf.nn.sigmoid(H_out) - 1
+      #H_out = 2*tf.nn.sigmoid(H_out) - 1
+
+      # log space
+      H_out = tf.log(1 + tf.abs(H_out))
 
       print 'Decoder output:',  H_out.get_shape().as_list()
 
@@ -126,9 +123,10 @@ class GAN:
       prev_res = x_flat
 
       for i in range(len(stage2_layers)):
-        H_fc = tf.layers.dense(inputs=prev_res, units=stage2_layers[i], activation=tf.nn.relu)
+        H_fc = tf.layers.dense(inputs=prev_res, units=stage2_layers[i],
+                activation=tf.nn.relu, name='H_fc_%d' % (i), reuse=reuse)
         if self.use_batch_normalization:
-          H_bn = tf.layers.batch_normalization(inputs=H_fc)
+          H_bn = tf.layers.batch_normalization(inputs=H_fc, name='H_fc_bn_%d' % (i), reuse=reuse)
           H_i = H_bn
         else:
           H_i = H_fc
@@ -137,11 +135,7 @@ class GAN:
         prev_res = H_i
 
       # Decision layer
-      fc = tf.layers.dense(inputs=prev_res, units=2)
-      if self.use_batch_normalization:
-        dc = tf.layers.batch_normalization(inputs=fc)
-      else:
-        dc = fc
+      dc = tf.layers.dense(inputs=prev_res, units=2, name='dc', reuse=reuse)
 
       print 'Discriminator decision layer:', dc.get_shape().as_list()
       return dc
@@ -152,12 +146,12 @@ class GAN:
     self.g_vars = [var for var in t_vars if 'Decoder' in var.name]
     self.d_vars = [var for var in t_vars if 'Discriminator' in var.name]
 
-    learning_rate = 1e-3
-    beta1 = 0.9
+    #learning_rate = 1e-5
+    #beta1 = 0.9
     #d_optim = tf.train.AdamOptimizer().minimize(self.discriminator_loss, var_list=self.d_vars)
     #g_optim = tf.train.AdamOptimizer().minimize(self.generator_loss, var_list=self.g_vars)
-    d_optim = tf.train.GradientDescentOptimizer(learning_rate=0.01).minimize(self.discriminator_loss, var_list=self.d_vars)
-    g_optim = tf.train.GradientDescentOptimizer(learning_rate=0.01).minimize(self.generator_loss, var_list=self.g_vars)
+    d_optim = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(self.discriminator_loss, var_list=self.d_vars)
+    g_optim = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(self.generator_loss, var_list=self.g_vars)
 
     tf.global_variables_initializer().run()
 
@@ -170,7 +164,7 @@ class GAN:
     train_time = 0
     d_steps = 0
     g_steps = 0
-    stats_step = 1000
+    stats_step = 100
 
     # For samples
     sample_size = self.batch_size
@@ -223,13 +217,17 @@ class GAN:
         # Generate eval
         fd_eval = {self.z: sample_z}
         sample_grids = self.decoder.eval(fd_eval)
-        print '  Range of sample grids: ', np.min(sample_grids[:]), np.max(sample_grids[:])
-        print '  Range of data grids: ', np.min(batch_data[:]), np.max(batch_data[:])
+        print '  Range of sample grids (label): ', np.min(sample_grids[:, :, :, :, 0]), np.max(sample_grids[:, :, :, :, 0])
+        print '  Range of sample grids (dist.): ', np.min(sample_grids[:, :, :, :, 1]), np.max(sample_grids[:, :, :, :, 1])
+        print '  Range of batch  grids (label): ', np.min(batch_data[:, :, :, :, 0]), np.max(batch_data[:, :, :, :, 0])
+        print '  Range of batch  grids (dist.): ', np.min(batch_data[:, :, :, :, 1]), np.max(batch_data[:, :, :, :, 1])
 
         # Save
         for i in range(sample_size):
-          g = np.squeeze(sample_grids[i, :, :, :, 0])
-          self.dm.save(g, 'syth_iter_%06d_%02d.sog' % (step / stats_step, i))
+          g = np.squeeze(sample_grids[i, :, :, :, :])
+          count = np.count_nonzero(np.abs(self.dm.unscale_df(g[:, :, :, 1])) < 0.5)
+          print '   Sample %d has %d occupied elements' % (i, count)
+          self.dm.save_dense(g, 'syth_iter_%06d_%02d.og' % (step / stats_step, i))
 
         print ''
         print 'Real: ', tf.nn.softmax(self.discriminator_real).eval(fd)
@@ -241,5 +239,5 @@ class GAN:
 
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
 with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
-  gan = GAN(sess, [32, 32, 32, 1], 256)
+  gan = GAN(sess, [32, 32, 32, 2], 640)
   gan.train()

@@ -12,7 +12,7 @@ class ALI:
 
     self.use_batch_normalization = True
 
-    self.dm = DataManager('/ssd/shapenet_dim32_df/', batch_size = self.batch_size)
+    self.dm = DataManager('/home/aushani/data/shapenet_dim32_df/', batch_size = self.batch_size)
 
     self.sess = sess
 
@@ -27,7 +27,7 @@ class ALI:
     self.decoder = self.make_decoder(self.z)
 
     # Discriminator
-    self.discriminator_real = self.make_discriminator(self.real_data, self.encoder, reuse=False)
+    self.discriminator_real = self.make_discriminator(self.real_data, self.encoder, reuse=None)
     self.discriminator_syth = self.make_discriminator(self.decoder, self.z, reuse=True)
 
     # Loss Functions
@@ -47,12 +47,6 @@ class ALI:
 
     self.discriminator_loss = tf.add(self.discriminator_loss_real, self.discriminator_loss_syth,
                                     name='discriminator_loss')
-
-    # Evalualation
-    self.query_data = tf.placeholder(tf.float32, [None] +  self.data_dim, name='query_data')
-    self.query_z = tf.placeholder(tf.float32, [None, self.z_dim], name = 'query_z')
-    self.query_logits = self.make_discriminator(self.query_data, self.query_z, reuse=True)
-    self.query_softmax = tf.nn.softmax(self.query_logits)
 
     # Summaries
     self.encoder_loss_summary = tf.summary.scalar('encoder_loss_summary', self.encoder_loss)
@@ -181,9 +175,10 @@ class ALI:
       prev_res = cc
 
       for i in range(len(stage2_layers)):
-        H_fc = tf.layers.dense(inputs=prev_res, units=stage2_layers[i], activation=tf.nn.relu)
+        H_fc = tf.layers.dense(inputs=prev_res, units=stage2_layers[i], activation=tf.nn.relu,
+                name='H_fc_%d' % (i), reuse=reuse)
         if self.use_batch_normalization:
-          H_bn = tf.layers.batch_normalization(inputs=H_fc)
+          H_bn = tf.layers.batch_normalization(inputs=H_fc, name='H_fc_bn_%d' % (i), reuse=reuse)
           H_i = H_bn
         else:
           H_i = H_fc
@@ -192,7 +187,7 @@ class ALI:
         prev_res = H_i
 
       # Decision layer
-      dc = tf.layers.dense(inputs=prev_res, units=2)
+      dc = tf.layers.dense(inputs=prev_res, units=2, name='dc', reuse=reuse)
 
       print 'Discriminator decision layer:', dc.get_shape().as_list()
       return dc
@@ -203,12 +198,12 @@ class ALI:
     self.g_vars = [var for var in t_vars if 'Encoder' in var.name or 'Decoder' in var.name]
     self.d_vars = [var for var in t_vars if 'Discriminator' in var.name]
 
-    learning_rate = 1e-3
+    learning_rate = 1e-5
     beta1 = 0.9
-    #d_optim = tf.train.AdamOptimizer().minimize(self.discriminator_loss, var_list=self.d_vars)
-    #g_optim = tf.train.AdamOptimizer().minimize(self.generator_loss, var_list=self.g_vars)
-    d_optim = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(self.discriminator_loss, var_list=self.d_vars)
-    g_optim = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(self.generator_loss, var_list=self.g_vars)
+    d_optim = tf.train.AdamOptimizer().minimize(self.discriminator_loss, var_list=self.d_vars)
+    g_optim = tf.train.AdamOptimizer().minimize(self.generator_loss, var_list=self.g_vars)
+    #d_optim = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(self.discriminator_loss, var_list=self.d_vars)
+    #g_optim = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(self.generator_loss, var_list=self.g_vars)
 
     tf.global_variables_initializer().run()
 
@@ -221,7 +216,7 @@ class ALI:
     train_time = 0
     d_steps = 0
     g_steps = 0
-    stats_step = 1000
+    stats_step = 100
 
     # For samples
     sample_size = self.batch_size
@@ -271,24 +266,19 @@ class ALI:
 
         save_path = saver.save(sess, "./model.ckpt")
 
-        # Query
-        #query_data = self.dm.get_next_batch()
-        #query_z = self.encoder.eval({self.real_data: query_data})
-        #print 'real', self.query_softmax.eval({self.query_data: query_data, self.query_z: query_z})
-
-        #query_z = sample_z
-        #query_data = self.decoder.eval({self.z: query_z})
-        #print 'syth', self.query_softmax.eval({self.query_data: query_data, self.query_z: query_z})
-
         # Generate eval
         fd_eval = {self.z: sample_z}
         sample_grids = self.decoder.eval(fd_eval)
         print '  Range of sample grids (label): ', np.min(sample_grids[:, :, :, :, 0]), np.max(sample_grids[:, :, :, :, 0])
         print '  Range of sample grids (dist.): ', np.min(sample_grids[:, :, :, :, 1]), np.max(sample_grids[:, :, :, :, 1])
+        print '  Range of batch  grids (label): ', np.min(batch_data[:, :, :, :, 0]), np.max(batch_data[:, :, :, :, 0])
+        print '  Range of batch  grids (dist.): ', np.min(batch_data[:, :, :, :, 1]), np.max(batch_data[:, :, :, :, 1])
 
         # Save
         for i in range(sample_size):
           g = np.squeeze(sample_grids[i, :, :, :, :])
+          count = np.count_nonzero(np.abs(self.dm.unscale_df(g[:, :, :, 1])) < 0.5)
+          print '   Sample %d has %d occupied elements' % (i, count)
           self.dm.save_dense(g, 'syth_iter_%06d_%02d.og' % (step / stats_step, i))
 
         print ''
