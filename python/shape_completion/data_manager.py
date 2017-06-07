@@ -62,10 +62,17 @@ class DataManager:
     grid = np.reshape(grid, [32, 32, 32], order='C')
 
     sample = np.zeros(self.dim)
-    sample[:, :, :, 0] = (np.isfinite(grid) & (np.abs(grid) < 0.5)) * 2 - 1
-    sample[:, :, :, 1] = np.abs(grid)/20
+    sample[:, :, :, 0] = (np.isfinite(grid) & (np.abs(grid) < 0.5))
+    #sample[:, :, :, 0] = (np.isfinite(grid) & (np.abs(grid) < 0.5)) * 2 - 1
+    sample[:, :, :, 1] = self.scale_df(grid)
 
     return sample
+
+  def scale_df(self, df):
+      return np.log(np.abs(df)+1.0)
+
+  def unscale_df(self, df):
+      return np.exp(df)-1.0
 
   def load_files(self):
     while True:
@@ -88,6 +95,8 @@ class DataManager:
     locs = []
     lls = []
 
+    df = self.unscale_df(sample[:, :, :, 1])
+
     for i in range(self.dim[0]):
       for j in range(self.dim[1]):
         for k in range(self.dim[2]):
@@ -95,7 +104,7 @@ class DataManager:
           locs.append(j-self.dim[1]/2)
           locs.append(k-self.dim[2]/2)
 
-          if np.isfinite(sample[i, j, k, 1]) and abs(sample[i, j, k, 1]*20) < 0.5:
+          if np.isfinite(df[i, j, k]) and abs(df[i, j, k]) < 0.5:
           #if sample[i, j, k, 0] > 0:
             p = 0.99
           else:
@@ -120,12 +129,14 @@ class DataManager:
 
   def save_dense(self, sample, path):
 
+    df = self.unscale_df(sample[:, :, :, 1])
+
     fp = open(path, 'w')
 
     for i in range(self.dim[0]):
       for j in range(self.dim[1]):
         for k in range(self.dim[2]):
-          if np.abs(sample[i, j, k, 1]*20) < 0.5:
+          if np.abs(df[i, j, k]) < 0.5:
             val = 0.99
           else:
             val = 0.01
@@ -138,11 +149,11 @@ if __name__ == '__main__':
   import matplotlib.pyplot as plt
   from mpl_toolkits.mplot3d import Axes3D
 
-  dm = DataManager('/ssd/shapenet_dim32_df/')
+  dm = DataManager('/home/aushani/data/shapenet_dim32_df/')
 
   res = dm.get_next_batch()
 
   print res.shape
   sample = res[0, :, :, :, :]
   print sample.shape
-  dm.save(sample, 'test.sog')
+  dm.save_dense(sample, 'test.og')
