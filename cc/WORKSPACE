@@ -1,0 +1,5 @@
+new_git_repository(
+        name = "osg",
+        url = "https://github.com/openscenegraph/OpenSceneGraph.git/archive/f4013a68daeeb00cee29e36d427ef2d9ec7a3ff1.tar.gz",
+        build_file = "osg.BUILD"
+)

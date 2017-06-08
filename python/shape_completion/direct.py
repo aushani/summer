@@ -87,7 +87,7 @@ class Direct:
 
         return res
 
-    def train(self):
+    def train(self, restore=True):
         # Get vars
         t_vars = tf.trainable_variables()
 
@@ -101,12 +101,16 @@ class Direct:
         self.writer = tf.summary.FileWriter('./logs', self.sess.graph)
         saver = tf.train.Saver()
 
+        if restore:
+            saver.restore(sess, "model/model.ckpt")
+            print 'Restored from checkpoint'
+
         step = 0
 
         load_time = 0
         train_time = 0
         step_last = step
-        stats_step_min = 15
+        stats_step_min = 1
         stats_count = 0
 
         sums = tf.summary.merge([self.loss_summary])
@@ -142,7 +146,7 @@ class Direct:
                 step_last = step
                 stats_count += 1
 
-                save_path = saver.save(sess, "./model.ckpt")
+                save_path = saver.save(sess, "model/model.ckpt")
 
                 # Try making a dummy result
                 sdfs = data[0]
@@ -179,4 +183,4 @@ batch_size = 16
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
 with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
     direct = Direct(sess, batch_size = batch_size)
-    direct.train()
+    direct.train(restore=True)

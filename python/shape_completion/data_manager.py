@@ -42,7 +42,7 @@ class DataManager:
     self.epoch = 1
 
     # Start load threads
-    self.data_queue = Queue.Queue(maxsize=1024)
+    self.data_queue = Queue.Queue(maxsize=128)
 
     self.load_threads = []
 
