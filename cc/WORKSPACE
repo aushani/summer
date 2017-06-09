@@ -1,0 +1,5 @@
+new_local_repository(
+    name = "eigen",
+    path = "/usr/include/eigen3",
+    build_file = "tools/eigen.BUILD"
+)

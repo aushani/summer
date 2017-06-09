@@ -11,32 +11,9 @@ HilbertMap::HilbertMap(std::vector<Point> points, std::vector<double> occupancie
   std::uniform_int_distribution<> random_idx(0, points.size()-1);
   std::default_random_engine re;
 
-  // Make inducing points
-  /*
-  for (int i=0; i<2000; i++) {
-    int idx = random_idx(re);
-    inducing_points_.push_back(points[idx]);
-  }
-  */
-  double x_min = -12;
-  double x_max = 20;
-
-  double y_min = -25;
-  double y_max = 8;
-  int n_dim = 100;
-  for (int i=0; i<n_dim; i++) {
-    double x = x_min + i*(x_max - x_min)/n_dim;
-    for (int j=0; j<n_dim; j++) {
-      double y = y_min + j*(y_max - y_min)/n_dim;
-
-      inducing_points_.push_back(Point(x, y));
-    }
-  }
-
   // Learn w
-  for (size_t i=0; i<inducing_points_.size(); i++) {
-    w_.push_back(0.0);
-  }
+  w_.resize(n_inducing_points, 1);
+  w_.setZero();
 
   int epochs = 1;
   int iterations = epochs*points.size();
@@ -73,28 +50,25 @@ double HilbertMap::k_sparse(Point p1, Point p2) {
   return (2 + cos(t)) / 3 * (1 - r) + 1.0/(2 * M_PI) * sin(t);
 }
 
-std::vector<double> HilbertMap::phi_sparse(Point p) {
-  std::vector<double> res;
-  for ( Point &x_m : inducing_points_) {
-    res.push_back(k_sparse(p, x_m));
+Eigen::SparseMatrix<double> HilbertMap::phi_sparse(Point p) {
+  Eigen::SparseMatrix<double> res;
+  res.resize(n_inducing_points, 1);
+  std::vector<int> support_idx = get_inducing_points_with_support(p);
+  for (int idx : support_idx) {
+    Point x_m = get_inducing_point(idx);
+    double k = k_sparse(p, x_m);
+    res.coeffRef(idx, 0) = k;
   }
 
   return res;
 }
 
-std::vector<double> HilbertMap::gradient(Point x, double y) {
-  std::vector<double> grad;
+Eigen::SparseMatrix<double> HilbertMap::gradient(Point x, double y) {
+  Eigen::SparseMatrix<double> phi = phi_sparse(x);
+  auto wTphi = w_.transpose() * phi;
+  double c = -y * 1.0/(1.0 + expf(y * wTphi(0, 0)));
 
-  std::vector<double> phi = phi_sparse(x);
-  double wTphi = 0.0;
-  for (size_t i=0; i<w_.size(); i++) {
-    wTphi += w_[i]*phi[i];
-  }
-  double c = -y * 1.0/(1.0 + expf(y * wTphi));
-
-  for (size_t i=0; i<w_.size(); i++) {
-    grad.push_back(c*phi[i]);
-  }
+  Eigen::SparseMatrix<double> grad = c * phi;
 
   // Add regularization gradient
   // TODO
@@ -111,17 +85,52 @@ std::vector<double> HilbertMap::gradient(Point x, double y) {
 void HilbertMap::update_w(Point x, double y) {
   double learning_rate = 0.1;
 
-  std::vector<double> grad = gradient(x, y);
-  for (size_t i=0; i<w_.size(); i++) {
-    w_[i] -= learning_rate * grad[i];
-  }
+  Eigen::SparseMatrix<double> grad = gradient(x, y);
+  w_ -= learning_rate * grad;
 }
 
 double HilbertMap::get_occupancy(Point p) {
-  std::vector<double> phi = phi_sparse(p);
-  double wTphi = 0.0;
-  for (size_t i = 0; i < w_.size(); i++) {
-    wTphi += w_[i] * phi[i];
+  Eigen::SparseMatrix<double> phi = phi_sparse(p);
+  auto wTphi = w_.transpose() * phi;
+  return 1.0 / (1.0 + expf(wTphi(0, 0)));
+}
+
+Point HilbertMap::get_inducing_point(int idx) {
+  double min = -25.0;
+  double max =  25.0;
+
+  int i = idx / inducing_points_n_dim;
+  int j = idx % inducing_points_n_dim;
+
+  double x = min + i * (max - min) / inducing_points_n_dim;
+  double y = min + j * (max - min) / inducing_points_n_dim;
+
+  return Point(x, y);
+}
+
+std::vector<int> HilbertMap::get_inducing_points_with_support(Point p) {
+  double min = -25.0;
+  double max =  25.0;
+
+  double step = (max - min)/inducing_points_n_dim;
+
+  int i0 = (p.x - min) / step + 0.5;
+  int j0 = (p.y - min) / step + 0.5;
+
+  int idx_step = 1.0 / step;
+  idx_step++;
+
+  std::vector<int> res;
+
+  for (int di = -idx_step; di<=idx_step; di++) {
+    for (int dj = -idx_step; dj<=idx_step; dj++) {
+      int i = i0 + di;
+      int j = j0 + dj;
+      int idx = i*inducing_points_n_dim + j;
+
+      res.push_back(idx);
+    }
   }
-  return 1.0 / (1.0 + expf(wTphi));
+
+  return res;
 }
