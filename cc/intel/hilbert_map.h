@@ -1,9 +1,7 @@
 #pragma once
 
 #include <vector>
-
-#include <Eigen/Core>
-#include <Eigen/SparseCore>
+#include <string>
 
 struct Point {
   double x;
@@ -15,6 +13,8 @@ struct Point {
 class HilbertMap {
  public:
   HilbertMap(std::vector<Point> points, std::vector<double> occupancies);
+  HilbertMap(const HilbertMap &hm);
+  ~HilbertMap();
 
   double get_occupancy(Point p);
 
@@ -22,13 +22,11 @@ class HilbertMap {
   const int inducing_points_n_dim = 100;
   const int n_inducing_points = inducing_points_n_dim*inducing_points_n_dim;
 
-  Eigen::MatrixXd w_;
+  float *w_ = NULL;
 
   std::vector<Point> inducing_points_;
 
-  double k_sparse(Point p1, Point p2);
-  Eigen::SparseMatrix<double> phi_sparse(Point p);
-  Eigen::SparseMatrix<double> gradient(Point x, double y);
+  double k_sparse(const Point &p1, const Point &p2);
   void update_w(Point x, double y);
 
   Point get_inducing_point(int idx);
