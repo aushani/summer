@@ -29,7 +29,7 @@ std::vector<std::string> split(const std::string &s, char delim) {
   return elems;
 }
 
-void load(char* fn, std::vector<Point> &points, std::vector<double> &labels) {
+void load(char* fn, std::vector<Point> &points, std::vector<float> &labels) {
   std::ifstream file;
   file.open(fn);
 
@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
   }
 
   std::vector<Point> points;
-  std::vector<double> labels;
+  std::vector<float> labels;
   load(argv[1], points, labels);
   printf("Have %ld points\n", points.size());
 
@@ -95,13 +95,29 @@ int main(int argc, char** argv) {
 
   HilbertMap map(points, labels);
 
-  std::ofstream grid_file;
-  grid_file.open("grid.csv");
+  std::vector<Point> query_points;
+  std::vector<float> probs;
+
+  auto tic = std::chrono::steady_clock::now();
   for (double x = -23; x<23; x+=0.1) {
     for (double y = -23; y<23; y+=0.1) {
-      double p = map.get_occupancy(Point(x, y));
-      grid_file << x << ", " << y << ", " << p << std::endl;
+      Point p(x, y);
+      query_points.push_back(p);
+      probs.push_back(map.get_occupancy(p));
     }
+  }
+  auto toc = std::chrono::steady_clock::now();
+  auto t_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc - tic);
+  printf("Evaluated grid in %ld ms (%5.3f ms / call)\n", t_ms.count(), ((double)t_ms.count())/query_points.size());
+
+  std::ofstream grid_file;
+  grid_file.open("grid.csv");
+  for (size_t i=0; i<query_points.size(); i++) {
+    float x = query_points[i].x;
+    float y = query_points[i].y;
+    float p = probs[i];
+
+    grid_file << x << ", " << y << ", " << p << std::endl;
   }
 
   grid_file.close();

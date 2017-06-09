@@ -4,19 +4,19 @@
 #include <string>
 
 struct Point {
-  double x;
-  double y;
+  float x;
+  float y;
 
-  Point(double xx, double yy) : x(xx), y(yy) {;}
+  Point(float xx, float yy) : x(xx), y(yy) {;}
 };
 
 class HilbertMap {
  public:
-  HilbertMap(std::vector<Point> points, std::vector<double> occupancies);
+  HilbertMap(std::vector<Point> points, std::vector<float> occupancies);
   HilbertMap(const HilbertMap &hm);
   ~HilbertMap();
 
-  double get_occupancy(Point p);
+  float get_occupancy(Point p);
 
  private:
   const int inducing_points_n_dim = 100;
@@ -26,8 +26,7 @@ class HilbertMap {
 
   std::vector<Point> inducing_points_;
 
-  double k_sparse(const Point &p1, const Point &p2);
-  void update_w(Point x, double y);
+  void update_w(Point x, float y);
 
   Point get_inducing_point(int idx);
 
