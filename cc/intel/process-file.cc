@@ -9,20 +9,9 @@
 #include <iterator>
 #include <math.h>
 #include <random>
+#include <chrono>
 
-struct Point {
-  double x;
-  double y;
-
-  Point(double xx, double yy) : x(xx), y(yy) {;}
-};
-
-struct DataPoint {
-  Point p;
-  double val;
-
-  DataPoint(double xx, double yy, double v) : p(xx, yy), val(v) {;}
-};
+#include "hilbert_map.h"
 
 template<typename Out>
 void split(const std::string &s, char delim, Out result) {
@@ -40,34 +29,11 @@ std::vector<std::string> split(const std::string &s, char delim) {
   return elems;
 }
 
-double k_sparse(Point p1, Point p2) {
-  double dx = p1.x - p2.x;
-  double dy = p1.y - p2.y;
-
-  double d2 = dx*dx + dy*dy;
-
-  if (d2 > 1.0)
-    return 0;
-
-  double r = sqrt(d2);
-
-  double t = M_2_PI * r;
-
-  return (2 + cos(t)) / 3 * (1 - r) + 1/M_2_PI * sin(t);
-}
-
-int main(int argc, char** argv) {
-  if (argc < 2) {
-    std::cout << "Need filename" << std::endl;
-    return 1;
-  }
-
+void load(char* fn, std::vector<Point> &points, std::vector<double> &labels) {
   std::ifstream file;
-  file.open(argv[1]);
+  file.open(fn);
 
   std::string line;
-
-  std::vector<DataPoint> data;
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
   std::default_random_engine re;
@@ -87,16 +53,18 @@ int main(int argc, char** argv) {
         if (range < 80) {
           double p_x = range*cos(angle_d*M_PI/180.0 + t) + x;
           double p_y = range*sin(angle_d*M_PI/180.0 + t) + y;
-          DataPoint p_hit(p_x, p_y, 1.0);
-          data.push_back(p_hit);
+          Point p_hit(p_x, p_y);
+          points.push_back(p_hit);
+          labels.push_back(1.0);
 
           // Create some randomly sampled free points
           for (int i=0; i<range; i++) {
             double random_range = unif(re) * range;
             double p_x = random_range*cos(angle_d*M_PI/180.0 + t) + x;
             double p_y = random_range*sin(angle_d*M_PI/180.0 + t) + y;
-            DataPoint p_free(p_x, p_y, -1.0);
-            data.push_back(p_free);
+            Point p_free(p_x, p_y);
+            points.push_back(p_free);
+            labels.push_back(-1.0);
           }
         }
       }
@@ -104,15 +72,39 @@ int main(int argc, char** argv) {
   }
 
   file.close();
+}
 
-  printf("Have %ld points\n", data.size());
+int main(int argc, char** argv) {
+  if (argc < 2) {
+    std::cout << "Need filename" << std::endl;
+    return 1;
+  }
+
+  std::vector<Point> points;
+  std::vector<double> labels;
+  load(argv[1], points, labels);
+  printf("Have %ld points\n", points.size());
 
   std::ofstream data_file;
   data_file.open("points.csv");
-  for (const DataPoint &p : data) {
-    data_file << p.p.x << ", " << p.p.y << ", " << p.val << std::endl;
+  for (size_t i=0; i<points.size(); i++) {
+    Point p = points[i];
+    data_file << p.x << ", " << p.y << ", " << labels[i] << std::endl;
   }
   data_file.close();
+
+  HilbertMap map(points, labels);
+
+  std::ofstream grid_file;
+  grid_file.open("grid.csv");
+  for (double x = -23; x<23; x+=0.1) {
+    for (double y = -23; y<23; y+=0.1) {
+      double p = map.get_occupancy(Point(x, y));
+      grid_file << x << ", " << y << ", " << p << std::endl;
+    }
+  }
+
+  grid_file.close();
 
   return 0;
 }
