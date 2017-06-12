@@ -7,6 +7,7 @@ struct Point {
   float x;
   float y;
 
+  Point() : x(0.0f), y(0.0f) {;}
   Point(float xx, float yy) : x(xx), y(yy) {;}
 };
 
@@ -22,7 +23,7 @@ class HilbertMap {
   const int inducing_points_n_dim = 100;
   const int n_inducing_points = inducing_points_n_dim*inducing_points_n_dim;
 
-  float *w_ = NULL;
+  float *d_w_ = NULL;
 
   std::vector<Point> inducing_points_;
 
