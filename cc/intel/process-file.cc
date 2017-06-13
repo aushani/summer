@@ -29,14 +29,11 @@ std::vector<std::string> split(const std::string &s, char delim) {
   return elems;
 }
 
-void load(char* fn, std::vector<Point> &points, std::vector<float> &labels) {
+void load(char* fn, std::vector<Point> &points, std::vector<Point> &origins) {
   std::ifstream file;
   file.open(fn);
 
   std::string line;
-
-  std::uniform_real_distribution<double> unif(0.0, 1.0);
-  std::default_random_engine re;
 
   while (std::getline(file, line)) {
     if (line.find("FLASER") == 0) {
@@ -47,6 +44,9 @@ void load(char* fn, std::vector<Point> &points, std::vector<float> &labels) {
       double t = atof(tokens[184].c_str());
       //printf("%5.3f %5.3f %5.3f\n", x, y, t);
 
+      Point p_origin(x, y);
+
+
       for (int i=2; i<182; i++) {
         double angle_d = -90.0 + (i-2);
         double range = atof(tokens[i].c_str());
@@ -55,23 +55,41 @@ void load(char* fn, std::vector<Point> &points, std::vector<float> &labels) {
           double p_y = range*sin(angle_d*M_PI/180.0 + t) + y;
           Point p_hit(p_x, p_y);
           points.push_back(p_hit);
-          labels.push_back(1.0);
-
-          // Create some randomly sampled free points
-          for (int i=0; i<range; i++) {
-            double random_range = unif(re) * range;
-            double p_x = random_range*cos(angle_d*M_PI/180.0 + t) + x;
-            double p_y = random_range*sin(angle_d*M_PI/180.0 + t) + y;
-            Point p_free(p_x, p_y);
-            points.push_back(p_free);
-            labels.push_back(-1.0);
-          }
+          origins.push_back(p_origin);
         }
       }
     }
   }
 
   file.close();
+}
+
+void make_observations(const std::vector<Point> &hits, const std::vector<Point> &origins, std::vector<Point> &points, std::vector<float> &labels) {
+  std::uniform_real_distribution<double> unif(0.0, 1.0);
+  std::default_random_engine re;
+
+  for (int i=0; i<hits.size(); i++) {
+    Point p = hits[i];
+    Point o = origins[i];
+
+    points.push_back(p);
+    labels.push_back(1.0);
+
+    double dx = p.x-o.x;
+    double dy = p.y-o.y;
+    double range = sqrt(dx*dx + dy*dy);
+
+    // Create some randomly sampled free points
+    for (int i=0; i<range; i++) {
+      double random_scale = unif(re);
+      double p_x = o.x + random_scale * dx;
+      double p_y = o.y + random_scale * dy;
+      Point p_free(p_x, p_y);
+      points.push_back(p_free);
+      labels.push_back(-1.0);
+    }
+  }
+
 }
 
 int main(int argc, char** argv) {
@@ -82,8 +100,13 @@ int main(int argc, char** argv) {
 
   std::vector<Point> points;
   std::vector<float> labels;
-  load(argv[1], points, labels);
-  printf("Have %ld points\n", points.size());
+  std::vector<Point> hits, origins;
+  load(argv[1], hits, origins);
+  auto tic_load = std::chrono::steady_clock::now();
+  make_observations(hits, origins, points, labels);
+  auto toc_load = std::chrono::steady_clock::now();
+  auto t_load_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_load - tic_load);
+  printf("Have %ld points in %ld ms\n", points.size(), t_load_ms.count());
 
   std::ofstream data_file;
   data_file.open("points.csv");

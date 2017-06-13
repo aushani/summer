@@ -132,31 +132,39 @@ __global__ void perform_w_update(DeviceData data) {
     int j = j0 + tidy;
 
     // Evaluate kernel
+    int idx_w = i*data.inducing_points_n_dim + j;
+    int idx = tidx*ny + tidy;
     float x_m_x = i*data.inducing_point_step + data.min;
     float x_m_y = j*data.inducing_point_step + data.min;
     float k = k_sparse(x, x_m_x, x_m_y);
-    phi_sparse[tidx*ny + tidy] = k;
+    if (i >=0 && i < data.inducing_points_n_dim && j>=0 && j<data.inducing_points_n_dim) {
+      phi_sparse[idx] = data.w[idx_w]*k;
+    } else {
+      phi_sparse[idx] = 0;
+    }
 
     __syncthreads();
 
     // Compute gradient and update w
+
+    /*
     float wTphi = 0.0;
-    for (int di=0; di<nx; di++) {
-      int w_i = i0 + di;
-      if (w_i < 0 || w_i >= data.inducing_points_n_dim)
-        continue;
-      for (int dj=0; dj<ny; dj++) {
-        int w_j = j0 + dj;
-        if (w_j < 0 || w_j >= data.inducing_points_n_dim)
-          continue;
-        int idx_w = w_i*data.inducing_points_n_dim + w_j;
-        int idx_sparse = di*ny + dj;
-        wTphi += data.w[idx_w] * phi_sparse[idx_sparse];
-      }
+    for (int i=0; i<nx*ny; i++) {
+      wTphi += phi_sparse[i];
     }
+    */
+    // Reduction to sum
+    for (int idx_offset = 1; idx_offset<nx*ny; idx_offset<<=1) {
+      int idx_to_add = idx + idx_offset;
+      if (idx_to_add < nx*ny)
+        phi_sparse[idx] += phi_sparse[idx_to_add];
+      __syncthreads();
+    }
+
+    float wTphi = phi_sparse[0];
+
     float c = -y * 1.0/(1.0 + expf(y * wTphi));
 
-    int idx_w = i*data.inducing_points_n_dim + j;
     data.w[idx_w] -= data.learning_rate * c * k;
   }
 }
