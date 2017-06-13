@@ -8,29 +8,74 @@
 
 #include <thrust/device_ptr.h>
 
+struct DeviceData {
+
+  float *w;
+
+  // Params
+  float learning_rate;
+  int kernel_width;
+  float min;
+  float max;
+
+  // For inducing point computations
+  int inducing_points_n_dim;
+  float inducing_point_step;
+
+  // Data points we're considering
+  Point *points;
+  float *labels;
+  int n_data;
+
+  float *d_res;
+
+};
+
+// Forward declaration of kernels
+__global__ void perform_w_update(DeviceData data);
+
 HilbertMap::HilbertMap(std::vector<Point> points, std::vector<float> occupancies) {
 
-  std::uniform_int_distribution<> random_idx(0, points.size()-1);
-  std::default_random_engine re;
+  auto tic = std::chrono::steady_clock::now();
 
-  // Learn w
-  cudaMalloc(&d_w_, sizeof(float)*n_inducing_points);
-  cudaMemset(d_w_, 0, sizeof(float)*n_inducing_points);
+  data_ = new DeviceData;
+
+  // Init w
+  cudaMalloc(&data_->w, sizeof(float)*n_inducing_points);
+  cudaMemset(data_->w, 0, sizeof(float)*n_inducing_points);
+
+  // Copy data to device
+  cudaMalloc(&data_->points, sizeof(Point)*points.size());
+  cudaMalloc(&data_->labels, sizeof(float)*occupancies.size());
+
+  cudaMemcpy(data_->points, points.data(), sizeof(Point)*points.size(), cudaMemcpyHostToDevice);
+  cudaMemcpy(data_->labels, occupancies.data(), sizeof(float)*occupancies.size(), cudaMemcpyHostToDevice);
+
+  data_->n_data = points.size();
+
+  // Params
+  data_->learning_rate = 0.1;
+  data_->kernel_width = 7;
+  data_->min = -25.0;
+  data_->max =  25.0;
+  data_->inducing_points_n_dim = inducing_points_n_dim;
+  data_->inducing_point_step = (data_->max - data_->min)/inducing_points_n_dim;
+
+  // TODO
+  cudaMalloc(&data_->d_res, 1*sizeof(float));
 
   int epochs = 1;
-  int iterations = epochs*points.size();
-  //iterations = 10000;
-  auto tic = std::chrono::steady_clock::now();
-  for (int i=0; i<iterations; i++) {
-    if (i % (iterations/100) == 0) {
-      printf(" %5.3f%% done\n", (100.0*i) / iterations);
+  for (int i=0; i<epochs; i++) {
+    dim3 threads;
+    threads.x = data_->kernel_width;
+    threads.y = data_->kernel_width;
+    int blocks = 1;
+    int sm_size = threads.x*threads.y*sizeof(float);
+    perform_w_update<<<blocks, threads, sm_size>>>(*data_);
+    cudaError_t err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+      printf("Whoops\n");
     }
-
-    int idx = random_idx(re);
-
-    Point p = points[idx];
-    float y = occupancies[idx];
-    update_w(p, y);
   }
   auto toc = std::chrono::steady_clock::now();
   auto t_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc - tic);
@@ -64,28 +109,7 @@ __device__ float k_sparse(Point p1, float x_m_x, float x_m_y) {
   return (2 + cosf(t)) / 3 * (1 - r) + 1.0/(2 * M_PI) * sinf(t);
 }
 
-struct GPUData {
-
-  float *w;
-
-  float learning_rate;
-
-  // For inducing point computations
-  int i0;
-  int j0;
-  int inducing_points_n_dim;
-  float inducing_point_step;
-
-  // Data point we're evaluating
-  Point p;
-  float y;
-
-  float *d_res;
-
-  GPUData() {;}
-};
-
-__global__ void perform_w_update(GPUData data) {
+__global__ void perform_w_update(DeviceData data) {
 
   // Figure out where this thread is
   const int nx = blockDim.x;
@@ -94,43 +118,50 @@ __global__ void perform_w_update(GPUData data) {
   const int tidx = threadIdx.x;
   const int tidy = threadIdx.y;
 
-  const int i = data.i0 + tidx;
-  const int j = data.j0 + tidy;
-
   extern __shared__ float phi_sparse[];
 
-  // Evaluate kernel
-  float x_m_x = i*data.inducing_point_step - 25.0;
-  float x_m_y = j*data.inducing_point_step - 25.0;
-  float k = k_sparse(data.p, x_m_x, x_m_y);
-  phi_sparse[tidx*ny + tidy] = k;
+  for (int data_idx = 0; data_idx < data.n_data; data_idx++) {
 
-  __syncthreads();
+    Point x = data.points[data_idx];
+    float y = data.labels[data_idx];
 
-  // Compute gradient and update w
-  float wTphi = 0.0;
-  for (int di=0; di<nx; di++) {
-    int w_i = data.i0 + di;
-    if (w_i < 0 || w_i >= data.inducing_points_n_dim)
-      continue;
-    for (int dj=0; dj<ny; dj++) {
-      int w_j = data.j0 + dj;
-      if (w_j < 0 || w_j >= data.inducing_points_n_dim)
+    int i0 = (x.x - data.min) / data.inducing_point_step - data.kernel_width/2.0;
+    int j0 = (x.y - data.min) / data.inducing_point_step - data.kernel_width/2.0;
+
+    int i = i0 + tidx;
+    int j = j0 + tidy;
+
+    // Evaluate kernel
+    float x_m_x = i*data.inducing_point_step + data.min;
+    float x_m_y = j*data.inducing_point_step + data.min;
+    float k = k_sparse(x, x_m_x, x_m_y);
+    phi_sparse[tidx*ny + tidy] = k;
+
+    __syncthreads();
+
+    // Compute gradient and update w
+    float wTphi = 0.0;
+    for (int di=0; di<nx; di++) {
+      int w_i = i0 + di;
+      if (w_i < 0 || w_i >= data.inducing_points_n_dim)
         continue;
-      int idx_w = w_i*data.inducing_points_n_dim + w_j;
-      int idx_sparse = di*ny + dj;
-      wTphi += data.w[idx_w] * phi_sparse[idx_sparse];
+      for (int dj=0; dj<ny; dj++) {
+        int w_j = j0 + dj;
+        if (w_j < 0 || w_j >= data.inducing_points_n_dim)
+          continue;
+        int idx_w = w_i*data.inducing_points_n_dim + w_j;
+        int idx_sparse = di*ny + dj;
+        wTphi += data.w[idx_w] * phi_sparse[idx_sparse];
+      }
     }
+    float c = -y * 1.0/(1.0 + expf(y * wTphi));
+
+    int idx_w = i*data.inducing_points_n_dim + j;
+    data.w[idx_w] -= data.learning_rate * c * k;
   }
-  float c = -data.y * 1.0/(1.0 + expf(data.y * wTphi));
-
-  // TODO no regularization
-
-  int idx_w = i*data.inducing_points_n_dim + j;
-  data.w[idx_w] -= data.learning_rate * c * k;
 }
 
-__global__ void compute_occupancy(GPUData data) {
+__global__ void compute_occupancy(DeviceData data) {
 
   // Figure out where this thread is
   const int nx = blockDim.x;
@@ -139,26 +170,31 @@ __global__ void compute_occupancy(GPUData data) {
   const int tidx = threadIdx.x;
   const int tidy = threadIdx.y;
 
-  const int i = data.i0 + tidx;
-  const int j = data.j0 + tidy;
-
   extern __shared__ float phi_sparse[];
 
+  Point x = data.points[0];
+
+  int i0 = (x.x - data.min) / data.inducing_point_step - data.kernel_width/2.0;
+  int j0 = (x.y - data.min) / data.inducing_point_step - data.kernel_width/2.0;
+
+  int i = i0 + tidx;
+  int j = j0 + tidy;
+
   // Evaluate kernel
-  float x_m_x = i*data.inducing_point_step - 25.0;
-  float x_m_y = j*data.inducing_point_step - 25.0;
-  float k = k_sparse(data.p, x_m_x, x_m_y);
+  float x_m_x = i*data.inducing_point_step + data.min;
+  float x_m_y = j*data.inducing_point_step + data.min;
+  float k = k_sparse(data.points[0], x_m_x, x_m_y);
   phi_sparse[tidx*ny + tidy] = k;
 
   __syncthreads();
 
   float wTphi = 0.0;
   for (int di=0; di<nx; di++) {
-    int w_i = data.i0 + di;
+    int w_i = i0 + di;
     if (w_i < 0 || w_i >= data.inducing_points_n_dim)
       continue;
     for (int dj=0; dj<ny; dj++) {
-      int w_j = data.j0 + dj;
+      int w_j = j0 + dj;
       if (w_j < 0 || w_j >= data.inducing_points_n_dim)
         continue;
       int idx_w = w_i*data.inducing_points_n_dim + w_j;
@@ -167,77 +203,30 @@ __global__ void compute_occupancy(GPUData data) {
     }
   }
 
-  *data.d_res = 1.0 / (1.0 + expf(wTphi));
-}
-
-void HilbertMap::update_w(Point x, float y) {
-  float learning_rate = 0.1;
-
-  int kernel_width = 7;
-
-  GPUData gd;
-  gd.w = d_w_;
-  gd.learning_rate = learning_rate;
-
-  float min = -25.0;
-  float max =  25.0;
-
-  gd.inducing_points_n_dim = inducing_points_n_dim;
-  gd.inducing_point_step = (max - min)/inducing_points_n_dim;
-
-  gd.i0 = (x.x - min) / gd.inducing_point_step - kernel_width/2;
-  gd.j0 = (x.y - min) / gd.inducing_point_step - kernel_width/2;
-
-  gd.p = x;
-  gd.y = y;
-
-  dim3 threads;
-  threads.x = kernel_width;
-  threads.y = kernel_width;
-  int blocks = 1;
-  int sm_size = threads.x*threads.y*sizeof(float);
-  perform_w_update<<<blocks, threads, sm_size>>>(gd);
-  cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) {
-    printf("Whoops\n");
-  }
+  int idx_w = i0*data.inducing_points_n_dim + j0;
+  data.d_res[0] = 1.0 / (1.0 + expf(wTphi));
 }
 
 float HilbertMap::get_occupancy(Point p) {
-  int kernel_width = 7;
 
-  GPUData gd;
-  gd.w = d_w_;
-
-  cudaMalloc(&gd.d_res, 1*sizeof(float));
-
-  float min = -25.0;
-  float max =  25.0;
-
-  gd.inducing_points_n_dim = inducing_points_n_dim;
-  gd.inducing_point_step = (max - min)/inducing_points_n_dim;
-
-  gd.i0 = (p.x - min) / gd.inducing_point_step - kernel_width/2;
-  gd.j0 = (p.y - min) / gd.inducing_point_step - kernel_width/2;
-
-  gd.p = p;
+  // ugly
+  cudaMemcpy(data_->points, &p, sizeof(Point), cudaMemcpyHostToDevice);
 
   dim3 threads;
-  threads.x = kernel_width;
-  threads.y = kernel_width;
+  threads.x = data_->kernel_width;
+  threads.y = data_->kernel_width;
   size_t blocks = 1;
   int sm_size = threads.x*threads.y*sizeof(float);
   //printf("Running with %dx%d threads and %d blocks and %ld sm_size\n",
   //    threads.x, threads.y, blocks, sm_size);
-  compute_occupancy<<<blocks, threads, sm_size>>>(gd);
+  compute_occupancy<<<blocks, threads, sm_size>>>(*data_);
   cudaError_t err = cudaDeviceSynchronize();
   if (err != cudaSuccess) {
     printf("Whoops\n");
   }
 
   float res;
-  cudaMemcpy(&res, gd.d_res, 1*sizeof(float), cudaMemcpyDeviceToHost);
-  cudaFree(gd.d_res);
+  cudaMemcpy(&res, data_->d_res, 1*sizeof(float), cudaMemcpyDeviceToHost);
   return res;
 }
 

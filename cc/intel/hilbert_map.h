@@ -11,6 +11,9 @@ struct Point {
   Point(float xx, float yy) : x(xx), y(yy) {;}
 };
 
+// Forward declaration
+typedef struct DeviceData DeviceData;
+
 class HilbertMap {
  public:
   HilbertMap(std::vector<Point> points, std::vector<float> occupancies);
@@ -23,11 +26,11 @@ class HilbertMap {
   const int inducing_points_n_dim = 100;
   const int n_inducing_points = inducing_points_n_dim*inducing_points_n_dim;
 
+  DeviceData *data_;
+
   float *d_w_ = NULL;
 
   std::vector<Point> inducing_points_;
-
-  void update_w(Point x, float y);
 
   Point get_inducing_point(int idx);
 
