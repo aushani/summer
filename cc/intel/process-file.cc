@@ -116,6 +116,7 @@ int main(int argc, char** argv) {
   }
   data_file.close();
 
+  HilbertMap tmp(points, labels);
   HilbertMap map(points, labels);
 
   std::vector<Point> query_points;

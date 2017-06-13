@@ -17,22 +17,11 @@ typedef struct DeviceData DeviceData;
 class HilbertMap {
  public:
   HilbertMap(std::vector<Point> points, std::vector<float> occupancies);
-  HilbertMap(const HilbertMap &hm);
+  //HilbertMap(const HilbertMap &hm);
   ~HilbertMap();
 
   float get_occupancy(Point p);
 
  private:
-  const int inducing_points_n_dim = 100;
-  const int n_inducing_points = inducing_points_n_dim*inducing_points_n_dim;
-
   DeviceData *data_;
-
-  float *d_w_ = NULL;
-
-  std::vector<Point> inducing_points_;
-
-  Point get_inducing_point(int idx);
-
-  std::vector<int> get_inducing_points_with_support(Point p);
 };
