@@ -80,7 +80,7 @@ void make_observations(const std::vector<Point> &hits, const std::vector<Point> 
     double range = sqrt(dx*dx + dy*dy);
 
     // Create some randomly sampled free points
-    for (int i=0; i<range; i++) {
+    for (int i=0; i<range/2; i++) {
       double random_scale = unif(re);
       double p_x = o.x + random_scale * dx;
       double p_y = o.y + random_scale * dy;
@@ -116,8 +116,15 @@ int main(int argc, char** argv) {
   }
   data_file.close();
 
-  HilbertMap tmp(points, labels);
   HilbertMap map(points, labels);
+
+  auto tic_build = std::chrono::steady_clock::now();
+  int trials = 100;
+  for (int i=0; i<trials; i++)
+    HilbertMap tmp(points, labels);
+  auto toc_build = std::chrono::steady_clock::now();
+  auto t_build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_build - tic_build);
+  printf("Took %5.3f ms avg for build\n", ((double)t_build_ms.count())/trials);
 
   std::vector<Point> query_points;
   std::vector<float> probs;

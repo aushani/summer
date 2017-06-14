@@ -80,12 +80,16 @@ HilbertMap::HilbertMap(std::vector<Point> points, std::vector<float> occupancies
   data_->max =  25.0;
   data_->inducing_points_n_dim = 100;
   data_->inducing_point_step = (data_->max - data_->min)/data_->inducing_points_n_dim;
-  data_->kernel_width = (1.0 / data_->inducing_point_step)*2 + 1;
+  data_->kernel_width = (1.0 / data_->inducing_point_step + 1)*2 + 1;
   printf("Kernel width %d with a step size of %5.3f\n", data_->kernel_width, data_->inducing_point_step);
 
-  data_->bucket_n_dim = 50;
-  data_->subbucket_n_dim = 2;
-  data_->bucket_size = 1.0 * 2 * data_->subbucket_n_dim; // twice the support size of the kernel
+  data_->bucket_n_dim = 100;
+  data_->subbucket_n_dim = 5;
+
+  // Each subblock must be twice the support size (in meters) of the kernel away from any other subblock
+  // that runs concurrently.
+  double kernel_width_meters = 1.0;
+  data_->bucket_size = 2.0 * kernel_width_meters * data_->subbucket_n_dim / (data_->subbucket_n_dim - 1);
 
   // Init w
   auto tic_w = std::chrono::steady_clock::now();
@@ -156,7 +160,7 @@ HilbertMap::HilbertMap(std::vector<Point> points, std::vector<float> occupancies
   int epochs = 1;
   for (int i=0; i<epochs; i++) {
     for (int subbucket=0; subbucket < n_subbuckets; subbucket++) {
-      auto tic_w = std::chrono::steady_clock::now();
+      //auto tic_w = std::chrono::steady_clock::now();
       dim3 threads;
       threads.x = data_->kernel_width;
       threads.y = data_->kernel_width;
@@ -164,14 +168,19 @@ HilbertMap::HilbertMap(std::vector<Point> points, std::vector<float> occupancies
       int sm_size = threads.x*threads.y*sizeof(float);
       //perform_w_update<<<blocks, threads, sm_size>>>(*data_);
       perform_w_update_buckets<<<blocks, threads, sm_size>>>(*data_, subbucket);
-      cudaError_t err = cudaDeviceSynchronize();
-      if (err != cudaSuccess) {
-        printf("Whoops\n");
-      }
-      auto toc_w = std::chrono::steady_clock::now();
-      auto t_w_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_w - tic_w);
-      printf("\tTook %02ld ms to update w on subblock\n", t_w_ms.count());
+      //cudaError_t err = cudaDeviceSynchronize();
+      //if (err != cudaSuccess) {
+      //  printf("Whoops\n");
+      //}
+      //auto toc_w = std::chrono::steady_clock::now();
+      //auto t_w_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_w - tic_w);
+      //printf("\tTook %02ld ms to update w on subbucket %d with %d blocks and %dx%d threads\n",
+      //    t_w_ms.count(), subbucket, blocks, threads.x, threads.y);
     }
+  }
+  err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) {
+    printf("Whoops\n");
   }
   auto toc_total = std::chrono::steady_clock::now();
   auto t_total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_total - tic_total);
@@ -277,8 +286,8 @@ __global__ void populate_meta_info(DeviceData data) {
   data.mp[idx].label = label;
 
   // Compute bucket
-  int bucket_i = p.x/data.bucket_size;
-  int bucket_j = p.y/data.bucket_size;
+  int bucket_i = llrintf(p.x/data.bucket_size);
+  int bucket_j = llrintf(p.y/data.bucket_size);
 
   bucket_i %= data.bucket_n_dim;
   bucket_j %= data.bucket_n_dim;
@@ -295,8 +304,11 @@ __global__ void populate_meta_info(DeviceData data) {
   float x0 = bucket_i * data.bucket_size;
   float y0 = bucket_j * data.bucket_size;
   float subbucket_size = data.bucket_size/data.subbucket_n_dim;
-  int subbucket_i = ( (int) ((p.x - x0)/subbucket_size) ) % data.subbucket_n_dim;
-  int subbucket_j = ( (int) ((p.y - y0)/subbucket_size) ) % data.subbucket_n_dim;
+  int subbucket_i = llrintf((p.x - x0)/subbucket_size);
+  int subbucket_j = llrintf((p.y - y0)/subbucket_size);
+
+  subbucket_i %= data.subbucket_n_dim;
+  subbucket_j %= data.subbucket_n_dim;
 
   if (subbucket_i < 0)
     subbucket_i += data.subbucket_n_dim;
