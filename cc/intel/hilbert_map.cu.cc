@@ -281,9 +281,6 @@ __device__ float k_sparse_lookup(DeviceData &data, float dx, float dy) {
     return 0;
 
   return data.kernel_table[idx*data.kernel_table_n_dim + idy];
-
-  //return 1/(dx*dx + dy*dy);
-  //return k_sparse_compute(data, dx, dy);
 }
 
 __global__ void precompute_kernel_table(DeviceData data) {
@@ -595,7 +592,7 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
 
     float wTphi = phi_sparse[0];
 
-    float c = -y * 1.0/(1.0 + expf(y * wTphi));
+    float c = -y * 1.0/(1.0 + __expf(y * wTphi));
     //float c = -y * wTphi;
 
     data.w[idx_w] -= data.learning_rate * c * k;
@@ -642,7 +639,7 @@ __global__ void compute_occupancy(DeviceData data, Point x) {
     }
   }
 
-  data.d_res[0] = 1.0 / (1.0 + expf(wTphi));
+  data.d_res[0] = 1.0 / (1.0 + __expf(wTphi));
 }
 
 float HilbertMap::get_occupancy(Point p) {
