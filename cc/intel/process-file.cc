@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
   HilbertMap map(hits, origins);
 
   auto tic_build = std::chrono::steady_clock::now();
-  int trials = 100;
+  int trials = 10;
   for (int i=0; i<trials; i++)
     HilbertMap tmp(hits, origins);
   auto toc_build = std::chrono::steady_clock::now();

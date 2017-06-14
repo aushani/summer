@@ -8,6 +8,8 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
+#include <curand.h>
+#include <curand_kernel.h>
 
 struct MetaPoint {
 
@@ -30,6 +32,7 @@ struct DeviceData {
 
   int inducing_points_n_dim = 100;
   float kernel_width_meters = 1.0;
+  float kernel_width_meters_sq = kernel_width_meters * kernel_width_meters;
 
   // Buckets (for processing in parallel without data collision)
   int bucket_n_dim = 100;
@@ -39,10 +42,16 @@ struct DeviceData {
   float max_range = 100.0;
   float meters_per_observation = 1.0;
 
-  // Computed
+  // Computed params
   int kernel_width_xm;
   float bucket_size;
   float inducing_point_step;
+
+  // Kernel table
+  float *kernel_table;
+  const float kernel_table_scale = 1024; // ~ 1mm resolution
+  float kernel_table_resolution = 1.0/kernel_table_scale;
+  int kernel_table_n_dim;
 
   // Raw data we make observations from
   Point *hits = NULL;
@@ -68,7 +77,7 @@ struct DeviceData {
 
     // Params
     inducing_point_step = (max - min)/inducing_points_n_dim;
-    kernel_width_xm = (1.0 / inducing_point_step + 1)*2 + 1;
+    kernel_width_xm = (kernel_width_meters / inducing_point_step + 1)*2 + 1;
 
     // Each subblock must be twice the support size (in meters) of the kernel away from any other subblock
     // that runs concurrently.
@@ -78,6 +87,10 @@ struct DeviceData {
     int n_inducing_points = inducing_points_n_dim * inducing_points_n_dim;
     cudaMalloc(&w, sizeof(float)*n_inducing_points);
     cudaMemset(w, 0, sizeof(float)*n_inducing_points);
+
+    // Alloc kernel table
+    kernel_table_n_dim = ceil(kernel_width_meters / kernel_table_resolution);
+    cudaMalloc(&kernel_table, sizeof(float)*kernel_table_n_dim*kernel_table_n_dim);
 
     // Copy data to device
     cudaMalloc(&hits, sizeof(Point)*raw_hits.size());
@@ -106,40 +119,13 @@ struct DeviceData {
     printf("\tTook %ld ms to setup device data\n", t_setup_ms.count());
   }
 
-  DeviceData(const DeviceData &dd) :
-    w                          (dd.w),
-    learning_rate              (dd.learning_rate),
-    min                        (dd.min),
-    max                        (dd.max),
-    inducing_points_n_dim      (dd.inducing_points_n_dim),
-    kernel_width_meters        (dd.kernel_width_meters),
-    bucket_n_dim               (dd.bucket_n_dim),
-    subbucket_n_dim            (dd.subbucket_n_dim),
-    max_range                  (dd.max_range),
-    meters_per_observation     (dd.meters_per_observation),
-    kernel_width_xm            (dd.kernel_width_xm),
-    bucket_size                (dd.bucket_size),
-    inducing_point_step        (dd.inducing_point_step),
-    hits                       (dd.hits),
-    origins                    (dd.origins),
-    n_obs                      (dd.n_obs),
-    mp                         (dd.mp),
-    n_data                     (dd.n_data),
-    bucket_starts              (dd.bucket_starts),
-    n_buckets                  (dd.n_buckets),
-    n_subbuckets               (dd.n_subbuckets),
-    d_res                      (dd.d_res),
-    own_memory                 (false) {
-  }
-
-  ~DeviceData() {
-    if (own_memory) {
-      if (hits) cudaFree(hits);
-      if (origins) cudaFree(origins);
-      if (mp) cudaFree(mp);
-      if (bucket_starts) cudaFree(bucket_starts);
-      if (d_res) cudaFree(d_res);
-    }
+  void cleanup() {
+    if (kernel_table) cudaFree(kernel_table);
+    if (hits) cudaFree(hits);
+    if (origins) cudaFree(origins);
+    if (mp) cudaFree(mp);
+    if (bucket_starts) cudaFree(bucket_starts);
+    if (d_res) cudaFree(d_res);
   }
 
 };
@@ -163,7 +149,8 @@ struct IsInvalidMP {
 };
 
 // Forward declaration of kernels
-__global__ void make_observations(DeviceData data);
+__global__ void precompute_kernel_table(DeviceData data);
+__global__ void make_observations(DeviceData data, unsigned int seed);
 __global__ void perform_w_update_buckets(DeviceData data, int subbucket);
 __global__ void populate_meta_info(DeviceData data);
 __global__ void compute_bucket_indicies(DeviceData data);
@@ -172,12 +159,33 @@ __global__ void compute_subbucket_indicies(DeviceData data);
 HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins) :
   data_(new DeviceData(hits, origins)) {
 
+  // Precompute kernel table
+  auto tic_kernel = std::chrono::steady_clock::now();
+  dim3 threads_dim;
+  threads_dim.x = 32;
+  threads_dim.y = 32;
+  threads_dim.z = 1;
+  dim3 blocks_dim;
+  blocks_dim.x = ceil(data_->kernel_table_n_dim/threads_dim.x);
+  blocks_dim.y = ceil(data_->kernel_table_n_dim/threads_dim.y);
+  blocks_dim.z = 1;
+  precompute_kernel_table<<<threads_dim, blocks_dim>>>(*data_);
+  cudaError_t err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) {
+    printf("Whoops\n");
+  }
+  auto toc_kernel = std::chrono::steady_clock::now();
+  auto t_kernel_us = std::chrono::duration_cast<std::chrono::microseconds>(toc_kernel - tic_kernel);
+  printf("\tPrecomputed %dx%d kernel lookup table in %5.3f ms with %dx%d threads and %dx%d blocks\n",
+      data_->kernel_table_n_dim, data_->kernel_table_n_dim, t_kernel_us.count()/1000.0,
+      threads_dim.x, threads_dim.y, blocks_dim.x, blocks_dim.y);
+
   // Make observations from raw hits
   auto tic_obs = std::chrono::steady_clock::now();
   int threads = 512;
   int blocks = data_->n_obs / threads + 1;
-  make_observations<<<threads, blocks>>>(*data_);
-  cudaError_t err = cudaDeviceSynchronize();
+  make_observations<<<threads, blocks>>>(*data_, 0);
+  err = cudaDeviceSynchronize();
   if (err != cudaSuccess) {
     printf("Whoops\n");
   }
@@ -195,17 +203,9 @@ HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> 
   printf("\tRemoved invalid in %ld ms\n", t_remove_ms.count());
 
   // Compute meta information for points
-  auto tic_meta = std::chrono::steady_clock::now();
   threads = 512;
   blocks = data_->n_data / threads + 1;
   populate_meta_info<<<blocks, threads>>>(*data_);
-  err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) {
-    printf("Whoops\n");
-  }
-  auto toc_meta = std::chrono::steady_clock::now();
-  auto t_meta_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_meta - tic_meta);
-  printf("\tComputed point buckets in %ld ms\n", t_meta_ms.count());
 
   // Sort points by bucket to enable processing in parallel without memory collisions on w
   auto tic_sort = std::chrono::steady_clock::now();
@@ -216,19 +216,12 @@ HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> 
   printf("\tSorted points into buckets in %ld ms\n", t_sort_ms.count());
 
   // Find bucket start/end indexes
-  auto tic_starts = std::chrono::steady_clock::now();
   threads = 512;
   blocks = data_->n_buckets / threads + 1;
   compute_bucket_indicies<<<blocks, threads>>>(*data_);
   compute_subbucket_indicies<<<blocks, threads>>>(*data_);
-  err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) {
-    printf("Whoops\n");
-  }
-  auto toc_starts = std::chrono::steady_clock::now();
-  auto t_starts_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_starts - tic_starts);
-  printf("\tComputed point bucket starts in %ld ms\n", t_meta_ms.count());
 
+  auto tic_learn = std::chrono::steady_clock::now();
   int epochs = 1;
   for (int i=0; i<epochs; i++) {
     for (int subbucket=0; subbucket < data_->n_subbuckets; subbucket++) {
@@ -236,6 +229,7 @@ HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> 
       dim3 threads;
       threads.x = data_->kernel_width_xm;
       threads.y = data_->kernel_width_xm;
+      threads.z = 1;
       int blocks = data_->n_buckets;
       int sm_size = threads.x*threads.y*sizeof(float);
       //perform_w_update<<<blocks, threads, sm_size>>>(*data_);
@@ -254,29 +248,68 @@ HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> 
   if (err != cudaSuccess) {
     printf("Whoops\n");
   }
+  auto toc_learn = std::chrono::steady_clock::now();
+  auto t_learn_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_learn - tic_learn);
+  printf("\tLearned w in %ld ms\n", t_learn_ms.count());
 }
 
 HilbertMap::~HilbertMap() {
-  delete data_;
+  data_->cleanup();
 }
 
-__device__ float k_sparse(Point p1, float x_m_x, float x_m_y) {
-  float dx = p1.x - x_m_x;
-  float dy = p1.y - x_m_y;
-
+__device__ float k_sparse_compute(DeviceData &data, float dx, float dy) {
   float d2 = dx*dx + dy*dy;
 
-  if (d2 > 1.0)
+  if (d2 > data.kernel_width_meters_sq)
     return 0;
 
   float r = sqrt(d2);
+
+  // Apply kernel width
+  r /= data.kernel_width_meters;
 
   float t = 2 * M_PI * r;
 
   return (2 + cosf(t)) / 3 * (1 - r) + 1.0/(2 * M_PI) * sinf(t);
 }
 
-__global__ void make_observations(DeviceData data) {
+__device__ float k_sparse_lookup(DeviceData &data, float dx, float dy) {
+  int idx = llrintf(abs(dx)*data.kernel_table_scale);
+  int idy = llrintf(abs(dy)*data.kernel_table_scale);
+
+  if (idx >= data.kernel_table_n_dim || idy >= data.kernel_table_n_dim)
+    return 0;
+
+  return data.kernel_table[idx*data.kernel_table_n_dim + idy];
+
+  //return 1/(dx*dx + dy*dy);
+  //return k_sparse_compute(data, dx, dy);
+}
+
+__global__ void precompute_kernel_table(DeviceData data) {
+
+  const int bidx = blockIdx.x;
+  const int bidy = blockIdx.y;
+
+  const int tidx = threadIdx.x;
+  const int tidy = threadIdx.y;
+
+  const int nx = blockDim.x;
+  const int ny = blockDim.y;
+
+  const int idx = bidx*nx + tidx;
+  const int idy = bidy*ny + tidy;
+
+  if (idx >= data.kernel_table_n_dim || idy >= data.kernel_table_n_dim)
+    return;
+
+  float dx = idx*data.kernel_table_resolution;
+  float dy = idy*data.kernel_table_resolution;
+
+  data.kernel_table[idx*data.kernel_table_n_dim + idy] = k_sparse_compute(data, dx, dy);
+}
+
+__global__ void make_observations(DeviceData data, unsigned int seed) {
 
   // Figure out where this thread is
   const int bidx = blockIdx.x;
@@ -288,6 +321,10 @@ __global__ void make_observations(DeviceData data) {
 
   if (idx >= data.n_obs)
     return;
+
+  // Init curand state
+  curandState_t curand_state;
+  curand_init(seed, bidx, 0, &curand_state);
 
   int max_obs_per_point = ceil(data.max_range / data.meters_per_observation) + 1;
 
@@ -309,8 +346,9 @@ __global__ void make_observations(DeviceData data) {
 
     // TODO make random
     if (i < range) {
-      data.mp[idx*max_obs_per_point + i].p.x = origin.x + dx*i/range;
-      data.mp[idx*max_obs_per_point + i].p.y = origin.y + dy*i/range;
+      float rand = 1.0f - curand_uniform(&curand_state); // because the range is (0, 1.0]
+      data.mp[idx*max_obs_per_point + i].p.x = origin.x + rand*dx;
+      data.mp[idx*max_obs_per_point + i].p.y = origin.y + rand*dy;
       data.mp[idx*max_obs_per_point + i].label = -1.0;
       data.mp[idx*max_obs_per_point + i].valid = 1;
     } else {
@@ -509,27 +547,32 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
     end = data.bucket_starts[bidx*n_subbuckets + subbucket + 1];
   }
 
-  for (int data_idx = start; data_idx < end; data_idx++) {
+  const float inducing_points_scale = 1.0 / data.inducing_point_step;
+  const float kwx2 = data.kernel_width_xm/2.0;
+
+  const int idx_phi = tidx*ny + tidy;
+  const int n2 = nx*ny;
+
+  for (int data_idx = start; data_idx < end; ++data_idx) {
 
     Point x = data.mp[data_idx].p;
     float y = data.mp[data_idx].label;
 
-    int i0 = (x.x - data.min) / data.inducing_point_step - data.kernel_width_xm/2.0;
-    int j0 = (x.y - data.min) / data.inducing_point_step - data.kernel_width_xm/2.0;
+    int i0 = (x.x - data.min) * inducing_points_scale - kwx2;
+    int j0 = (x.y - data.min) * inducing_points_scale - kwx2;
 
     int i = i0 + tidx;
     int j = j0 + tidy;
 
     // Evaluate kernel
     int idx_w = i*data.inducing_points_n_dim + j;
-    int idx = tidx*ny + tidy;
     float x_m_x = i*data.inducing_point_step + data.min;
     float x_m_y = j*data.inducing_point_step + data.min;
-    float k = k_sparse(x, x_m_x, x_m_y);
+    float k = k_sparse_lookup(data, x.x - x_m_x, x.y - x_m_y);
     if (i >=0 && i < data.inducing_points_n_dim && j>=0 && j<data.inducing_points_n_dim) {
-      phi_sparse[idx] = data.w[idx_w]*k;
+      phi_sparse[idx_phi] = data.w[idx_w]*k;
     } else {
-      phi_sparse[idx] = 0;
+      phi_sparse[idx_phi] = 0;
     }
 
     __syncthreads();
@@ -544,15 +587,16 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
     */
     // Reduction to sum
     for (int idx_offset = 1; idx_offset<nx*ny; idx_offset<<=1) {
-      int idx_to_add = idx + idx_offset;
-      if (idx_to_add < nx*ny)
-        phi_sparse[idx] += phi_sparse[idx_to_add];
+      int idx_to_add = idx_phi + idx_offset;
+      if (idx_to_add < n2)
+        phi_sparse[idx_phi] += phi_sparse[idx_to_add];
       __syncthreads();
     }
 
     float wTphi = phi_sparse[0];
 
     float c = -y * 1.0/(1.0 + expf(y * wTphi));
+    //float c = -y * wTphi;
 
     data.w[idx_w] -= data.learning_rate * c * k;
   }
@@ -578,7 +622,7 @@ __global__ void compute_occupancy(DeviceData data, Point x) {
   // Evaluate kernel
   float x_m_x = i*data.inducing_point_step + data.min;
   float x_m_y = j*data.inducing_point_step + data.min;
-  float k = k_sparse(x, x_m_x, x_m_y);
+  float k = k_sparse_lookup(data, x.x - x_m_x, x.y - x_m_y);
   phi_sparse[tidx*ny + tidy] = k;
 
   __syncthreads();
@@ -606,6 +650,7 @@ float HilbertMap::get_occupancy(Point p) {
   dim3 threads;
   threads.x = data_->kernel_width_xm;
   threads.y = data_->kernel_width_xm;
+  threads.z = 1;
   size_t blocks = 1;
   int sm_size = threads.x*threads.y*sizeof(float);
   //printf("Running with %dx%d threads and %d blocks and %ld sm_size\n",
