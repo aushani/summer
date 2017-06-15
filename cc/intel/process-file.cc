@@ -11,7 +11,7 @@
 #include <random>
 #include <chrono>
 
-#include "hilbert_map.h"
+#include "library/hilbert_maps/hilbert_map.h"
 
 template<typename Out>
 void split(const std::string &s, char delim, Out result) {

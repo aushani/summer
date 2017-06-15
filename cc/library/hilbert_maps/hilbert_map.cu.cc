@@ -78,6 +78,7 @@ struct DeviceData {
     // Params
     inducing_point_step = (max - min)/inducing_points_n_dim;
     kernel_width_xm = (kernel_width_meters / inducing_point_step + 1)*2 + 1;
+    printf("Kernel width: %d pixels\n", kernel_width_xm);
 
     // Each subblock must be twice the support size (in meters) of the kernel away from any other subblock
     // that runs concurrently.
