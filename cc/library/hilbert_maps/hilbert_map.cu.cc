@@ -49,9 +49,9 @@ struct DeviceData {
 
   // Kernel table
   float *kernel_table;
-  const float kernel_table_scale = 1024; // ~ 1mm resolution
-  float kernel_table_resolution = 1.0/kernel_table_scale;
-  int kernel_table_n_dim;
+  const int kernel_table_n_dim = 1024;
+  float kernel_table_resolution = kernel_width_meters / kernel_table_n_dim;
+  float kernel_table_scale = 1.0/kernel_table_resolution;
 
   // Raw data we make observations from
   Point *hits = NULL;
@@ -90,7 +90,6 @@ struct DeviceData {
     cudaMemset(w, 0, sizeof(float)*n_inducing_points);
 
     // Alloc kernel table
-    kernel_table_n_dim = ceil(kernel_width_meters / kernel_table_resolution);
     cudaMalloc(&kernel_table, sizeof(float)*kernel_table_n_dim*kernel_table_n_dim);
 
     // Copy data to device
@@ -259,6 +258,10 @@ HilbertMap::~HilbertMap() {
 }
 
 __device__ float k_sparse_compute(DeviceData &data, float dx, float dy) {
+
+  // box filter with eps
+  //return (abs(dx) < 1.0001 && abs(dy) < 1.0001) ? 1.0:0.0;
+
   float d2 = dx*dx + dy*dy;
 
   if (d2 > data.kernel_width_meters_sq)
@@ -643,7 +646,7 @@ __global__ void compute_occupancy(DeviceData data, Point x) {
   data.d_res[0] = 1.0 / (1.0 + __expf(wTphi));
 }
 
-float HilbertMap::get_occupancy(Point p) {
+float HilbertMap::GetOccupancy(Point p) {
 
   dim3 threads;
   threads.x = data_->kernel_width_xm;

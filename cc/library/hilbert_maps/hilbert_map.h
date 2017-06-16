@@ -20,7 +20,7 @@ class HilbertMap {
   //HilbertMap(const HilbertMap &hm);
   ~HilbertMap();
 
-  float get_occupancy(Point p);
+  float GetOccupancy(Point p);
 
  private:
   DeviceData *data_;

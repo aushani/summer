@@ -77,6 +77,13 @@ int main(int argc, char** argv) {
   auto t_load_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_load - tic_load);
   printf("Loaded %ld points in %ld ms\n", hits.size(), t_load_ms.count());
 
+  std::ofstream points_file;
+  points_file.open("points.csv");
+  for (int i=0; i<hits.size(); i++) {
+    points_file << hits[i].x << ", " << hits[i].y << std::endl;
+  }
+  points_file.close();
+
   HilbertMap map(hits, origins);
 
   auto tic_build = std::chrono::steady_clock::now();
@@ -95,7 +102,7 @@ int main(int argc, char** argv) {
     for (double y = -25; y<25; y+=0.1) {
       Point p(x, y);
       query_points.push_back(p);
-      probs.push_back(map.get_occupancy(p));
+      probs.push_back(map.GetOccupancy(p));
     }
   }
   auto toc = std::chrono::steady_clock::now();
