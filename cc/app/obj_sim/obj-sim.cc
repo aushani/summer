@@ -14,7 +14,9 @@
 #include "library/hilbert_maps/hilbert_map.h"
 #include "app/obj_sim/box.h"
 
-void generate_sim_data(std::vector<Point> *hits, std::vector<Point> *origins) {
+namespace hm = library::hilbert_map;
+
+void generate_sim_data(std::vector<hm::Point> *hits, std::vector<hm::Point> *origins) {
 
   // Make boxes in the world
   std::vector<Box> objects;
@@ -25,14 +27,14 @@ void generate_sim_data(std::vector<Point> *hits, std::vector<Point> *origins) {
   // So rays always hit something
   objects.push_back(Box(0.0, 0.0, 20.1, 20.1));
 
-  Point origin(0.0, -2.0);
-  Point hit;
+  Eigen::Vector2d origin(0.0, -2.0);
+  Eigen::Vector2d hit;
 
   for (double angle = 0; angle < M_PI; angle += 0.01) {
     double best_distance = -1.0;
     bool valid_hit = false;
 
-    Point b_hit;
+    Eigen::Vector2d b_hit;
 
     for ( Box &b : objects) {
       double dist = b.GetHit(origin, angle, &b_hit);
@@ -44,8 +46,8 @@ void generate_sim_data(std::vector<Point> *hits, std::vector<Point> *origins) {
     }
 
     if (valid_hit) {
-      hits->push_back(hit);
-      origins->push_back(origin);
+      hits->push_back(hm::Point(hit(0), hit(1)));
+      origins->push_back(hm::Point(origin(0), origin(1)));
     }
   }
 }
@@ -53,7 +55,7 @@ void generate_sim_data(std::vector<Point> *hits, std::vector<Point> *origins) {
 int main(int argc, char** argv) {
   printf("Object sim\n");
 
-  std::vector<Point> hits, origins;
+  std::vector<hm::Point> hits, origins;
   auto tic_load = std::chrono::steady_clock::now();
   generate_sim_data(&hits, &origins);
   auto toc_load = std::chrono::steady_clock::now();
@@ -67,15 +69,15 @@ int main(int argc, char** argv) {
   }
   points_file.close();
 
-  HilbertMap map(hits, origins);
+  hm::HilbertMap map(hits, origins);
 
-  std::vector<Point> query_points;
+  std::vector<hm::Point> query_points;
   std::vector<float> probs;
 
   auto tic = std::chrono::steady_clock::now();
   for (double x = -11; x<11; x+=0.05) {
     for (double y = -11; y<11; y+=0.05) {
-      Point p(x, y);
+      hm::Point p(x, y);
       query_points.push_back(p);
       probs.push_back(map.GetOccupancy(p));
     }

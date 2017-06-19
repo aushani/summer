@@ -11,6 +11,9 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
+namespace library {
+namespace hilbert_map {
+
 struct MetaPoint {
 
   Point p;
@@ -665,4 +668,7 @@ float HilbertMap::GetOccupancy(Point p) {
   float res;
   cudaMemcpy(&res, data_->d_res, 1*sizeof(float), cudaMemcpyDeviceToHost);
   return res;
+}
+
+}
 }

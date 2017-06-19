@@ -3,6 +3,9 @@
 #include <vector>
 #include <string>
 
+namespace library {
+namespace hilbert_map {
+
 struct Point {
   float x;
   float y;
@@ -25,3 +28,6 @@ class HilbertMap {
  private:
   DeviceData *data_;
 };
+
+}
+}

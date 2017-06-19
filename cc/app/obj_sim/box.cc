@@ -11,16 +11,15 @@ Box::Box(double c_x, double c_y, double width, double length) {
   corners_.push_back(Eigen::Vector2d(c_x - length/2.0, c_y + width/2.0));
 }
 
-double Box::GetHit(const Point &origin, double angle, Point *hit) {
+double Box::GetHit(const Eigen::Vector2d &origin, double angle, Eigen::Vector2d *hit) {
 
   // Find line representing ray
-  Eigen::Vector2d p_o0(origin.x, origin.y);
   Eigen::Vector2d ray(cos(angle), sin(angle));
-  Eigen::Vector2d p_o1 = p_o0 + ray;
+  Eigen::Vector2d p_o1 = origin + ray;
 
-  Eigen::Vector3d p_o0h = p_o0.homogeneous();
+  Eigen::Vector3d originh = origin.homogeneous();
   Eigen::Vector3d p_o1h = p_o1.homogeneous();
-  Eigen::Vector3d l_ray = p_o0h.cross(p_o1h);
+  Eigen::Vector3d l_ray = originh.cross(p_o1h);
 
   bool valid = false;
   double best_distance = -1.0;
@@ -38,7 +37,7 @@ double Box::GetHit(const Point &origin, double angle, Point *hit) {
     Eigen::Vector2d p_intersect = l_ray.cross(l_edge).hnormalized();
 
     // Check for intersection in front of ray
-    double distance = (p_intersect - p_o0).dot(ray);
+    double distance = (p_intersect - origin).dot(ray);
     if (distance < 0)
       continue;
 
@@ -53,8 +52,7 @@ double Box::GetHit(const Point &origin, double angle, Point *hit) {
       continue;
 
     // Update hit
-    hit->x = p_intersect(0);
-    hit->y = p_intersect(1);
+    *hit = p_intersect;
     valid = true;
     best_distance = distance;
   }
