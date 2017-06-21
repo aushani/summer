@@ -11,7 +11,7 @@
 #include <random>
 #include <chrono>
 
-#include "library/hilbert_maps/hilbert_map.h"
+#include "library/hilbert_map/hilbert_map.h"
 #include "app/obj_sim/box.h"
 
 namespace hm = library::hilbert_map;
