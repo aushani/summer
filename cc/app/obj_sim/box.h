@@ -9,6 +9,8 @@ class Box {
 
   double GetHit(const Eigen::Vector2d &origin, double angle, Eigen::Vector2d *hit);
 
+  bool IsInside(double x, double y);
+
  private:
   std::vector<Eigen::Vector2d> corners_;
 };

@@ -69,9 +69,6 @@ struct DeviceData {
   int n_buckets;
   int n_subbuckets;
 
-  // TODO
-  float *d_res = NULL;
-
   bool own_memory;
 
   DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const IKernel &kernel) {
@@ -128,9 +125,6 @@ struct DeviceData {
     n_subbuckets = subbucket_n_dim * subbucket_n_dim;
     cudaMalloc(&bucket_starts, sizeof(int)*n_buckets*n_subbuckets);
 
-    // TODO
-    cudaMalloc(&d_res, 1*sizeof(float));
-
     own_memory = true;
 
     auto toc_setup = std::chrono::steady_clock::now();
@@ -144,7 +138,6 @@ struct DeviceData {
     if (origins) cudaFree(origins);
     if (mp) cudaFree(mp);
     if (bucket_starts) cudaFree(bucket_starts);
-    if (d_res) cudaFree(d_res);
   }
 
 };
@@ -557,7 +550,7 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
   }
 }
 
-__global__ void compute_occupancy(DeviceData data, Point x) {
+__global__ void compute_occupancy(DeviceData data, Point *points, float *res) {
 
   // Figure out where this thread is
   const int nx = blockDim.x;
@@ -566,7 +559,11 @@ __global__ void compute_occupancy(DeviceData data, Point x) {
   const int tidx = threadIdx.x;
   const int tidy = threadIdx.y;
 
+  const int bidx = blockIdx.x;
+
   extern __shared__ float phi_sparse[];
+
+  Point x = points[bidx];
 
   int i0 = (x.x - data.min) / data.inducing_point_step - data.kernel_width_xm/2.0;
   int j0 = (x.y - data.min) / data.inducing_point_step - data.kernel_width_xm/2.0;
@@ -597,27 +594,38 @@ __global__ void compute_occupancy(DeviceData data, Point x) {
     }
   }
 
-  data.d_res[0] = 1.0 / (1.0 + __expf(wTphi));
+  if (tidx==0 && tidy==0) {
+    res[bidx] = 1.0 / (1.0 + __expf(wTphi));
+  }
 }
 
-float HilbertMap::GetOccupancy(Point p) {
+std::vector<float> HilbertMap::GetOccupancy(std::vector<Point> points) {
+
+  float *d_res;
+  cudaMalloc(&d_res, sizeof(float)*points.size());
+
+  Point *d_points;
+  cudaMalloc(&d_points, sizeof(Point)*points.size());
+  cudaMemcpy(d_points, points.data(), sizeof(Point)*points.size(), cudaMemcpyHostToDevice);
 
   dim3 threads;
   threads.x = data_->kernel_width_xm;
   threads.y = data_->kernel_width_xm;
   threads.z = 1;
-  size_t blocks = 1;
+  size_t blocks = points.size();
   int sm_size = threads.x*threads.y*sizeof(float);
   //printf("Running with %dx%d threads and %d blocks and %ld sm_size\n",
   //    threads.x, threads.y, blocks, sm_size);
-  compute_occupancy<<<blocks, threads, sm_size>>>(*data_, p);
+  compute_occupancy<<<blocks, threads, sm_size>>>(*data_, d_points, d_res);
   cudaError_t err = cudaDeviceSynchronize();
   if (err != cudaSuccess) {
     printf("Whoops\n");
   }
 
-  float res;
-  cudaMemcpy(&res, data_->d_res, 1*sizeof(float), cudaMemcpyDeviceToHost);
+  cudaFree(d_points);
+
+  std::vector<float> res(points.size());
+  cudaMemcpy(res.data(), d_res, sizeof(float)*points.size(), cudaMemcpyDeviceToHost);
   return res;
 }
 

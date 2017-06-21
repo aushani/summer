@@ -25,7 +25,7 @@ class HilbertMap {
   //HilbertMap(const HilbertMap &hm);
   ~HilbertMap();
 
-  float GetOccupancy(Point p);
+  std::vector<float> GetOccupancy(std::vector<Point> p);
 
  private:
   DeviceData *data_;

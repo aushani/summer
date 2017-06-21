@@ -59,3 +59,26 @@ double Box::GetHit(const Eigen::Vector2d &origin, double angle, Eigen::Vector2d 
 
   return best_distance;
 }
+
+bool Box::IsInside(double x, double y) {
+
+  Eigen::Vector2d point(x, y);
+
+  // Sum up angles
+  double angle = 0.0;
+  for (int i=0; i<4; i++) {
+    Eigen::Vector2d c0 = corners_[i];
+    Eigen::Vector2d c1 = corners_[(i+1)%4];
+
+    Eigen::Vector2d pc0 = (c0 - point).normalized();
+    Eigen::Vector2d pc1 = (c1 - point).normalized();
+
+    angle += acos(pc0.dot(pc1)) * 180.0/M_PI;
+  }
+
+  if (angle >= 359.9) { // tol
+    return true;
+  }
+
+  return false;
+}

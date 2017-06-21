@@ -98,16 +98,15 @@ int main(int argc, char** argv) {
   printf("Took %5.3f ms avg for build\n", ((double)t_build_ms.count())/trials);
 
   std::vector<hm::Point> query_points;
-  std::vector<float> probs;
 
   auto tic = std::chrono::steady_clock::now();
   for (double x = -25; x<25; x+=0.1) {
     for (double y = -25; y<25; y+=0.1) {
       hm::Point p(x, y);
       query_points.push_back(p);
-      probs.push_back(map.GetOccupancy(p));
     }
   }
+  std::vector<float> probs = map.GetOccupancy(query_points);
   auto toc = std::chrono::steady_clock::now();
   auto t_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc - tic);
   printf("Evaluated grid in %ld ms (%5.3f ms / call)\n", t_ms.count(), ((double)t_ms.count())/query_points.size());
