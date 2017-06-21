@@ -595,7 +595,7 @@ __global__ void compute_occupancy(DeviceData data, Point *points, float *res) {
   }
 
   if (tidx==0 && tidy==0) {
-    res[bidx] = 1.0 / (1.0 + __expf(wTphi));
+    res[bidx] = 1.0 / (1.0 + __expf(-wTphi));
   }
 }
 
@@ -627,6 +627,91 @@ std::vector<float> HilbertMap::GetOccupancy(std::vector<Point> points) {
   std::vector<float> res(points.size());
   cudaMemcpy(res.data(), d_res, sizeof(float)*points.size(), cudaMemcpyDeviceToHost);
   return res;
+}
+
+__global__ void compute_log_likelihood(DeviceData data, Point *points, float *gt_labels, float *scores) {
+
+  // Figure out where this thread is
+  const int nx = blockDim.x;
+  const int ny = blockDim.y;
+
+  const int tidx = threadIdx.x;
+  const int tidy = threadIdx.y;
+
+  const int bidx = blockIdx.x;
+
+  extern __shared__ float phi_sparse[];
+
+  Point x = points[bidx];
+  float y = gt_labels[bidx];
+
+  int i0 = (x.x - data.min) / data.inducing_point_step - data.kernel_width_xm/2.0;
+  int j0 = (x.y - data.min) / data.inducing_point_step - data.kernel_width_xm/2.0;
+
+  int i = i0 + tidx;
+  int j = j0 + tidy;
+
+  // Evaluate kernel
+  float x_m_x = i*data.inducing_point_step + data.min;
+  float x_m_y = j*data.inducing_point_step + data.min;
+  float k = kernel_lookup(data, x.x - x_m_x, x.y - x_m_y);
+  phi_sparse[tidx*ny + tidy] = k;
+
+  __syncthreads();
+
+  float wTphi = 0.0;
+  for (int di=0; di<nx; di++) {
+    int w_i = i0 + di;
+    if (w_i < 0 || w_i >= data.inducing_points_n_dim)
+      continue;
+    for (int dj=0; dj<ny; dj++) {
+      int w_j = j0 + dj;
+      if (w_j < 0 || w_j >= data.inducing_points_n_dim)
+        continue;
+      int idx_w = w_i*data.inducing_points_n_dim + w_j;
+      int idx_sparse = di*ny + dj;
+      wTphi += data.w[idx_w] * phi_sparse[idx_sparse];
+    }
+  }
+
+  if (tidx==0 && tidy==0) {
+    scores[bidx] = log(1.0 + __expf(-y*wTphi));
+  }
+}
+
+float HilbertMap::ComputeLogLikelihood(std::vector<Point> points, std::vector<float> gt_labels) {
+
+  // Allocate
+  float *d_scores;
+  cudaMalloc(&d_scores, sizeof(float)*points.size());
+
+  Point *d_points;
+  cudaMalloc(&d_points, sizeof(Point)*points.size());
+  cudaMemcpy(d_points, points.data(), sizeof(Point)*points.size(), cudaMemcpyHostToDevice);
+
+  float *d_labels;
+  cudaMalloc(&d_labels, sizeof(float)*gt_labels.size());
+  cudaMemcpy(d_labels, gt_labels.data(), sizeof(float)*gt_labels.size(), cudaMemcpyHostToDevice);
+
+  dim3 threads;
+  threads.x = data_->kernel_width_xm;
+  threads.y = data_->kernel_width_xm;
+  threads.z = 1;
+  size_t blocks = points.size();
+  int sm_size = threads.x*threads.y*sizeof(float);
+  compute_log_likelihood<<<blocks, threads, sm_size>>>(*data_, d_points, d_labels, d_scores);
+  cudaError_t err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) {
+    printf("Whoops\n");
+  }
+
+  thrust::device_ptr<float> dp_scores(d_scores);
+  double score = thrust::reduce(dp_scores, dp_scores + points.size());
+  cudaFree(d_scores);
+  cudaFree(d_labels);
+  cudaFree(d_points);
+
+  return -score;
 }
 
 }

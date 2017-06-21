@@ -26,6 +26,7 @@ class HilbertMap {
   ~HilbertMap();
 
   std::vector<float> GetOccupancy(std::vector<Point> p);
+  float ComputeLogLikelihood(std::vector<Point> points, std::vector<float> gt_labels);
 
  private:
   DeviceData *data_;
