@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 
+#include "library/hilbert_map/kernel.h"
+
 namespace library {
 namespace hilbert_map {
 
@@ -19,7 +21,7 @@ typedef struct DeviceData DeviceData;
 
 class HilbertMap {
  public:
-  HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins);
+  HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel);
   //HilbertMap(const HilbertMap &hm);
   ~HilbertMap();
 

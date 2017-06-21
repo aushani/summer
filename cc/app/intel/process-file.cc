@@ -81,17 +81,18 @@ int main(int argc, char** argv) {
 
   std::ofstream points_file;
   points_file.open("points.csv");
-  for (int i=0; i<hits.size(); i++) {
+  for (size_t i=0; i<hits.size(); i++) {
     points_file << hits[i].x << ", " << hits[i].y << std::endl;
   }
   points_file.close();
 
-  hm::HilbertMap map(hits, origins);
+  hm::SparseKernel kernel(1.0);
+  hm::HilbertMap map(hits, origins, kernel);
 
   auto tic_build = std::chrono::steady_clock::now();
   int trials = 10;
   for (int i=0; i<trials; i++)
-    hm::HilbertMap tmp(hits, origins);
+    hm::HilbertMap tmp(hits, origins, kernel);
   auto toc_build = std::chrono::steady_clock::now();
   auto t_build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_build - tic_build);
   printf("Took %5.3f ms avg for build\n", ((double)t_build_ms.count())/trials);

@@ -34,8 +34,7 @@ struct DeviceData {
   float max =  25.0;
 
   int inducing_points_n_dim = 100;
-  float kernel_width_meters = 1.0;
-  float kernel_width_meters_sq = kernel_width_meters * kernel_width_meters;
+  float kernel_width_meters;
 
   // Buckets (for processing in parallel without data collision)
   int bucket_n_dim = 100;
@@ -53,8 +52,8 @@ struct DeviceData {
   // Kernel table
   float *kernel_table;
   const int kernel_table_n_dim = 1024;
-  float kernel_table_resolution = kernel_width_meters / kernel_table_n_dim;
-  float kernel_table_scale = 1.0/kernel_table_resolution;
+  float kernel_table_resolution;
+  float kernel_table_scale;
 
   // Raw data we make observations from
   Point *hits = NULL;
@@ -75,12 +74,15 @@ struct DeviceData {
 
   bool own_memory;
 
-  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins) {
+  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const IKernel &kernel) {
     auto tic_setup = std::chrono::steady_clock::now();
 
     // Params
     inducing_point_step = (max - min)/inducing_points_n_dim;
+    kernel_width_meters = kernel.MaxSupport();
     kernel_width_xm = (kernel_width_meters / inducing_point_step + 1)*2 + 1;
+    kernel_table_resolution = kernel_width_meters / kernel_table_n_dim;
+    kernel_table_scale = 1.0/kernel_table_resolution;
     printf("Kernel width: %d pixels\n", kernel_width_xm);
 
     // Each subblock must be twice the support size (in meters) of the kernel away from any other subblock
@@ -92,8 +94,22 @@ struct DeviceData {
     cudaMalloc(&w, sizeof(float)*n_inducing_points);
     cudaMemset(w, 0, sizeof(float)*n_inducing_points);
 
-    // Alloc kernel table
+    // Make kernel table
+    auto tic_kernel = std::chrono::steady_clock::now();
     cudaMalloc(&kernel_table, sizeof(float)*kernel_table_n_dim*kernel_table_n_dim);
+    std::vector<float> kt_host;
+    for (int i=0; i<kernel_table_n_dim; i++) {
+      float dx = i*kernel_table_resolution;
+      for (int j=0; j<kernel_table_n_dim; j++) {
+        float dy = j*kernel_table_resolution;
+        kt_host.push_back(kernel.Evaluate(dx, dy));
+      }
+    }
+    cudaMemcpy(kernel_table, kt_host.data(), sizeof(float)*kernel_table_n_dim*kernel_table_n_dim, cudaMemcpyHostToDevice);
+    auto toc_kernel = std::chrono::steady_clock::now();
+    auto t_kernel_us = std::chrono::duration_cast<std::chrono::microseconds>(toc_kernel - tic_kernel);
+    printf("\tPrecomputed %dx%d kernel lookup table in %5.3f ms\n",
+        kernel_table_n_dim, kernel_table_n_dim, t_kernel_us.count()/1000.0);
 
     // Copy data to device
     cudaMalloc(&hits, sizeof(Point)*raw_hits.size());
@@ -152,43 +168,21 @@ struct IsInvalidMP {
 };
 
 // Forward declaration of kernels
-__global__ void precompute_kernel_table(DeviceData data);
 __global__ void make_observations(DeviceData data, unsigned int seed);
 __global__ void perform_w_update_buckets(DeviceData data, int subbucket);
 __global__ void populate_meta_info(DeviceData data);
 __global__ void compute_bucket_indicies(DeviceData data);
 __global__ void compute_subbucket_indicies(DeviceData data);
 
-HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins) :
-  data_(new DeviceData(hits, origins)) {
-
-  // Precompute kernel table
-  auto tic_kernel = std::chrono::steady_clock::now();
-  dim3 threads_dim;
-  threads_dim.x = 32;
-  threads_dim.y = 32;
-  threads_dim.z = 1;
-  dim3 blocks_dim;
-  blocks_dim.x = ceil(data_->kernel_table_n_dim/threads_dim.x);
-  blocks_dim.y = ceil(data_->kernel_table_n_dim/threads_dim.y);
-  blocks_dim.z = 1;
-  precompute_kernel_table<<<threads_dim, blocks_dim>>>(*data_);
-  cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) {
-    printf("Whoops\n");
-  }
-  auto toc_kernel = std::chrono::steady_clock::now();
-  auto t_kernel_us = std::chrono::duration_cast<std::chrono::microseconds>(toc_kernel - tic_kernel);
-  printf("\tPrecomputed %dx%d kernel lookup table in %5.3f ms with %dx%d threads and %dx%d blocks\n",
-      data_->kernel_table_n_dim, data_->kernel_table_n_dim, t_kernel_us.count()/1000.0,
-      threads_dim.x, threads_dim.y, blocks_dim.x, blocks_dim.y);
+HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel)
+  : data_(new DeviceData(hits, origins, kernel)) {
 
   // Make observations from raw hits
   auto tic_obs = std::chrono::steady_clock::now();
   int threads = 512;
   int blocks = data_->n_obs / threads + 1;
   make_observations<<<threads, blocks>>>(*data_, 0);
-  err = cudaDeviceSynchronize();
+  cudaError_t err = cudaDeviceSynchronize();
   if (err != cudaSuccess) {
     printf("Whoops\n");
   }
@@ -260,27 +254,7 @@ HilbertMap::~HilbertMap() {
   data_->cleanup();
 }
 
-__device__ float k_sparse_compute(DeviceData &data, float dx, float dy) {
-
-  // box filter with eps
-  //return (abs(dx) < 1.0001 && abs(dy) < 1.0001) ? 1.0:0.0;
-
-  float d2 = dx*dx + dy*dy;
-
-  if (d2 > data.kernel_width_meters_sq)
-    return 0;
-
-  float r = sqrt(d2);
-
-  // Apply kernel width
-  r /= data.kernel_width_meters;
-
-  float t = 2 * M_PI * r;
-
-  return (2 + cosf(t)) / 3 * (1 - r) + 1.0/(2 * M_PI) * sinf(t);
-}
-
-__device__ float k_sparse_lookup(DeviceData &data, float dx, float dy) {
+__device__ float kernel_lookup(DeviceData &data, float dx, float dy) {
   int idx = llrintf(abs(dx)*data.kernel_table_scale);
   int idy = llrintf(abs(dy)*data.kernel_table_scale);
 
@@ -288,29 +262,6 @@ __device__ float k_sparse_lookup(DeviceData &data, float dx, float dy) {
     return 0;
 
   return data.kernel_table[idx*data.kernel_table_n_dim + idy];
-}
-
-__global__ void precompute_kernel_table(DeviceData data) {
-
-  const int bidx = blockIdx.x;
-  const int bidy = blockIdx.y;
-
-  const int tidx = threadIdx.x;
-  const int tidy = threadIdx.y;
-
-  const int nx = blockDim.x;
-  const int ny = blockDim.y;
-
-  const int idx = bidx*nx + tidx;
-  const int idy = bidy*ny + tidy;
-
-  if (idx >= data.kernel_table_n_dim || idy >= data.kernel_table_n_dim)
-    return;
-
-  float dx = idx*data.kernel_table_resolution;
-  float dy = idy*data.kernel_table_resolution;
-
-  data.kernel_table[idx*data.kernel_table_n_dim + idy] = k_sparse_compute(data, dx, dy);
 }
 
 __global__ void make_observations(DeviceData data, unsigned int seed) {
@@ -572,7 +523,7 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
     int idx_w = i*data.inducing_points_n_dim + j;
     float x_m_x = i*data.inducing_point_step + data.min;
     float x_m_y = j*data.inducing_point_step + data.min;
-    float k = k_sparse_lookup(data, x.x - x_m_x, x.y - x_m_y);
+    float k = kernel_lookup(data, x.x - x_m_x, x.y - x_m_y);
     if (i >=0 && i < data.inducing_points_n_dim && j>=0 && j<data.inducing_points_n_dim) {
       phi_sparse[idx_phi] = data.w[idx_w]*k;
     } else {
@@ -626,7 +577,7 @@ __global__ void compute_occupancy(DeviceData data, Point x) {
   // Evaluate kernel
   float x_m_x = i*data.inducing_point_step + data.min;
   float x_m_y = j*data.inducing_point_step + data.min;
-  float k = k_sparse_lookup(data, x.x - x_m_x, x.y - x_m_y);
+  float k = kernel_lookup(data, x.x - x_m_x, x.y - x_m_y);
   phi_sparse[tidx*ny + tidy] = k;
 
   __syncthreads();

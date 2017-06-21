@@ -64,12 +64,14 @@ int main(int argc, char** argv) {
 
   std::ofstream points_file;
   points_file.open("points.csv");
-  for (int i=0; i<hits.size(); i++) {
+  for (size_t i=0; i<hits.size(); i++) {
     points_file << hits[i].x << ", " << hits[i].y << std::endl;
   }
   points_file.close();
 
-  hm::HilbertMap map(hits, origins);
+  //hm::SparseKernel kernel(1.0);
+  hm::BoxKernel kernel(1.0);
+  hm::HilbertMap map(hits, origins, kernel);
 
   std::vector<hm::Point> query_points;
   std::vector<float> probs;
