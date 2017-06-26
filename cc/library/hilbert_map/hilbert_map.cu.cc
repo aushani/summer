@@ -50,10 +50,7 @@ struct DeviceData {
   float inducing_point_step;
 
   // Kernel table
-  float *kernel_table;
-  const int kernel_table_n_dim = 1024;
-  float kernel_table_resolution;
-  float kernel_table_scale;
+  DeviceKernelTable kernel_table;
 
   // Raw data we make observations from
   Point *hits = NULL;
@@ -71,16 +68,14 @@ struct DeviceData {
 
   bool own_memory;
 
-  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const IKernel &kernel) {
+  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const IKernel &kernel) :
+    kernel_table(kernel.MakeDeviceKernelTable()) {
     auto tic_setup = std::chrono::steady_clock::now();
 
     // Params
     inducing_point_step = (max - min)/inducing_points_n_dim;
     kernel_width_meters = kernel.MaxSupport();
     kernel_width_xm = (kernel_width_meters / inducing_point_step + 1)*2 + 1;
-    kernel_table_resolution = kernel_width_meters / kernel_table_n_dim;
-    kernel_table_scale = 1.0/kernel_table_resolution;
-    printf("Kernel width: %d pixels\n", kernel_width_xm);
 
     // Each subblock must be twice the support size (in meters) of the kernel away from any other subblock
     // that runs concurrently.
@@ -90,23 +85,6 @@ struct DeviceData {
     int n_inducing_points = inducing_points_n_dim * inducing_points_n_dim;
     cudaMalloc(&w, sizeof(float)*n_inducing_points);
     cudaMemset(w, 0, sizeof(float)*n_inducing_points);
-
-    // Make kernel table
-    auto tic_kernel = std::chrono::steady_clock::now();
-    cudaMalloc(&kernel_table, sizeof(float)*kernel_table_n_dim*kernel_table_n_dim);
-    std::vector<float> kt_host;
-    for (int i=0; i<kernel_table_n_dim; i++) {
-      float dx = i*kernel_table_resolution;
-      for (int j=0; j<kernel_table_n_dim; j++) {
-        float dy = j*kernel_table_resolution;
-        kt_host.push_back(kernel.Evaluate(dx, dy));
-      }
-    }
-    cudaMemcpy(kernel_table, kt_host.data(), sizeof(float)*kernel_table_n_dim*kernel_table_n_dim, cudaMemcpyHostToDevice);
-    auto toc_kernel = std::chrono::steady_clock::now();
-    auto t_kernel_us = std::chrono::duration_cast<std::chrono::microseconds>(toc_kernel - tic_kernel);
-    printf("\tPrecomputed %dx%d kernel lookup table in %5.3f ms\n",
-        kernel_table_n_dim, kernel_table_n_dim, t_kernel_us.count()/1000.0);
 
     // Copy data to device
     cudaMalloc(&hits, sizeof(Point)*raw_hits.size());
@@ -129,11 +107,10 @@ struct DeviceData {
 
     auto toc_setup = std::chrono::steady_clock::now();
     auto t_setup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_setup - tic_setup);
-    printf("\tTook %ld ms to setup device data\n", t_setup_ms.count());
+    //printf("\tTook %ld ms to setup device data\n", t_setup_ms.count());
   }
 
-  void cleanup() {
-    if (kernel_table) cudaFree(kernel_table);
+  void Cleanup() {
     if (hits) cudaFree(hits);
     if (origins) cudaFree(origins);
     if (mp) cudaFree(mp);
@@ -190,7 +167,7 @@ HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> 
   data_->n_data = dp_mp_end - dp_mp;
   auto toc_remove = std::chrono::steady_clock::now();
   auto t_remove_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_remove - tic_remove);
-  printf("\tRemoved invalid in %ld ms\n", t_remove_ms.count());
+  printf("\tRemoved invalid in %ld ms, have %ld left\n", t_remove_ms.count(), data_->n_data);
 
   // Compute meta information for points
   threads = 512;
@@ -244,17 +221,18 @@ HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> 
 }
 
 HilbertMap::~HilbertMap() {
-  data_->cleanup();
+  data_->Cleanup();
+  data_->kernel_table.Cleanup();
 }
 
 __device__ float kernel_lookup(DeviceData &data, float dx, float dy) {
-  int idx = llrintf(abs(dx)*data.kernel_table_scale);
-  int idy = llrintf(abs(dy)*data.kernel_table_scale);
+  int idx = llrintf(abs(dx)*data.kernel_table.scale);
+  int idy = llrintf(abs(dy)*data.kernel_table.scale);
 
-  if (idx >= data.kernel_table_n_dim || idy >= data.kernel_table_n_dim)
+  if (idx >= data.kernel_table.n_dim || idy >= data.kernel_table.n_dim)
     return 0;
 
-  return data.kernel_table[idx*data.kernel_table_n_dim + idy];
+  return data.kernel_table.kernel_table[idx*data.kernel_table.n_dim + idy];
 }
 
 __global__ void make_observations(DeviceData data, unsigned int seed) {

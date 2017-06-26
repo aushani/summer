@@ -1,7 +1,52 @@
-#include "kernel.h"
+#include "library/hilbert_map/kernel.h"
+
+#include <vector>
+
+#include <iostream>
 
 namespace library {
 namespace hilbert_map {
+
+DeviceKernelTable::DeviceKernelTable(int nd, float max_support) :
+ n_dim(nd),
+ resolution(ceil(max_support/n_dim)),
+ scale(1.0f/resolution) {
+  cudaMalloc(&kernel_table, sizeof(float)*n_dim*n_dim);
+}
+
+DeviceKernelTable::~DeviceKernelTable() {
+
+}
+
+void DeviceKernelTable::Cleanup() {
+  if (kernel_table) {
+    cudaFree(kernel_table);
+    kernel_table = NULL;
+  }
+}
+
+void DeviceKernelTable::SetData(const float *data) {
+  cudaMemcpy(kernel_table, data, sizeof(float)*n_dim*n_dim, cudaMemcpyHostToDevice);
+}
+
+DeviceKernelTable IKernel::MakeDeviceKernelTable() const {
+
+  DeviceKernelTable kt(1024, MaxSupport());
+
+  std::vector<float> kt_host;
+  for (int i=0; i<kt.n_dim; i++) {
+    float dx = i*kt.resolution;
+    for (int j=0; j<kt.n_dim; j++) {
+      float dy = j*kt.resolution;
+      kt_host.push_back(Evaluate(dx, dy));
+    }
+  }
+
+  kt.SetData(kt_host.data());
+
+  return kt;
+}
+
 
 SparseKernel::SparseKernel(float kwm) :
   kernel_width_meters_(kwm) {
