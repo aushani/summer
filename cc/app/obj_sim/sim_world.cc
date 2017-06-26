@@ -43,3 +43,7 @@ bool SimWorld::IsOccupied(float x, float y) {
 
   return false;
 }
+
+const std::vector<Box>& SimWorld::GetObjects() {
+  return objects_;
+}

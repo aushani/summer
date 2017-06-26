@@ -18,31 +18,41 @@
 
 namespace hm = library::hilbert_map;
 
-double score_map(SimWorld &sim, hm::HilbertMap &map) {
-  std::vector<hm::Point> query_points;
-  std::vector<float> gt;
-  for (double x = -11; x<11; x+=0.05) {
-    for (double y = -11; y<11; y+=0.05) {
-      hm::Point p(x, y);
-      query_points.push_back(p);
-      gt.push_back(sim.IsOccupied(x, y) ? -1.0 : 1.0);
+void make_scoring_points(SimWorld &sim, std::vector<hm::Point> *query_points, std::vector<float> *gt_labels) {
+  int count_occu = 0;
+  int count_free = 0;
+  int count_max_occu = 10000;
+  int count_max_free = 10;
+
+  double lower_bound = -10;
+  double upper_bound = 10;
+  std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
+  std::default_random_engine re;
+
+  while (count_occu < count_max_occu || count_free < count_max_free) {
+    double x = unif(re);
+    double y = unif(re);
+
+    bool occu = sim.IsOccupied(x, y);
+    if (occu) {
+      if (count_occu == count_max_occu) {
+        continue;
+      } else {
+        count_occu++;
+      }
     }
-  }
-  std::vector<float> probs = map.GetOccupancy(query_points);
-
-  double score = 0;
-  for (size_t i=0; i<gt.size(); i++) {
-    double p = probs[i];
-    double y = gt[i];
-
-    if (y > 0) {
-      score += log(p);
-    } else {
-      score += log(1-p);
+    if (!occu) {
+      if (count_free == count_max_free) {
+        continue;
+      } else {
+        count_free++;
+      }
     }
-  }
 
-  return score;
+    hm::Point p(x, y);
+    query_points->push_back(p);
+    gt_labels->push_back(occu ? -1.0 : 1.0);
+  }
 }
 
 void make_query_points(SimWorld &sim, std::vector<hm::Point> *query_points, std::vector<float> *gt_labels) {
@@ -55,8 +65,41 @@ void make_query_points(SimWorld &sim, std::vector<hm::Point> *query_points, std:
   }
 }
 
+void am_i_clever() {
+
+  // Create sim world and generate data
+  SimWorld sim;
+  std::vector<hm::Point> points;
+  std::vector<float> labels;
+  make_query_points(sim, &points, &labels);
+
+  // This kernel is actually w
+  LearnedKernel kernel(10.0, 0.1);
+  for (size_t i = 0; i<kernel.GetDimSize(); i++) {
+    for (size_t j = 0; j<kernel.GetDimSize(); j++) {
+      kernel.SetPixel(i, j, -1.0f);
+    }
+  }
+
+  for (const Box& box : sim.GetObjects()) {
+    float x = box.GetCenterX();
+    float y = box.GetCenterY();
+
+    int i = x * kernel.GetResolution();
+    int j = y * kernel.GetResolution();
+
+    kernel.SetPixel(i, j, 1.0f);
+  }
+
+  // Make a map with this "kernel"
+  hm::HilbertMap map(points, labels, kernel);
+}
+
 int main(int argc, char** argv) {
   printf("Object sim\n");
+
+  am_i_clever();
+  return 0;
 
   // Create sim world and generate data
   SimWorld sim;
@@ -72,52 +115,60 @@ int main(int argc, char** argv) {
   points_file.close();
 
   // Create query points and labels
-  std::vector<hm::Point> query_points;
-  std::vector<float> gt_labels;
-  make_query_points(sim, &query_points, &gt_labels);
+  std::vector<hm::Point> query_points, scoring_points;
+  std::vector<float> gt_labels, query_labels;
+  make_scoring_points(sim, &scoring_points, &gt_labels);
+  make_query_points(sim, &query_points, &query_labels);
 
   // Make kernel and map
   //hm::SparseKernel kernel(1.0);
-  //hm::BoxKernel kernel(1.0);
-  LearnedKernel kernel(4.0, 0.1);
-  LearnedKernel new_kernel(4.0, 0.1);
+  hm::BoxKernel box_kernel(1.0);
+  hm::HilbertMap box_map(hits, origins, box_kernel);
+  double box_score = box_map.ComputeLogLikelihood(scoring_points, gt_labels) / scoring_points.size();
+  printf("Score for box kernel is %5.3f\n", box_score);
 
-  for (int step = 0; step<5; step++) {
-    printf("Step %d\n", step);
+  LearnedKernel kernel(2.0, 0.5);
 
-    hm::HilbertMap map(hits, origins, kernel);
+  LearnedKernel best_kernel(2.0, 0.5);
+  best_kernel.CopyFrom(hm::BoxKernel(1.0));
+  hm::HilbertMap map_bk(hits, origins, kernel);
+  double best_score = map_bk.ComputeLogLikelihood(scoring_points, gt_labels) / scoring_points.size();
 
-    double score = map.ComputeLogLikelihood(query_points, gt_labels) / query_points.size();
-    printf("\tScore is: %7.5f\n", score);
+  int n = kernel.GetDimSize();
+  uint64_t steps = 1;
+  steps <<= n*n;
 
-    std::vector<double> grads;
-    for (int i=0; i<kernel.GetDimSize(); i++) {
-      for (int j=0; j<kernel.GetDimSize(); j++) {
-        // Step kernel
-        float val = kernel.GetPixel(i, j);
+  for (uint64_t step=0; step<steps; step++) {
 
-        float new_val = val > 0 ? 0.0:1.0;
-        kernel.SetPixel(i, j, new_val);
-        //printf(" Kernel %d, %d is %f\n", i, j, val);
+    if (step % 1000 == 0) {
+      printf("Step %ld of %ld\n", step, steps);
+    }
 
-        // Make map and evaluate
-        hm::HilbertMap map_delta(hits, origins, kernel);
-        double score_delta = map_delta.ComputeLogLikelihood(query_points, gt_labels) / query_points.size();
-
-        // Reset kernel
-        if (score_delta < score) {
-          new_kernel.SetPixel(i, j, new_val);
-        } else {
-          new_kernel.SetPixel(i, j, val);
-        }
+    // Make kernel
+    for (int i=0; i<n; i++) {
+      for (int j=0; j<n; j++) {
+        int idx = i*n + j;
+        int val = step & (1<<idx);
+        kernel.SetPixel(i, j, val ? 1.0f:0.0f);
       }
     }
 
-    // Update kernel
-    kernel.CopyFrom(new_kernel);
+  //for (int i=0; i<100; i++) {
+  //  hm::BoxKernel bk(1.0);
+  //  kernel.CopyFrom(bk);
+
+    // Eval kernel
+    hm::HilbertMap map(hits, origins, kernel);
+    double score = map.ComputeLogLikelihood(scoring_points, gt_labels) / scoring_points.size();
+
+    if (score < best_score) {
+      best_score = score;
+      best_kernel.CopyFrom(kernel);
+      printf("\tscore is %7.5f\n", score);
+    }
   }
 
-  hm::HilbertMap map(hits, origins, kernel);
+  hm::HilbertMap map(hits, origins, best_kernel);
 
   // Evaluate
   auto tic = std::chrono::steady_clock::now();
@@ -138,12 +189,24 @@ int main(int argc, char** argv) {
   }
   grid_file.close();
 
+  std::ofstream scoring_file;
+  scoring_file.open("scoring.csv");
+  probs = map.GetOccupancy(scoring_points);
+  for (size_t i=0; i<scoring_points.size(); i++) {
+    float x = scoring_points[i].x;
+    float y = scoring_points[i].y;
+    float p = probs[i];
+
+    scoring_file << x << ", " << y << ", " << p << std::endl;
+  }
+  scoring_file.close();
+
   // Write kernel to file
   std::ofstream kernel_file;
   kernel_file.open("kernel.csv");
-  for (float x = -kernel.MaxSupport(); x<kernel.MaxSupport(); x+=0.1) {
-    for (float y = -kernel.MaxSupport(); y<kernel.MaxSupport(); y+=0.1) {
-      float val = kernel.Evaluate(x, y);
+  for (float x = -best_kernel.MaxSupport(); x<=best_kernel.MaxSupport(); x+=0.01) {
+    for (float y = -best_kernel.MaxSupport(); y<=best_kernel.MaxSupport(); y+=0.01) {
+      float val = best_kernel.Evaluate(x, y);
       kernel_file << x << ", " << y << ", " << val << std::endl;
     }
   }

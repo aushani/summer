@@ -2,7 +2,9 @@
 
 #include <Eigen/Geometry>
 
-Box::Box(double c_x, double c_y, double width, double length) {
+Box::Box(double c_x, double c_y, double width, double length) :
+  c_x_(c_x),
+  c_y_(c_y) {
 
   // Box corners
   corners_.push_back(Eigen::Vector2d(c_x + length/2.0, c_y + width/2.0));
@@ -81,4 +83,12 @@ bool Box::IsInside(double x, double y) {
   }
 
   return false;
+}
+
+float Box::GetCenterX() const {
+  return c_x_;
+}
+
+float Box::GetCenterY() const {
+  return c_y_;
 }

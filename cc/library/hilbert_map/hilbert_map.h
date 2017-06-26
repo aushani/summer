@@ -22,6 +22,7 @@ typedef struct DeviceData DeviceData;
 class HilbertMap {
  public:
   HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel);
+  HilbertMap(const std::vector<Point> &Points, const std::vector<float> &labels, const IKernel &kernel);
   //HilbertMap(const HilbertMap &hm);
   ~HilbertMap();
 

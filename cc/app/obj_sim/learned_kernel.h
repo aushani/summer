@@ -22,6 +22,7 @@ class LearnedKernel : public hm::IKernel {
   void SetPixel(int i, int j, float x);
 
   size_t GetDimSize() const;
+  float GetResolution() const;
 
  private:
   size_t dim_size_;

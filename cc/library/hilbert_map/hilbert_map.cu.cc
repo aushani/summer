@@ -15,6 +15,7 @@ namespace library {
 namespace hilbert_map {
 
 // Forward declaration of kernels
+__global__ void copy_observations(DeviceData data, Point *points, float *labels);
 __global__ void make_observations(DeviceData data, Point *hits, Point *origins, int n_obs, unsigned int seed);
 __global__ void perform_w_update_buckets(DeviceData data, int subbucket);
 __global__ void populate_meta_info(DeviceData data);
@@ -123,6 +124,35 @@ struct DeviceData {
     cudaFree(d_origins);
   }
 
+  DeviceData(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel) :
+    DeviceData(kernel) {
+    // malloc workspace
+    n_data = points.size();
+    cudaMalloc(&mp, sizeof(MetaPoint)*n_data);
+
+    // Copy data to device
+    Point *d_points;
+    float *d_labels;
+    cudaMalloc(&d_points, sizeof(Point)*points.size());
+    cudaMalloc(&d_labels, sizeof(float)*labels.size());
+
+    cudaMemcpy(d_points, points.data(), sizeof(Point)*points.size(), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_labels, labels.data(), sizeof(float)*labels.size(), cudaMemcpyHostToDevice);
+
+    // Make observations from raw hits
+    int threads = 512;
+    int blocks = ceil(((double)n_data) / threads);
+    copy_observations<<<threads, blocks>>>(*this, d_points, d_labels);
+
+    n_buckets = bucket_n_dim * bucket_n_dim;
+    n_subbuckets = subbucket_n_dim * subbucket_n_dim;
+    cudaMalloc(&bucket_starts, sizeof(int)*n_buckets*n_subbuckets);
+
+    // Cleanup
+    cudaFree(d_points);
+    cudaFree(d_labels);
+  }
+
   void Cleanup() {
     if (mp) cudaFree(mp);
     if (bucket_starts) cudaFree(bucket_starts);
@@ -195,6 +225,60 @@ HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> 
   printf("\tLearned w in %ld ms\n", t_learn_ms.count());
 }
 
+HilbertMap::HilbertMap(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel)
+  : data_(new DeviceData(points, labels, kernel)) {
+
+  // Compute meta information for points
+  int threads = 512;
+  int blocks = data_->n_data / threads + 1;
+  populate_meta_info<<<blocks, threads>>>(*data_);
+
+  // Sort points by bucket to enable processing in parallel without memory collisions on w
+  auto tic_sort = std::chrono::steady_clock::now();
+  thrust::device_ptr<MetaPoint> dp_data(data_->mp);
+  thrust::sort(dp_data, dp_data + data_->n_data, PointBucketComparator());
+  auto toc_sort = std::chrono::steady_clock::now();
+  auto t_sort_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_sort - tic_sort);
+  printf("\tSorted points into buckets in %ld ms\n", t_sort_ms.count());
+
+  // Find bucket start/end indexes
+  threads = 512;
+  blocks = data_->n_buckets / threads + 1;
+  compute_bucket_indicies<<<blocks, threads>>>(*data_);
+  compute_subbucket_indicies<<<blocks, threads>>>(*data_);
+
+  auto tic_learn = std::chrono::steady_clock::now();
+  int epochs = 1;
+  for (int i=0; i<epochs; i++) {
+    for (int subbucket=0; subbucket < data_->n_subbuckets; subbucket++) {
+      //auto tic_w = std::chrono::steady_clock::now();
+      dim3 threads;
+      threads.x = data_->kernel_width_xm;
+      threads.y = data_->kernel_width_xm;
+      threads.z = 1;
+      int blocks = data_->n_buckets;
+      int sm_size = threads.x*threads.y*sizeof(float);
+      //perform_w_update<<<blocks, threads, sm_size>>>(*data_);
+      perform_w_update_buckets<<<blocks, threads, sm_size>>>(*data_, subbucket);
+      //cudaError_t err = cudaDeviceSynchronize();
+      //if (err != cudaSuccess) {
+      //  printf("Whoops\n");
+      //}
+      //auto toc_w = std::chrono::steady_clock::now();
+      //auto t_w_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_w - tic_w);
+      //printf("\tTook %02ld ms to update w on subbucket %d with %d blocks and %dx%d threads\n",
+      //    t_w_ms.count(), subbucket, blocks, threads.x, threads.y);
+    }
+  }
+  cudaError_t err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) {
+    printf("Whoops\n");
+  }
+  auto toc_learn = std::chrono::steady_clock::now();
+  auto t_learn_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_learn - tic_learn);
+  printf("\tLearned w in %ld ms\n", t_learn_ms.count());
+}
+
 HilbertMap::~HilbertMap() {
   data_->Cleanup();
   data_->kernel_table.Cleanup();
@@ -208,6 +292,28 @@ __device__ float kernel_lookup(DeviceData &data, float dx, float dy) {
     return 0;
 
   return data.kernel_table.kernel_table[idx*data.kernel_table.n_dim + idy];
+}
+
+__global__ void copy_observations(DeviceData data, Point *points, float *labels) {
+
+  // Figure out where this thread is
+  const int bidx = blockIdx.x;
+  const int tidx = threadIdx.x;
+
+  const int threads = blockDim.x;
+
+  const int idx = bidx*threads + tidx;
+
+  if (idx >= data.n_data)
+    return;
+
+  Point point = points[idx];
+  float label = labels[idx];
+
+  // Add hit
+  data.mp[idx].p = point;
+  data.mp[idx].label = label;
+  data.mp[idx].valid = 1;
 }
 
 __global__ void make_observations(DeviceData data, Point *hits, Point *origins, int n_obs, unsigned int seed) {

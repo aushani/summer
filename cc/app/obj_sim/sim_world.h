@@ -13,6 +13,8 @@ class SimWorld {
 
   void GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Point> *origins);
 
+  const std::vector<Box>& GetObjects();
+
   bool IsOccupied(float x, float y);
 
  private:

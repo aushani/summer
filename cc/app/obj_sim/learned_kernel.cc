@@ -55,3 +55,7 @@ void LearnedKernel::SetPixel(int i, int j, float x) {
 size_t LearnedKernel::GetDimSize() const {
   return dim_size_;
 }
+
+float LearnedKernel::GetResolution() const {
+  return res_;
+}
