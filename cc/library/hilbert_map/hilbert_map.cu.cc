@@ -14,6 +14,13 @@
 namespace library {
 namespace hilbert_map {
 
+// Forward declaration of kernels
+__global__ void make_observations(DeviceData data, Point *hits, Point *origins, int n_obs, unsigned int seed);
+__global__ void perform_w_update_buckets(DeviceData data, int subbucket);
+__global__ void populate_meta_info(DeviceData data);
+__global__ void compute_bucket_indicies(DeviceData data);
+__global__ void compute_subbucket_indicies(DeviceData data);
+
 struct MetaPoint {
 
   Point p;
@@ -22,6 +29,12 @@ struct MetaPoint {
 
   int bucket_idx;
   int subbucket_idx;
+};
+
+struct IsInvalidMP {
+  __host__ __device__ bool operator()(const MetaPoint &mp) const {
+    return mp.valid == 0;
+  }
 };
 
 struct DeviceData {
@@ -52,11 +65,6 @@ struct DeviceData {
   // Kernel table
   DeviceKernelTable kernel_table;
 
-  // Raw data we make observations from
-  Point *hits = NULL;
-  Point *origins = NULL;
-  int n_obs;
-
   // Data points we're considering
   MetaPoint *mp = NULL;
   int n_data;
@@ -66,12 +74,8 @@ struct DeviceData {
   int n_buckets;
   int n_subbuckets;
 
-  bool own_memory;
-
-  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const IKernel &kernel) :
+  DeviceData(const IKernel &kernel) :
     kernel_table(kernel.MakeDeviceKernelTable()) {
-    auto tic_setup = std::chrono::steady_clock::now();
-
     // Params
     inducing_point_step = (max - min)/inducing_points_n_dim;
     kernel_width_meters = kernel.MaxSupport();
@@ -85,38 +89,44 @@ struct DeviceData {
     int n_inducing_points = inducing_points_n_dim * inducing_points_n_dim;
     cudaMalloc(&w, sizeof(float)*n_inducing_points);
     cudaMemset(w, 0, sizeof(float)*n_inducing_points);
+  }
 
-    // Copy data to device
-    cudaMalloc(&hits, sizeof(Point)*raw_hits.size());
-    cudaMalloc(&origins, sizeof(Point)*raw_origins.size());
-
-    cudaMemcpy(hits, raw_hits.data(), sizeof(Point)*raw_hits.size(), cudaMemcpyHostToDevice);
-    cudaMemcpy(origins, raw_origins.data(), sizeof(Point)*raw_origins.size(), cudaMemcpyHostToDevice);
-
+  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const IKernel &kernel) :
+    DeviceData(kernel) {
     // malloc workspace
     int max_obs_per_point = ceil(max_range / meters_per_observation) + 1;
-    n_obs = raw_hits.size();
-    n_data = n_obs * max_obs_per_point;
+    n_data = raw_hits.size() * max_obs_per_point;
     cudaMalloc(&mp, sizeof(MetaPoint)*n_data);
+
+    // Copy data to device
+    Point *d_hits, *d_origins;
+    cudaMalloc(&d_hits, sizeof(Point)*raw_hits.size());
+    cudaMalloc(&d_origins, sizeof(Point)*raw_origins.size());
+
+    cudaMemcpy(d_hits, raw_hits.data(), sizeof(Point)*raw_hits.size(), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_origins, raw_origins.data(), sizeof(Point)*raw_origins.size(), cudaMemcpyHostToDevice);
+
+    // Make observations from raw hits
+    int threads = 512;
+    int blocks = raw_hits.size() / threads + 1;
+    make_observations<<<threads, blocks>>>(*this, d_hits, d_origins, raw_hits.size(), 0);
+    thrust::device_ptr<MetaPoint> dp_mp(mp);
+    auto dp_mp_end = thrust::remove_if(dp_mp, dp_mp + n_data, IsInvalidMP());
+    n_data = dp_mp_end - dp_mp;
 
     n_buckets = bucket_n_dim * bucket_n_dim;
     n_subbuckets = subbucket_n_dim * subbucket_n_dim;
     cudaMalloc(&bucket_starts, sizeof(int)*n_buckets*n_subbuckets);
 
-    own_memory = true;
-
-    auto toc_setup = std::chrono::steady_clock::now();
-    auto t_setup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_setup - tic_setup);
-    //printf("\tTook %ld ms to setup device data\n", t_setup_ms.count());
+    // Cleanup
+    cudaFree(d_hits);
+    cudaFree(d_origins);
   }
 
   void Cleanup() {
-    if (hits) cudaFree(hits);
-    if (origins) cudaFree(origins);
     if (mp) cudaFree(mp);
     if (bucket_starts) cudaFree(bucket_starts);
   }
-
 };
 
 struct PointBucketComparator {
@@ -131,47 +141,12 @@ struct PointBucketComparator {
   }
 };
 
-struct IsInvalidMP {
-  __host__ __device__ bool operator()(const MetaPoint &mp) const {
-    return mp.valid == 0;
-  }
-};
-
-// Forward declaration of kernels
-__global__ void make_observations(DeviceData data, unsigned int seed);
-__global__ void perform_w_update_buckets(DeviceData data, int subbucket);
-__global__ void populate_meta_info(DeviceData data);
-__global__ void compute_bucket_indicies(DeviceData data);
-__global__ void compute_subbucket_indicies(DeviceData data);
-
 HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel)
   : data_(new DeviceData(hits, origins, kernel)) {
 
-  // Make observations from raw hits
-  auto tic_obs = std::chrono::steady_clock::now();
-  int threads = 512;
-  int blocks = data_->n_obs / threads + 1;
-  make_observations<<<threads, blocks>>>(*data_, 0);
-  cudaError_t err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) {
-    printf("Whoops\n");
-  }
-  auto toc_obs = std::chrono::steady_clock::now();
-  auto t_obs_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_obs - tic_obs);
-  printf("\tMade observations in %ld ms\n", t_obs_ms.count());
-
-  // Remove invalid observations
-  auto tic_remove = std::chrono::steady_clock::now();
-  thrust::device_ptr<MetaPoint> dp_mp(data_->mp);
-  auto dp_mp_end = thrust::remove_if(dp_mp, dp_mp + data_->n_data, IsInvalidMP());
-  data_->n_data = dp_mp_end - dp_mp;
-  auto toc_remove = std::chrono::steady_clock::now();
-  auto t_remove_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_remove - tic_remove);
-  printf("\tRemoved invalid in %ld ms, have %ld left\n", t_remove_ms.count(), data_->n_data);
-
   // Compute meta information for points
-  threads = 512;
-  blocks = data_->n_data / threads + 1;
+  int threads = 512;
+  int blocks = data_->n_data / threads + 1;
   populate_meta_info<<<blocks, threads>>>(*data_);
 
   // Sort points by bucket to enable processing in parallel without memory collisions on w
@@ -211,7 +186,7 @@ HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> 
       //    t_w_ms.count(), subbucket, blocks, threads.x, threads.y);
     }
   }
-  err = cudaDeviceSynchronize();
+  cudaError_t err = cudaDeviceSynchronize();
   if (err != cudaSuccess) {
     printf("Whoops\n");
   }
@@ -235,7 +210,7 @@ __device__ float kernel_lookup(DeviceData &data, float dx, float dy) {
   return data.kernel_table.kernel_table[idx*data.kernel_table.n_dim + idy];
 }
 
-__global__ void make_observations(DeviceData data, unsigned int seed) {
+__global__ void make_observations(DeviceData data, Point *hits, Point *origins, int n_obs, unsigned int seed) {
 
   // Figure out where this thread is
   const int bidx = blockIdx.x;
@@ -245,7 +220,7 @@ __global__ void make_observations(DeviceData data, unsigned int seed) {
 
   const int idx = bidx*threads + tidx;
 
-  if (idx >= data.n_obs)
+  if (idx >= n_obs)
     return;
 
   // Init curand state
@@ -254,8 +229,8 @@ __global__ void make_observations(DeviceData data, unsigned int seed) {
 
   int max_obs_per_point = ceil(data.max_range / data.meters_per_observation) + 1;
 
-  Point origin = data.origins[idx];
-  Point hit = data.hits[idx];
+  Point hit = hits[idx];
+  Point origin = origins[idx];
 
   // Add hit
   data.mp[idx*max_obs_per_point].p = hit;
