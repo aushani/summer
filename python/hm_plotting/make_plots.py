@@ -8,7 +8,8 @@ scoring = np.loadtxt('/home/aushani/summer/cc/scoring.csv', delimiter=',')
 
 kernel = np.loadtxt('/home/aushani/summer/cc/kernel.csv', delimiter=',')
 
-print grid.shape
+print 'Grid shape', grid.shape
+print 'Kernel shape', kernel.shape
 print 'HM Range from %5.3f to %5.3f' % (np.min(grid[:, 2]), np.max(grid[:, 2]))
 print 'Kernel Range from %f to %f' % (np.min(kernel[:, 2]), np.max(kernel[:, 2]))
 
@@ -26,8 +27,8 @@ x = np.reshape(grid[:, 0], (new_dim, new_dim))
 y = np.reshape(grid[:, 1], x.shape)
 z = np.reshape(grid[:, 2], x.shape)
 im = axarr[1, 0].pcolor(x, y, z)
-axarr[1, 0].scatter(grid[:, 0], grid[:, 1], c=grid[:, 2], marker='.')
-#plt.colorbar(im, ax=axarr[1, 0])
+#axarr[1, 0].scatter(grid[:, 0], grid[:, 1], c=grid[:, 2], marker='.')
+plt.colorbar(im, ax=axarr[1, 0])
 axarr[1, 0].hold(True)
 #p = axarr[1, 0].scatter(points[:, 0], points[:, 1], c='k', marker='.', s=1)
 axarr[1, 0].axis('equal')
@@ -51,6 +52,6 @@ plt.colorbar(im, ax=axarr[1, 1])
 axarr[1, 1].axis((-2, 2, -2, 2))
 axarr[1, 1].axis('equal')
 axarr[1, 1].set_title('Kernel')
-
+axarr[1, 1].grid(True)
 
 plt.show()

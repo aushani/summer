@@ -12,12 +12,15 @@ struct DeviceKernelTable {
   float resolution = 0.0f;
   float scale = 0.0f;
 
-  DeviceKernelTable(int nd, float max_support);
+  float x0=0.0f, y0=0.0f;
+
+  DeviceKernelTable(int nd, float full_width);
   ~DeviceKernelTable();
 
   void Cleanup();
 
   void SetData(const float *data);
+  void SetOrigin(float x, float y);
 };
 
 class IKernel {

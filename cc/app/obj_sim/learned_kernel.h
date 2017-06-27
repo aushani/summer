@@ -9,7 +9,7 @@ namespace hm = library::hilbert_map;
 
 class LearnedKernel : public hm::IKernel {
  public:
-  LearnedKernel(float size, float res);
+  LearnedKernel(float full_width, float res);
 
   void CopyFrom(const hm::IKernel &kernel);
 
@@ -18,8 +18,10 @@ class LearnedKernel : public hm::IKernel {
 
   hm::DeviceKernelTable MakeDeviceKernelTable() const override;
 
-  float GetPixel(int i, int j) const;
-  void SetPixel(int i, int j, float x);
+  float GetPixel(size_t i, size_t j) const;
+  void SetPixel(size_t i, size_t j, float x);
+
+  void SetLocation(float x, float y, float val);
 
   size_t GetDimSize() const;
   float GetResolution() const;

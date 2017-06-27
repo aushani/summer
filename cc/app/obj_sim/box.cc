@@ -85,10 +85,10 @@ bool Box::IsInside(double x, double y) {
   return false;
 }
 
-float Box::GetCenterX() const {
+double Box::GetCenterX() const {
   return c_x_;
 }
 
-float Box::GetCenterY() const {
+double Box::GetCenterY() const {
   return c_y_;
 }

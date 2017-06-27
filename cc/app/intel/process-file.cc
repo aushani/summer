@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
   }
   points_file.close();
 
-  hm::SparseKernel kernel(0.1);
+  hm::SparseKernel kernel(0.5);
   hm::HilbertMap map(hits, origins, kernel);
 
   auto tic_build = std::chrono::steady_clock::now();

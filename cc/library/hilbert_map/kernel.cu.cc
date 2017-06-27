@@ -7,9 +7,9 @@
 namespace library {
 namespace hilbert_map {
 
-DeviceKernelTable::DeviceKernelTable(int nd, float max_support) :
+DeviceKernelTable::DeviceKernelTable(int nd, float full_width) :
  n_dim(nd),
- resolution(ceil(max_support/n_dim)),
+ resolution(full_width/n_dim),
  scale(1.0f/resolution) {
   cudaMalloc(&kernel_table, sizeof(float)*n_dim*n_dim);
 }
@@ -29,24 +29,29 @@ void DeviceKernelTable::SetData(const float *data) {
   cudaMemcpy(kernel_table, data, sizeof(float)*n_dim*n_dim, cudaMemcpyHostToDevice);
 }
 
+void DeviceKernelTable::SetOrigin(float x, float y) {
+  x0 = x;
+  y0 = y;
+}
+
 DeviceKernelTable IKernel::MakeDeviceKernelTable() const {
 
-  DeviceKernelTable kt(1024, MaxSupport());
+  DeviceKernelTable kt(1024, 2*MaxSupport());
 
   std::vector<float> kt_host;
   for (int i=0; i<kt.n_dim; i++) {
-    float dx = i*kt.resolution;
+    float dx = i * 2.0 * MaxSupport() / kt.n_dim - MaxSupport();
     for (int j=0; j<kt.n_dim; j++) {
-      float dy = j*kt.resolution;
+      float dy = j * 2.0 * MaxSupport() / kt.n_dim - MaxSupport();
       kt_host.push_back(Evaluate(dx, dy));
     }
   }
 
   kt.SetData(kt_host.data());
+  kt.SetOrigin(-MaxSupport(), -MaxSupport());
 
   return kt;
 }
-
 
 SparseKernel::SparseKernel(float kwm) :
   kernel_width_meters_(kwm) {

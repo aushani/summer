@@ -11,8 +11,8 @@ class Box {
 
   bool IsInside(double x, double y);
 
-  float GetCenterX() const;
-  float GetCenterY() const;
+  double GetCenterX() const;
+  double GetCenterY() const;
 
  private:
   std::vector<Eigen::Vector2d> corners_;
