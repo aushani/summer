@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
   }
   points_file.close();
 
-  hm::SparseKernel kernel(1.0);
+  hm::SparseKernel kernel(0.1);
   hm::HilbertMap map(hits, origins, kernel);
 
   auto tic_build = std::chrono::steady_clock::now();
@@ -122,6 +122,17 @@ int main(int argc, char** argv) {
   }
 
   grid_file.close();
+
+  // Write kernel to file
+  std::ofstream kernel_file;
+  kernel_file.open("kernel.csv");
+  for (float x = -kernel.MaxSupport(); x<=kernel.MaxSupport(); x+=0.01) {
+    for (float y = -kernel.MaxSupport(); y<=kernel.MaxSupport(); y+=0.01) {
+      float val = kernel.Evaluate(x, y);
+      kernel_file << x << ", " << y << ", " << val << std::endl;
+    }
+  }
+  kernel_file.close();
 
   return 0;
 }
