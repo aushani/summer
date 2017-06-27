@@ -42,7 +42,7 @@ struct DeviceData {
 
   float *w;
 
-  Opt opt;
+  const Opt opt;
 
   // Buckets (for processing in parallel without data collision)
   int bucket_n_dim = 100;
@@ -69,9 +69,10 @@ struct DeviceData {
   int n_buckets;
   int n_subbuckets;
 
-  DeviceData(const IKernel &kernel, Opt opt) :
+  DeviceData(const IKernel &kernel, const Opt opt, const float *init_w) :
     opt(opt),
     kernel_table(kernel.MakeDeviceKernelTable()) {
+
     // Params
     inducing_point_step = (opt.max - opt.min)/opt.inducing_points_n_dim;
     kernel_width_xm = (kernel.MaxSupport() / inducing_point_step + 1)*2 + 1;
@@ -83,11 +84,16 @@ struct DeviceData {
     // Init w
     int n_inducing_points = opt.inducing_points_n_dim * opt.inducing_points_n_dim;
     cudaMalloc(&w, sizeof(float)*n_inducing_points);
-    cudaMemset(w, 0, sizeof(float)*n_inducing_points);
+
+    if (init_w == NULL) {
+      cudaMemset(w, 0, sizeof(float)*n_inducing_points);
+    } else {
+      cudaMemcpy(w, init_w, sizeof(float)*n_inducing_points, cudaMemcpyHostToDevice);
+    }
   }
 
-  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const IKernel &kernel, Opt opt) :
-    DeviceData(kernel, opt) {
+  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const IKernel &kernel, const Opt opt, const float *init_w) :
+    DeviceData(kernel, opt, init_w) {
     // malloc workspace
     int max_obs_per_point = ceil(max_range / meters_per_observation) + 1;
     n_data = raw_hits.size() * max_obs_per_point;
@@ -118,8 +124,8 @@ struct DeviceData {
     cudaFree(d_origins);
   }
 
-  DeviceData(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel, Opt opt) :
-    DeviceData(kernel, opt) {
+  DeviceData(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel, const Opt opt, const float *init_w) :
+    DeviceData(kernel, opt, init_w) {
     // malloc workspace
     n_data = points.size();
     cudaMalloc(&mp, sizeof(MetaPoint)*n_data);
@@ -190,19 +196,19 @@ HilbertMap::HilbertMap(DeviceData *data) :
   int epochs = 1;
   for (int i=0; i<epochs; i++) {
     for (int subbucket=0; subbucket < data_->n_subbuckets; subbucket++) {
-      auto tic_w = std::chrono::steady_clock::now();
+      //auto tic_w = std::chrono::steady_clock::now();
       int threads = 32;
       int blocks = data_->n_buckets;
       int sm_size = threads*sizeof(float);
       perform_w_update_buckets<<<blocks, threads, sm_size>>>(*data_, subbucket);
-      cudaError_t err = cudaDeviceSynchronize();
-      if (err != cudaSuccess) {
-        printf("Whoops\n");
-      }
-      auto toc_w = std::chrono::steady_clock::now();
-      auto t_w_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_w - tic_w);
-      printf("\tTook %02ld ms to update w on subbucket %d/%d with %d blocks and %d threads\n",
-          t_w_ms.count(), subbucket, data_->n_subbuckets, blocks, threads);
+      //cudaError_t err = cudaDeviceSynchronize();
+      //if (err != cudaSuccess) {
+      //  printf("Whoops\n");
+      //}
+      //auto toc_w = std::chrono::steady_clock::now();
+      //auto t_w_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_w - tic_w);
+      //printf("\tTook %02ld ms to update w on subbucket %d/%d with %d blocks and %d threads\n",
+      //    t_w_ms.count(), subbucket, data_->n_subbuckets, blocks, threads);
     }
   }
   cudaError_t err = cudaDeviceSynchronize();
@@ -214,12 +220,12 @@ HilbertMap::HilbertMap(DeviceData *data) :
   //printf("\tLearned w in %ld ms\n", t_learn_ms.count());
 }
 
-HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel, Opt opt)
-  : HilbertMap(new DeviceData(hits, origins, kernel, opt)) {
+HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel, Opt opt, const float *init_w)
+  : HilbertMap(new DeviceData(hits, origins, kernel, opt, init_w)) {
 }
 
-HilbertMap::HilbertMap(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel, Opt opt)
-  : HilbertMap(new DeviceData(points, labels, kernel, opt)) {
+HilbertMap::HilbertMap(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel, Opt opt, const float *init_w)
+  : HilbertMap(new DeviceData(points, labels, kernel, opt, init_w)) {
 }
 
 HilbertMap::~HilbertMap() {
@@ -569,7 +575,15 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
       float x_m_y = j*data.inducing_point_step + data.opt.min;
       float k = kernel_lookup(data, x.x - x_m_x, x.y - x_m_y);
       if (i >=0 && i < data.opt.inducing_points_n_dim && j>=0 && j<data.opt.inducing_points_n_dim) {
-        data.w[idx_w] -= data.opt.learning_rate * c * k;
+        float grad = c * k;
+
+        // l1 reg
+        float drdw = 0.0;
+        if (data.w[idx_w] > 0) drdw =  1.0;
+        if (data.w[idx_w] < 0) drdw = -1.0;
+        grad += data.opt.l1_reg * drdw;
+
+        data.w[idx_w] -= data.opt.learning_rate * grad;
       }
     }
   }

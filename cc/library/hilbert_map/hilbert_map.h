@@ -24,6 +24,8 @@ struct Opt {
   float max =  25.0;
 
   int inducing_points_n_dim = 1000;
+
+  float l1_reg = 0.0f;
 };
 
 // Forward declaration
@@ -31,8 +33,8 @@ typedef struct DeviceData DeviceData;
 
 class HilbertMap {
  public:
-  HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel, const Opt opt = Opt());
-  HilbertMap(const std::vector<Point> &Points, const std::vector<float> &labels, const IKernel &kernel, const Opt opt = Opt());
+  HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel, const Opt opt = Opt(), const float *init_w = NULL);
+  HilbertMap(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel, const Opt opt = Opt(), const float *init_w = NULL);
   //HilbertMap(const HilbertMap &hm);
   ~HilbertMap();
 

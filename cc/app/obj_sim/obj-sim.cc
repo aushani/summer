@@ -21,17 +21,20 @@ namespace hm = library::hilbert_map;
 void make_scoring_points(SimWorld &sim, std::vector<hm::Point> *query_points, std::vector<float> *gt_labels) {
   int count_occu = 0;
   int count_free = 0;
-  int count_max_occu = 10000;
-  int count_max_free = 10000;
+  int count_max_occu = 1000;
+  int count_max_free = 1000;
 
   double lower_bound = -10;
   double upper_bound = 10;
   std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
-  std::default_random_engine re;
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine re(seed);
 
   while (count_occu < count_max_occu || count_free < count_max_free) {
     double x = unif(re);
     double y = unif(re);
+
+    //printf("%d, %d\n", count_occu, count_free);
 
     bool occu = sim.IsOccupied(x, y);
     if (occu) {
@@ -68,43 +71,74 @@ void make_query_points(SimWorld &sim, std::vector<hm::Point> *query_points, std:
 int main(int argc, char** argv) {
   printf("Object sim\n");
 
-  // Create sim world and generate data
-  printf("Generating sim...\n");
-  SimWorld sim;
-  std::vector<hm::Point> points;
-  std::vector<float> labels;
-  //make_query_points(sim, &points, &labels);
-  make_scoring_points(sim, &points, &labels);
-  printf("Have %ld points to train on\n", points.size());
+  std::vector<float> w;
+  int num_epochs = 100;
 
-  // This kernel is actually w
-  printf("Setting up kernel...\n");
-  LearnedKernel w_kernel(20.0, 0.5);
-  for (size_t i = 0; i<w_kernel.GetDimSize(); i++) {
-    for (size_t j = 0; j<w_kernel.GetDimSize(); j++) {
-      w_kernel.SetPixel(i, j, -1.0f);
-    }
-  }
-
-  for (const Box& box : sim.GetObjects()) {
-    float x = box.GetCenterX();
-    float y = box.GetCenterY();
-
-    w_kernel.SetLocation(x, y, 1.0f);
-  }
-  printf("Have %ldx%ld kernel\n", w_kernel.GetDimSize(), w_kernel.GetDimSize());
-
-  // Make a map with this "kernel"
-  printf("Learning map...\n");
   hm::Opt opt;
   opt.min = -2.0;
   opt.max = 2.0;
   opt.inducing_points_n_dim = 20;
-  opt.learning_rate = 0.01;
-  hm::HilbertMap w_map(points, labels, w_kernel, opt);
+  opt.learning_rate = 0.1;
+
+  opt.l1_reg = 0.001;
+
+  float decay_rate = 0.99;
+
+  for (int epoch = 0; epoch<num_epochs; epoch++) {
+    printf("\n--- EPOCH %02d / %02d (learning rate = %7.5f) ---\n", epoch, num_epochs, opt.learning_rate);
+
+    // Create sim world and generate data
+    printf("\tGenerating sim...\n");
+    SimWorld sim;
+    std::vector<hm::Point> points;
+    std::vector<float> labels;
+    printf("\tMaking points...\n");
+    make_scoring_points(sim, &points, &labels);
+    printf("\tHave %ld points to train on\n", points.size());
+
+    // This kernel is actually w
+    printf("\tSetting up kernel...\n");
+    LearnedKernel w_kernel(20.0, 0.5);
+    for (size_t i = 0; i<w_kernel.GetDimSize(); i++) {
+      for (size_t j = 0; j<w_kernel.GetDimSize(); j++) {
+        w_kernel.SetPixel(i, j, 0.0f);
+      }
+    }
+
+    for (const Box& box : sim.GetObjects()) {
+      float x = box.GetCenterX();
+      float y = box.GetCenterY();
+
+      w_kernel.SetLocation(x, y, 1.0f);
+    }
+    printf("\tHave %ldx%ld kernel\n", w_kernel.GetDimSize(), w_kernel.GetDimSize());
+
+    // Make a map with this "kernel"
+    auto tic_map = std::chrono::steady_clock::now();
+    hm::HilbertMap w_map(points, labels, w_kernel, opt, epoch>0 ? NULL:w.data());
+    auto toc_map = std::chrono::steady_clock::now();
+    auto t_ms_map = std::chrono::duration_cast<std::chrono::milliseconds>(toc_map - tic_map);
+    printf("\tLearned map in %ld ms\n", t_ms_map.count());
+
+    w = w_map.GetW();
+
+    std::ofstream scoring_file;
+    scoring_file.open("scoring.csv");
+    for (size_t i=0; i<points.size(); i++) {
+      float x = points[i].x;
+      float y = points[i].y;
+      float p = labels[i];
+
+      scoring_file << x << ", " << y << ", " << p << std::endl;
+    }
+    scoring_file.close();
+
+    opt.learning_rate *= decay_rate;
+    if (opt.learning_rate < 0.01)
+      break;
+  }
 
   // Now actually make a HM with the kernel we learned
-  std::vector<float> w = w_map.GetW();
   LearnedKernel kernel(opt.max - opt.min, (opt.max - opt.min)/opt.inducing_points_n_dim);
   for (int i=0; i<opt.inducing_points_n_dim; i++) {
     for (int j=0; j<opt.inducing_points_n_dim; j++) {
@@ -115,7 +149,9 @@ int main(int argc, char** argv) {
   }
 
   std::vector<hm::Point> hits, origins;
-  sim.GenerateSimData(&hits, &origins);
+
+  SimWorld sim2;
+  sim2.GenerateSimData(&hits, &origins);
 
   printf("Making actual map\n");
   hm::HilbertMap map(hits, origins, kernel);
@@ -133,7 +169,7 @@ int main(int argc, char** argv) {
   // Evaluate
   std::vector<hm::Point> query_points;
   std::vector<float> gt_labels;
-  make_query_points(sim, &query_points, &gt_labels);
+  make_query_points(sim2, &query_points, &gt_labels);
 
   auto tic = std::chrono::steady_clock::now();
   std::vector<float> probs = map.GetOccupancy(query_points);
@@ -152,17 +188,6 @@ int main(int argc, char** argv) {
     grid_file << x << ", " << y << ", " << p << std::endl;
   }
   grid_file.close();
-
-  std::ofstream scoring_file;
-  scoring_file.open("scoring.csv");
-  for (size_t i=0; i<points.size(); i++) {
-    float x = points[i].x;
-    float y = points[i].y;
-    float p = labels[i];
-
-    scoring_file << x << ", " << y << ", " << p << std::endl;
-  }
-  scoring_file.close();
 
   // Write kernel to file
   std::ofstream kernel_file;
