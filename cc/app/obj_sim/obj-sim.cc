@@ -21,8 +21,8 @@ namespace hm = library::hilbert_map;
 void make_scoring_points(SimWorld &sim, std::vector<hm::Point> *query_points, std::vector<float> *gt_labels) {
   int count_occu = 0;
   int count_free = 0;
-  int count_max_occu = 1000;
-  int count_max_free = 1000;
+  int count_max_occu = 10000;
+  int count_max_free = 10000;
 
   double lower_bound = -10;
   double upper_bound = 10;
@@ -79,10 +79,10 @@ int main(int argc, char** argv) {
 
   // This kernel is actually w
   printf("Setting up kernel...\n");
-  LearnedKernel kernel(20.0, 0.5);
-  for (size_t i = 0; i<kernel.GetDimSize(); i++) {
-    for (size_t j = 0; j<kernel.GetDimSize(); j++) {
-      kernel.SetPixel(i, j, 0.0f);
+  LearnedKernel w_kernel(20.0, 0.5);
+  for (size_t i = 0; i<w_kernel.GetDimSize(); i++) {
+    for (size_t j = 0; j<w_kernel.GetDimSize(); j++) {
+      w_kernel.SetPixel(i, j, -1.0f);
     }
   }
 
@@ -90,9 +90,9 @@ int main(int argc, char** argv) {
     float x = box.GetCenterX();
     float y = box.GetCenterY();
 
-    kernel.SetLocation(x, y, 1.0f);
+    w_kernel.SetLocation(x, y, 1.0f);
   }
-  printf("Have %ldx%ld kernel\n", kernel.GetDimSize(), kernel.GetDimSize());
+  printf("Have %ldx%ld kernel\n", w_kernel.GetDimSize(), w_kernel.GetDimSize());
 
   // Make a map with this "kernel"
   printf("Learning map...\n");
@@ -100,20 +100,35 @@ int main(int argc, char** argv) {
   opt.min = -2.0;
   opt.max = 2.0;
   opt.inducing_points_n_dim = 20;
-  opt.learning_rate = 0.1;
-  hm::HilbertMap map(points, labels, kernel, opt);
+  opt.learning_rate = 0.01;
+  hm::HilbertMap w_map(points, labels, w_kernel, opt);
 
   // Now actually make a HM with the kernel we learned
+  std::vector<float> w = w_map.GetW();
+  LearnedKernel kernel(opt.max - opt.min, (opt.max - opt.min)/opt.inducing_points_n_dim);
+  for (int i=0; i<opt.inducing_points_n_dim; i++) {
+    for (int j=0; j<opt.inducing_points_n_dim; j++) {
+      int idx = i * opt.inducing_points_n_dim + j;
+      float val = w[idx];
+      kernel.SetPixel(i, j, val);
+    }
+  }
 
-  printf("Done!\n");
+  std::vector<hm::Point> hits, origins;
+  sim.GenerateSimData(&hits, &origins);
+
+  printf("Making actual map\n");
+  hm::HilbertMap map(hits, origins, kernel);
+
+  printf("Done, writing files...\n");
 
   // Write out data
-  //std::ofstream points_file;
-  //points_file.open("points.csv");
-  //for (size_t i=0; i<hits.size(); i++) {
-  //  points_file << hits[i].x << ", " << hits[i].y << std::endl;
-  //}
-  //points_file.close();
+  std::ofstream points_file;
+  points_file.open("points.csv");
+  for (size_t i=0; i<hits.size(); i++) {
+    points_file << hits[i].x << ", " << hits[i].y << std::endl;
+  }
+  points_file.close();
 
   // Evaluate
   std::vector<hm::Point> query_points;
@@ -152,19 +167,9 @@ int main(int argc, char** argv) {
   // Write kernel to file
   std::ofstream kernel_file;
   kernel_file.open("kernel.csv");
-  //for (float x = -kernel.MaxSupport(); x<=kernel.MaxSupport(); x+=0.05) {
-  //  for (float y = -kernel.MaxSupport(); y<=kernel.MaxSupport(); y+=0.05) {
-  //    float val = kernel.Evaluate(x, y);
-  //    kernel_file << x << ", " << y << ", " << val << std::endl;
-  //  }
-  //}
-  std::vector<float> w = map.GetW();
-  for (int i=0; i<opt.inducing_points_n_dim; i++) {
-    for (int j=0; j<opt.inducing_points_n_dim; j++) {
-      int idx = i*opt.inducing_points_n_dim + j;
-      float val = w[idx];
-      double x = opt.min + ((double)i)/opt.inducing_points_n_dim;
-      double y = opt.min + ((double)j)/opt.inducing_points_n_dim;
+  for (float x = -kernel.MaxSupport(); x<=kernel.MaxSupport(); x+=0.05) {
+    for (float y = -kernel.MaxSupport(); y<=kernel.MaxSupport(); y+=0.05) {
+      float val = kernel.Evaluate(x, y);
       kernel_file << x << ", " << y << ", " << val << std::endl;
     }
   }

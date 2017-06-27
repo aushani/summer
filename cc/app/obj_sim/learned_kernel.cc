@@ -4,7 +4,7 @@
 #include <iostream>
 
 LearnedKernel::LearnedKernel(float full_width, float res) :
-  dim_size_(ceil(2*full_width/res)),
+  dim_size_(ceil(full_width/res)),
   res_(res),
   vals_(dim_size_*dim_size_, 0.0f) {
 }
