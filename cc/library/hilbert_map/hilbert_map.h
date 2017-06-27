@@ -30,6 +30,7 @@ class HilbertMap {
   float ComputeLogLikelihood(std::vector<Point> points, std::vector<float> gt_labels);
 
  private:
+  HilbertMap(DeviceData *data);
   DeviceData *data_;
 };
 
