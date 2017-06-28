@@ -6,15 +6,12 @@
 namespace hm = library::hilbert_map;
 
 SimWorld::SimWorld() :
-  bounding_box_(0, 0, 50, 50) {
-
-  //objects_.push_back(Box(-3.0, 1.0, 1.9, 1.9));
-  //objects_.push_back(Box(1.0, 5.0, 1.9, 1.9));
-  //objects_.push_back(Box(3.0, 1.0, 1.9, 1.9));
+  bounding_box_(Shape::CreateBox(0, 0, 50, 50)) {
 
   double lower_bound = -8;
   double upper_bound = 8;
   std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
+  std::uniform_real_distribution<double> rand_size(1.0, 2.0);
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
@@ -22,8 +19,10 @@ SimWorld::SimWorld() :
   for (int i=0; i<5; i++) {
     double x = unif(re);
     double y = unif(re);
+    //double size = rand_size(re);
+    double size = 2.0;
     //printf("Putting box at %5.3f, %5.3f\n", x, y);
-    objects_.push_back(Box(x, y, 2.0, 2.0));
+    objects_.push_back(Shape::CreateStar(x, y, size));
   }
 
 }
@@ -36,7 +35,7 @@ void SimWorld::GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Poi
     double best_distance = bounding_box_.GetHit(origin, angle, &hit);
 
     Eigen::Vector2d b_hit;
-    for ( Box &b : objects_) {
+    for ( Shape &b : objects_) {
       double dist = b.GetHit(origin, angle, &b_hit);
       if (dist > 0 && dist < best_distance) {
         hit = b_hit;
@@ -51,8 +50,72 @@ void SimWorld::GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Poi
   }
 }
 
+void SimWorld::GenerateGrid(std::vector<hm::Point> *points, std::vector<float> *labels) {
+  // Find extent of sim
+  double x_min = GetMinX();
+  double x_max = GetMaxX();
+  double y_min = GetMinY();
+  double y_max = GetMaxY();
+
+  // Expand by a bit
+  double x_range = x_max - x_min;
+  x_min -= x_range*0.10;
+  x_max += x_range*0.10;
+
+  double y_range = y_max - y_min;
+  y_min -= y_range*0.10;
+  y_max += y_range*0.10;
+
+  for (double x = x_min; x<x_max; x+= 0.1) {
+    for (double y = y_min; y<y_max; y+=0.1) {
+      points->emplace_back(x, y);
+      labels->push_back(IsOccupied(x, y) ? 1.0:-1.0);
+    }
+  }
+}
+
+void SimWorld::GenerateSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels) {
+  // Find extent of sim
+  double x_min = GetMinX();
+  double x_max = GetMaxX();
+  double y_min = GetMinY();
+  double y_max = GetMaxY();
+
+  std::uniform_real_distribution<double> random_x(x_min, x_max);
+  std::uniform_real_distribution<double> random_y(y_min, y_max);
+
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine re(seed);
+
+  std::vector<hm::Point> occu_points;
+  std::vector<hm::Point> free_points;
+
+  while (occu_points.size() + free_points.size() < trials) {
+    double x = random_x(re);
+    double y = random_y(re);
+
+    if (IsOccupied(x, y)) {
+      occu_points.push_back(hm::Point(x, y));
+    } else {
+      free_points.push_back(hm::Point(x, y));
+    }
+  }
+
+  size_t min = occu_points.size();
+  if (free_points.size() < min)
+    min = free_points.size();
+
+  for (size_t i = 0; i<min; i++) {
+    points->push_back(occu_points[i]);
+    labels->push_back(1.0);
+
+    points->push_back(free_points[i]);
+    labels->push_back(-1.0);
+  }
+}
+
 bool SimWorld::IsOccupied(float x, float y) {
-  for (Box &b : objects_) {
+  for (Shape &b : objects_) {
     if (b.IsInside(x, y))
       return true;
   }
@@ -60,6 +123,58 @@ bool SimWorld::IsOccupied(float x, float y) {
   return false;
 }
 
-const std::vector<Box>& SimWorld::GetObjects() {
+double SimWorld::GetMinX() const {
+  double x_min = 0.0;
+  bool first = false;
+  for (const Shape &s: objects_) {
+    double s_x_min = s.GetMinX();
+
+    if (s_x_min < x_min || first)
+      x_min = s_x_min;
+  }
+
+  return x_min;
+}
+
+double SimWorld::GetMaxX() const {
+  double x_max = 0.0;
+  bool first = false;
+  for (const Shape &s: objects_) {
+    double s_x_max = s.GetMaxX();
+
+    if (s_x_max > x_max || first)
+      x_max = s_x_max;
+  }
+
+  return x_max;
+}
+
+double SimWorld::GetMinY() const {
+  double y_min = 0.0;
+  bool first = false;
+  for (const Shape &s: objects_) {
+    double s_y_min = s.GetMinY();
+
+    if (s_y_min < y_min || first)
+      y_min = s_y_min;
+  }
+
+  return y_min;
+}
+
+double SimWorld::GetMaxY() const {
+  double y_max = 0.0;
+  bool first = false;
+  for (const Shape &s: objects_) {
+    double s_y_max = s.GetMaxY();
+
+    if (s_y_max > y_max || first)
+      y_max = s_y_max;
+  }
+
+  return y_max;
+}
+
+const std::vector<Shape>& SimWorld::GetObjects() {
   return objects_;
 }

@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "app/obj_sim/box.h"
+#include "app/obj_sim/shape.h"
 #include "library/hilbert_map/hilbert_map.h"
 
 namespace hm = library::hilbert_map;
@@ -12,12 +12,19 @@ class SimWorld {
   SimWorld();
 
   void GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Point> *origins);
+  void GenerateGrid(std::vector<hm::Point> *points, std::vector<float> *labels);
+  void GenerateSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels);
 
-  const std::vector<Box>& GetObjects();
+  const std::vector<Shape>& GetObjects();
 
   bool IsOccupied(float x, float y);
 
+  double GetMinX() const;
+  double GetMaxX() const;
+  double GetMinY() const;
+  double GetMaxY() const;
+
  private:
-  std::vector<Box> objects_;
-  Box bounding_box_;
+  std::vector<Shape> objects_;
+  Shape bounding_box_;
 };
