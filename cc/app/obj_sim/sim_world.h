@@ -12,7 +12,7 @@ class SimWorld {
   SimWorld();
 
   void GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Point> *origins);
-  void GenerateGrid(std::vector<hm::Point> *points, std::vector<float> *labels);
+  void GenerateGrid(double size, std::vector<hm::Point> *points, std::vector<float> *labels);
   void GenerateSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels);
 
   const std::vector<Shape>& GetObjects();

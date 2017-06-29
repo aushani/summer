@@ -37,13 +37,13 @@ double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, 
 
     // Check for intersection in front of ray
     double distance = (p_intersect - origin).dot(ray);
-    if (distance < 0)
+    if (distance <= 0.0f)
       continue;
 
     // Check for intersection on shape and in range
     Eigen::Vector2d p_b10 = p_b1 - p_b0;
     double x = (p_intersect - p_b0).dot(p_b10);
-    if (x<0.0 || x>p_b10.dot(p_b10))
+    if (x<=0.0f || x>p_b10.dot(p_b10))
       continue;
 
     // Check to see if this is the closest hit for the ray
@@ -61,27 +61,31 @@ double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, 
 
 bool Shape::IsInside(double x, double y) {
 
-  // Count intersections
-  Eigen::Vector2d origin(x, y);
-
   // TODO Really should check being colinear
-  double angle = 0.42;
-  Eigen::Vector2d ray(cos(angle), sin(angle));
+  // And handle literal corner cases better
+  for (double angle = 0.4242; angle<2*M_PI; angle+=0.234) {
+    // Count intersections
+    Eigen::Vector2d origin(x, y);
+    Eigen::Vector2d ray(cos(angle), sin(angle));
 
-  int count = 0;
+    int count = 0;
 
-  while (true) {
-    Eigen::Vector2d hit;
-    double distance = GetHit(origin, ray, &hit);
+    while (true) {
+      Eigen::Vector2d hit;
+      double distance = GetHit(origin, ray, &hit);
 
-    if (distance < 0)
-      break;
+      if (distance < 0)
+        break;
 
-    count++;
-    origin = hit + (hit - origin)*1e-2;
+      count++;
+      origin = hit + ray*1e-5;
+    }
+
+    if (count%2 == 0)
+      return false;
   }
 
-  return count%2 == 1;
+  return true;
 }
 
 Eigen::Vector2d Shape::GetCenter() const {

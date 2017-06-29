@@ -6,17 +6,23 @@
 Data::Data() :
  sim_(new SimWorld()),
  points_(new std::vector<hm::Point>()),
- labels_(new std::vector<float>()) {
+ labels_(new std::vector<float>()),
+ hits_(new std::vector<hm::Point>()),
+ origins_(new std::vector<hm::Point>()) {
 
-  int trials = 5000;
-
+  int trials = 10000;
   sim_->GenerateSamples(trials, points_, labels_);
+
+  //sim_->GenerateGrid(10.0, points_, labels_);
+  sim_->GenerateSimData(hits_, origins_);
 }
 
 Data::~Data() {
   delete sim_;
   delete points_;
   delete labels_;
+  delete hits_;
+  delete origins_;
 }
 
 SimWorld* Data::GetSim() {
@@ -31,6 +37,14 @@ std::vector<float>* Data::GetLabels() {
   return labels_;
 }
 
+std::vector<hm::Point>* Data::GetHits() {
+  return hits_;
+}
+
+std::vector<hm::Point>* Data::GetOrigins() {
+  return origins_;
+}
+
 DataManager::DataManager(int threads) {
   for (int i=0; i<threads; i++) {
     threads_.push_back(std::thread(&DataManager::GenerateData, this));
@@ -38,18 +52,20 @@ DataManager::DataManager(int threads) {
 }
 
 DataManager::~DataManager() {
-  done_ = true;
+  Finish();
 
   for (size_t i=0; i<threads_.size(); i++) {
-    printf("Killing thread %ld\n", i);
+    printf("joining thread %ld\n", i);
     threads_[i].join();
   }
 
-  printf("delete deque\n");
   for (size_t i=0; i<data_.size(); i++) {
     delete data_[i];
   }
+}
 
+void DataManager::Finish() {
+  done_ = true;
 }
 
 Data* DataManager::GetData() {
@@ -80,7 +96,7 @@ void DataManager::GenerateData() {
       data_.push_back(d);
       mutex_.unlock();
     } else {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
   }
 }

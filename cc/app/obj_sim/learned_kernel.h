@@ -26,6 +26,8 @@ class LearnedKernel : public hm::IKernel {
   size_t GetDimSize() const;
   float GetResolution() const;
 
+  const std::vector<float>& GetData() const;
+
  private:
   size_t dim_size_;
   float res_;

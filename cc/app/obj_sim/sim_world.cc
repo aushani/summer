@@ -16,13 +16,17 @@ SimWorld::SimWorld() :
   std::default_random_engine re(seed);
 
   // Make boxes in the world
-  for (int i=0; i<5; i++) {
+  while (objects_.size() < 5) {
     double x = unif(re);
     double y = unif(re);
     //double size = rand_size(re);
     double size = 2.0;
-    //printf("Putting box at %5.3f, %5.3f\n", x, y);
-    objects_.push_back(Shape::CreateStar(x, y, size));
+
+    Shape obj = Shape::CreateStar(x, y, size);
+
+    // Check for origin inside
+    if (!obj.IsInside(0, 0))
+      objects_.push_back(Shape::CreateStar(x, y, size));
   }
 
 }
@@ -50,24 +54,24 @@ void SimWorld::GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Poi
   }
 }
 
-void SimWorld::GenerateGrid(std::vector<hm::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateGrid(double size, std::vector<hm::Point> *points, std::vector<float> *labels) {
   // Find extent of sim
-  double x_min = GetMinX();
-  double x_max = GetMaxX();
-  double y_min = GetMinY();
-  double y_max = GetMaxY();
+  //double x_min = GetMinX();
+  //double x_max = GetMaxX();
+  //double y_min = GetMinY();
+  //double y_max = GetMaxY();
 
-  // Expand by a bit
-  double x_range = x_max - x_min;
-  x_min -= x_range*0.10;
-  x_max += x_range*0.10;
+  //// Expand by a bit
+  //double x_range = x_max - x_min;
+  //x_min -= x_range*0.10;
+  //x_max += x_range*0.10;
 
-  double y_range = y_max - y_min;
-  y_min -= y_range*0.10;
-  y_max += y_range*0.10;
+  //double y_range = y_max - y_min;
+  //y_min -= y_range*0.10;
+  //y_max += y_range*0.10;
 
-  for (double x = x_min; x<x_max; x+= 0.1) {
-    for (double y = y_min; y<y_max; y+=0.1) {
+  for (double x = -size; x<size; x+= 0.1) {
+    for (double y = -size; y<size; y+=0.1) {
       points->emplace_back(x, y);
       labels->push_back(IsOccupied(x, y) ? 1.0:-1.0);
     }

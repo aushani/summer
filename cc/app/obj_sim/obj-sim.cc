@@ -11,6 +11,7 @@
 #include <chrono>
 
 #include "library/hilbert_map/hilbert_map.h"
+#include "library/hilbert_map/kernel.h"
 
 #include "app/obj_sim/sim_world.h"
 #include "app/obj_sim/learned_kernel.h"
@@ -18,32 +19,74 @@
 
 namespace hm = library::hilbert_map;
 
+void SaveKernel(const hm::IKernel &kernel, const char *fn) {
+  std::ofstream kernel_file;
+  kernel_file.open(fn);
+  for (float x = -kernel.MaxSupport(); x<=kernel.MaxSupport(); x+=0.05) {
+    for (float y = -kernel.MaxSupport(); y<=kernel.MaxSupport(); y+=0.05) {
+      float val = kernel.Evaluate(x, y);
+      kernel_file << x << ", " << y << ", " << val << std::endl;
+    }
+  }
+  kernel_file.close();
+}
+
 int main(int argc, char** argv) {
   printf("Object sim\n");
 
   // Start data threads
-  DataManager data_manager(16);
+  DataManager data_manager(5);
 
-  std::vector<float> w;
-  int num_epochs = 1000;
+  std::vector<float> kernel_vector;
+  int num_epochs = 1;
+  if (argc > 1)
+    num_epochs = strtol(argv[1], NULL, 10);
 
-  hm::Opt opt;
-  opt.min = -2.0;
-  opt.max = 2.0;
-  opt.inducing_points_n_dim = 40;
-  opt.learning_rate = 0.1;
+  hm::Opt opt_kernel;
+  opt_kernel.min = -1.5;
+  opt_kernel.max = 1.5;
+  opt_kernel.inducing_points_n_dim = 20;
+  opt_kernel.learning_rate = 0.1;
+  opt_kernel.l1_reg = 0.01;
 
-  opt.l1_reg = 0.001;
+  hm::Opt opt_w;
+  opt_w.min = -10.0;
+  opt_w.max = 10.0;
+  opt_w.inducing_points_n_dim = 100;
+  opt_w.learning_rate = 0.1;
+  opt_w.l1_reg = 0.01;
 
   float decay_rate = 0.9999;
 
-  for (int epoch = 0; epoch<num_epochs; epoch++) {
-    printf("\n--- EPOCH %02d / %02d (learning rate = %7.5f) ---\n", epoch, num_epochs, opt.learning_rate);
+  // Make kernel
+  LearnedKernel kernel(opt_kernel.max - opt_kernel.min, (opt_kernel.max - opt_kernel.min)/opt_kernel.inducing_points_n_dim);
+  kernel.CopyFrom(hm::SparseKernel(1.0));
+
+  for (int epoch = 1; epoch<=num_epochs; epoch++) {
+    printf("\n--- EPOCH %02d / %02d (learning rate = %7.5f) ---\n", epoch, num_epochs, opt_kernel.learning_rate);
 
     // Get data
     printf("\tGetting data...\n");
     Data *data = data_manager.GetData();
-    printf("\tHave %ld points\n", data->GetPoints()->size());
+    printf("\tHave %ld sample points\n", data->GetPoints()->size());
+    printf("\tHave %ld data observations\n", data->GetHits()->size());
+
+    // Generate w
+    /*
+    printf("\tGenerating w...\n");
+    hm::HilbertMap map_w(*data->GetHits(), *data->GetOrigins(), kernel, opt_w);
+
+    //// Copy w out and use it as the "kernel"
+    std::vector<float> w_sim = map_w.GetW();
+    LearnedKernel w_kernel(opt_w.max - opt_w.min, (opt_w.max - opt_w.min)/opt_w.inducing_points_n_dim);
+    for (int i=0; i<opt_w.inducing_points_n_dim; i++) {
+      for (int j=0; j<opt_w.inducing_points_n_dim; j++) {
+        int idx = i * opt_w.inducing_points_n_dim + j;
+        float val = w_sim[idx];
+        w_kernel.SetPixel(i, j, val);
+      }
+    }
+    */
 
     // This kernel is actually w
     printf("\tSetting up kernel...\n");
@@ -59,96 +102,91 @@ int main(int argc, char** argv) {
 
       w_kernel.SetLocation(center(0), center(1), 1.0f);
     }
-    printf("\tHave %ldx%ld kernel\n", w_kernel.GetDimSize(), w_kernel.GetDimSize());
 
-    // Make a map with this "kernel"
-    auto tic_map = std::chrono::steady_clock::now();
-    hm::HilbertMap w_map(*data->GetPoints(), *data->GetLabels(), w_kernel, opt, epoch>0 ? NULL:w.data());
-    auto toc_map = std::chrono::steady_clock::now();
-    auto t_ms_map = std::chrono::duration_cast<std::chrono::milliseconds>(toc_map - tic_map);
-    printf("\tLearned map in %ld ms\n", t_ms_map.count());
+    printf("\tLearning kernel...\n");
+    hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernel, opt_kernel, kernel.GetData().data());
+    //hm::HilbertMap map_kernel(*data->GetHits(), *data->GetOrigins(), w_kernel, opt_kernel, kernel.GetData().data());
+    kernel_vector = map_kernel.GetW();
 
-    w = w_map.GetW();
+    // Copy kernel out
+    for (int i=0; i<opt_kernel.inducing_points_n_dim; i++) {
+      for (int j=0; j<opt_kernel.inducing_points_n_dim; j++) {
+        int idx = i * opt_kernel.inducing_points_n_dim + j;
+        float val = kernel_vector[idx];
+        kernel.SetPixel(i, j, val);
+      }
+    }
 
-    opt.learning_rate *= decay_rate;
-    if (opt.learning_rate < 0.01)
+    // Save kernel sometimes
+    if (epoch % 10 == 0) {
+      printf("\tSaving kernel...\n");
+      char fn[1024];
+      sprintf(fn, "kernel_%04d.csv", epoch);
+      SaveKernel(kernel, fn);
+    }
+
+    // Update opt
+    opt_kernel.learning_rate *= decay_rate;
+    if (opt_kernel.learning_rate < 0.01)
       break;
 
+    // Cleanup
     delete data;
   }
-
-  // Now actually make a HM with the kernel we learned
-  LearnedKernel kernel(opt.max - opt.min, (opt.max - opt.min)/opt.inducing_points_n_dim);
-  for (int i=0; i<opt.inducing_points_n_dim; i++) {
-    for (int j=0; j<opt.inducing_points_n_dim; j++) {
-      int idx = i * opt.inducing_points_n_dim + j;
-      float val = w[idx];
-      kernel.SetPixel(i, j, val);
-    }
-  }
-
-  std::vector<hm::Point> hits, origins;
-
-  SimWorld sim;
-  sim.GenerateSimData(&hits, &origins);
-
-  printf("Making actual map\n");
-  hm::HilbertMap map(hits, origins, kernel);
-  printf("Done, writing files...\n");
-
-  // Write out data
-  std::ofstream points_file;
-  points_file.open("points.csv");
-  for (size_t i=0; i<hits.size(); i++) {
-    points_file << hits[i].x << ", " << hits[i].y << std::endl;
-  }
-  points_file.close();
-
-  // Evaluate
-  std::vector<hm::Point> query_points;
-  std::vector<float> gt_labels;
-  sim.GenerateGrid(&query_points, &gt_labels);
-
-  // Write out ground truth
-  std::ofstream gt_file;
-  gt_file.open("ground_truth.csv");
-  for (size_t i=0; i<query_points.size(); i++) {
-    float x = query_points[i].x;
-    float y = query_points[i].y;
-    float p = gt_labels[i];
-
-    gt_file << x << ", " << y << ", " << p << std::endl;
-  }
-  gt_file.close();
-
-  auto tic = std::chrono::steady_clock::now();
-  std::vector<float> probs = map.GetOccupancy(query_points);
-  auto toc = std::chrono::steady_clock::now();
-  auto t_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc - tic);
-  printf("Evaluated grid in %ld ms (%5.3f ms / call)\n", t_ms.count(), ((double)t_ms.count())/query_points.size());
-
-  // Write grid to file
-  std::ofstream grid_file;
-  grid_file.open("grid.csv");
-  for (size_t i=0; i<query_points.size(); i++) {
-    float x = query_points[i].x;
-    float y = query_points[i].y;
-    float p = probs[i];
-
-    grid_file << x << ", " << y << ", " << p << std::endl;
-  }
-  grid_file.close();
+  data_manager.Finish();
 
   // Write kernel to file
-  std::ofstream kernel_file;
-  kernel_file.open("kernel.csv");
-  for (float x = -kernel.MaxSupport(); x<=kernel.MaxSupport(); x+=0.05) {
-    for (float y = -kernel.MaxSupport(); y<=kernel.MaxSupport(); y+=0.05) {
-      float val = kernel.Evaluate(x, y);
-      kernel_file << x << ", " << y << ", " << val << std::endl;
+  SaveKernel(kernel, "kernel.csv");
+
+  printf("\n\nGenerating examples...\n");
+
+  for (int example = 0; example < 3; example++) {
+    printf("\tMaking example %d\n", example);
+
+    // Now actually make a HM with the kernel we learned
+    std::vector<hm::Point> hits, origins;
+
+    SimWorld sim;
+    sim.GenerateSimData(&hits, &origins);
+
+    hm::HilbertMap map(hits, origins, kernel);
+
+    char fn[1024];
+
+    // Write out data
+    std::ofstream points_file;
+    sprintf(fn, "points_%02d.csv", example);
+    points_file.open(fn);
+    for (size_t i=0; i<hits.size(); i++) {
+      points_file << hits[i].x << ", " << hits[i].y << std::endl;
     }
+    points_file.close();
+
+    // Evaluate
+    std::vector<hm::Point> query_points;
+    std::vector<float> gt_labels;
+    sim.GenerateGrid(10.0, &query_points, &gt_labels);
+    std::vector<float> probs = map.GetOccupancy(query_points);
+
+    // Write out ground truth
+    std::ofstream gt_file, hm_file;
+    sprintf(fn, "ground_truth_%02d.csv", example);
+    gt_file.open(fn);
+    sprintf(fn, "hilbert_map_%02d.csv", example);
+    hm_file.open(fn);
+
+    for (size_t i=0; i<query_points.size(); i++) {
+      float x = query_points[i].x;
+      float y = query_points[i].y;
+      float p_gt = gt_labels[i];
+      float p_hm = probs[i];
+
+      gt_file << x << ", " << y << ", " << p_gt << std::endl;
+      hm_file << x << ", " << y << ", " << p_hm << std::endl;
+    }
+    gt_file.close();
+    hm_file.close();
   }
-  kernel_file.close();
 
   printf("Done\n");
 

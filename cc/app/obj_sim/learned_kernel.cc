@@ -83,3 +83,7 @@ size_t LearnedKernel::GetDimSize() const {
 float LearnedKernel::GetResolution() const {
   return res_;
 }
+
+const std::vector<float>& LearnedKernel::GetData() const {
+  return vals_;
+}

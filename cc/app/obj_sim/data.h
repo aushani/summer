@@ -18,11 +18,15 @@ class Data {
   SimWorld* GetSim();
   std::vector<hm::Point>* GetPoints();
   std::vector<float>* GetLabels();
+  std::vector<hm::Point>* GetHits();
+  std::vector<hm::Point>* GetOrigins();
 
  private:
   SimWorld *sim_ = NULL;
   std::vector<hm::Point> *points_ = NULL;
   std::vector<float> *labels_ = NULL;
+  std::vector<hm::Point> *hits_ = NULL;
+  std::vector<hm::Point> *origins_ = NULL;
 };
 
 class DataManager {
@@ -31,6 +35,7 @@ class DataManager {
   ~DataManager();
 
   Data* GetData();
+  void Finish();
 
  private:
   const size_t kMaxData = 100;
