@@ -33,8 +33,8 @@ typedef struct DeviceData DeviceData;
 
 class HilbertMap {
  public:
-  HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel, const Opt opt = Opt(), const float *init_w = NULL);
-  HilbertMap(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel, const Opt opt = Opt(), const float *init_w = NULL);
+  HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const std::vector<IKernel*> &kernels, const Opt opt = Opt(), const float *init_w = NULL);
+  HilbertMap(const std::vector<Point> &points, const std::vector<float> &labels, const std::vector<IKernel*> &kernels, const Opt opt = Opt(), const float *init_w = NULL);
   //HilbertMap(const HilbertMap &hm);
   ~HilbertMap();
 

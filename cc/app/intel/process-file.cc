@@ -12,6 +12,7 @@
 #include <chrono>
 
 #include "library/hilbert_map/hilbert_map.h"
+#include "library/hilbert_map/kernel.h"
 
 namespace hm = library::hilbert_map;
 
@@ -87,12 +88,14 @@ int main(int argc, char** argv) {
   points_file.close();
 
   hm::SparseKernel kernel(0.5);
-  hm::HilbertMap map(hits, origins, kernel);
+  std::vector<hm::IKernel*> kernels;
+  kernels.push_back(&kernel);
+  hm::HilbertMap map(hits, origins, kernels);
 
   auto tic_build = std::chrono::steady_clock::now();
   int trials = 10;
   for (int i=0; i<trials; i++)
-    hm::HilbertMap tmp(hits, origins, kernel);
+    hm::HilbertMap tmp(hits, origins, kernels);
   auto toc_build = std::chrono::steady_clock::now();
   auto t_build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_build - tic_build);
   printf("Took %5.3f ms avg for build\n", ((double)t_build_ms.count())/trials);
@@ -111,28 +114,17 @@ int main(int argc, char** argv) {
   auto t_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc - tic);
   printf("Evaluated grid in %ld ms (%5.3f ms / call)\n", t_ms.count(), ((double)t_ms.count())/query_points.size());
 
-  std::ofstream grid_file;
-  grid_file.open("grid.csv");
+  std::ofstream hm_file;
+  hm_file.open("hilbert_map.csv");
   for (size_t i=0; i<query_points.size(); i++) {
     float x = query_points[i].x;
     float y = query_points[i].y;
     float p = probs[i];
 
-    grid_file << x << ", " << y << ", " << p << std::endl;
+    hm_file << x << ", " << y << ", " << p << std::endl;
   }
 
-  grid_file.close();
-
-  // Write kernel to file
-  std::ofstream kernel_file;
-  kernel_file.open("kernel.csv");
-  for (float x = -kernel.MaxSupport(); x<=kernel.MaxSupport(); x+=0.01) {
-    for (float y = -kernel.MaxSupport(); y<=kernel.MaxSupport(); y+=0.01) {
-      float val = kernel.Evaluate(x, y);
-      kernel_file << x << ", " << y << ", " << val << std::endl;
-    }
-  }
-  kernel_file.close();
+  hm_file.close();
 
   return 0;
 }

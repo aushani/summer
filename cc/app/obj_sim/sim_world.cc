@@ -17,16 +17,19 @@ SimWorld::SimWorld() :
 
   // Make boxes in the world
   while (objects_.size() < 5) {
-    double x = unif(re);
-    double y = unif(re);
+    //double x = unif(re);
+    //double y = unif(re);
     //double size = rand_size(re);
+
+    double x = 2.0;
+    double y = 5.0;
     double size = 2.0;
 
-    Shape obj = Shape::CreateStar(x, y, size);
+    Shape obj = Shape::CreateBox(x, y, size, size);
 
     // Check for origin inside
     if (!obj.IsInside(0, 0))
-      objects_.push_back(Shape::CreateStar(x, y, size));
+      objects_.push_back(obj);
   }
 
 }

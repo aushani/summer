@@ -38,7 +38,7 @@ f, axarr = plt.subplots(nrows = 3, ncols = (examples+1))
 
 print "kernel..."
 
-for i, epoch in enumerate([10, 100]):
+for i, epoch in enumerate([1, 2]):
   fn = '/home/aushani/summer/cc/kernel_%04d.csv' % (epoch)
   if os.path.isfile(fn):
     kernel = np.loadtxt(fn, delimiter=',')
@@ -66,11 +66,11 @@ for ex in range(examples):
 
   axarr[0, ex+1].scatter(points[:, 0], points[:, 1], c='k', marker='.')
   axarr[0, ex+1].scatter(0, 0, c='r', marker='x')
-  axarr[0, ex+1].axis((-15, 15, -15, 15))
-  axarr[0, ex+1].set_title('LIDAR')
   axarr[0, ex+1].axis('equal')
+  axarr[0, ex+1].axis((-10, 10, -10, 10))
+  axarr[0, ex+1].set_title('LIDAR')
 
-  show_grid(hm, axarr[1, ex+1], points)
+  show_grid(hm, axarr[1, ex+1])
   axarr[1, ex+1].set_title('HM')
 
   show_grid(gt, axarr[2, ex+1])

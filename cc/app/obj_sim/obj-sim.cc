@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
   opt_kernel.min = -1.5;
   opt_kernel.max = 1.5;
   opt_kernel.inducing_points_n_dim = 20;
-  opt_kernel.learning_rate = 0.1;
+  opt_kernel.learning_rate = 0.01;
   opt_kernel.l1_reg = 0.01;
 
   hm::Opt opt_w;
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
 
   // Make kernel
   LearnedKernel kernel(opt_kernel.max - opt_kernel.min, (opt_kernel.max - opt_kernel.min)/opt_kernel.inducing_points_n_dim);
-  kernel.CopyFrom(hm::SparseKernel(1.0));
+  kernel.CopyFrom(hm::SparseKernel(2.0));
 
   for (int epoch = 1; epoch<=num_epochs; epoch++) {
     printf("\n--- EPOCH %02d / %02d (learning rate = %7.5f) ---\n", epoch, num_epochs, opt_kernel.learning_rate);
@@ -71,26 +71,9 @@ int main(int argc, char** argv) {
     printf("\tHave %ld sample points\n", data->GetPoints()->size());
     printf("\tHave %ld data observations\n", data->GetHits()->size());
 
-    // Generate w
-    /*
-    printf("\tGenerating w...\n");
-    hm::HilbertMap map_w(*data->GetHits(), *data->GetOrigins(), kernel, opt_w);
-
-    //// Copy w out and use it as the "kernel"
-    std::vector<float> w_sim = map_w.GetW();
-    LearnedKernel w_kernel(opt_w.max - opt_w.min, (opt_w.max - opt_w.min)/opt_w.inducing_points_n_dim);
-    for (int i=0; i<opt_w.inducing_points_n_dim; i++) {
-      for (int j=0; j<opt_w.inducing_points_n_dim; j++) {
-        int idx = i * opt_w.inducing_points_n_dim + j;
-        float val = w_sim[idx];
-        w_kernel.SetPixel(i, j, val);
-      }
-    }
-    */
-
     // This kernel is actually w
     printf("\tSetting up kernel...\n");
-    LearnedKernel w_kernel(20.0, 0.5);
+    LearnedKernel w_kernel(opt_w.max - opt_w.min, (opt_w.max - opt_w.min)/opt_w.inducing_points_n_dim);
     for (size_t i = 0; i<w_kernel.GetDimSize(); i++) {
       for (size_t j = 0; j<w_kernel.GetDimSize(); j++) {
         w_kernel.SetPixel(i, j, 0.0f);
@@ -104,9 +87,12 @@ int main(int argc, char** argv) {
     }
 
     printf("\tLearning kernel...\n");
-    hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernel, opt_kernel, kernel.GetData().data());
-    //hm::HilbertMap map_kernel(*data->GetHits(), *data->GetOrigins(), w_kernel, opt_kernel, kernel.GetData().data());
+    std::vector<hm::IKernel*> w_kernels;
+    w_kernels.push_back(&w_kernel);
+    hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernels, opt_kernel, epoch == 1 ? NULL:kernel.GetData().data());
+    //hm::HilbertMap map_kernel(*data->GetHits(), *data->GetOrigins(), w_kernels, opt_kernel, kernel.GetData().data());
     kernel_vector = map_kernel.GetW();
+    printf("kernel vector size: %ld\n", kernel_vector.size());
 
     // Copy kernel out
     for (int i=0; i<opt_kernel.inducing_points_n_dim; i++) {
@@ -118,7 +104,7 @@ int main(int argc, char** argv) {
     }
 
     // Save kernel sometimes
-    if (epoch % 10 == 0) {
+    if (true || epoch % 10 == 0) {
       printf("\tSaving kernel...\n");
       char fn[1024];
       sprintf(fn, "kernel_%04d.csv", epoch);
@@ -127,7 +113,7 @@ int main(int argc, char** argv) {
 
     // Update opt
     opt_kernel.learning_rate *= decay_rate;
-    if (opt_kernel.learning_rate < 0.01)
+    if (opt_kernel.learning_rate < 0.001)
       break;
 
     // Cleanup
@@ -149,7 +135,9 @@ int main(int argc, char** argv) {
     SimWorld sim;
     sim.GenerateSimData(&hits, &origins);
 
-    hm::HilbertMap map(hits, origins, kernel);
+    std::vector<hm::IKernel*> kernels;
+    kernels.push_back(&kernel);
+    hm::HilbertMap map(hits, origins, kernels, opt_w);
 
     char fn[1024];
 

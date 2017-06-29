@@ -1,6 +1,7 @@
 #include "hilbert_map.h"
 
 #include <math.h>
+#include <time.h>
 #include <chrono>
 #include <random>
 #include <map>
@@ -53,12 +54,13 @@ struct DeviceData {
   float meters_per_observation = 1.0;
 
   // Computed params
-  int kernel_width_xm;
+  int max_kernel_width_xm = 0;
   float bucket_size;
   float inducing_point_step;
 
-  // Kernel table
-  DeviceKernelTable kernel_table;
+  // Kernel tables
+  DeviceKernelTable *kernel_tables = NULL;
+  size_t n_kernels = 0;
 
   // Data points we're considering
   MetaPoint *mp = NULL;
@@ -69,31 +71,45 @@ struct DeviceData {
   int n_buckets;
   int n_subbuckets;
 
-  DeviceData(const IKernel &kernel, const Opt opt, const float *init_w) :
-    opt(opt),
-    kernel_table(kernel.MakeDeviceKernelTable()) {
+  DeviceData(const std::vector<IKernel*> &kernels, const Opt opt, const float *init_w) :
+   opt(opt) {
+
+    n_kernels = kernels.size();
+
+    cudaMalloc(&kernel_tables, sizeof(DeviceKernelTable)*n_kernels);
+    for (size_t i=0; i<n_kernels; i++) {
+      DeviceKernelTable kt = kernels[i]->MakeDeviceKernelTable();
+      cudaMemcpy(&kernel_tables[i], &kt, sizeof(DeviceKernelTable), cudaMemcpyHostToDevice);
+    }
 
     // Params
     inducing_point_step = (opt.max - opt.min)/opt.inducing_points_n_dim;
-    kernel_width_xm = (kernel.MaxSupport() / inducing_point_step + 1)*2 + 1;
+
+    float max_support = 0.0;
+    for (const IKernel *kernel : kernels) {
+      if (max_support < kernel->MaxSupport())
+        max_support = kernel->MaxSupport();
+    }
+
+    max_kernel_width_xm = (max_support / inducing_point_step + 1)*2 + 1;
 
     // Each subblock must be twice the support size (in meters) of the kernel away from any other subblock
     // that runs concurrently.
-    bucket_size = 2.0 * kernel.MaxSupport() * subbucket_n_dim / (subbucket_n_dim - 1);
+    bucket_size = 2.0 * max_support * subbucket_n_dim / (subbucket_n_dim - 1);
 
     // Init w
     int n_inducing_points = opt.inducing_points_n_dim * opt.inducing_points_n_dim;
-    cudaMalloc(&w, sizeof(float)*n_inducing_points);
+    cudaMalloc(&w, sizeof(float)*n_inducing_points*n_kernels);
 
     if (init_w == NULL) {
-      cudaMemset(w, 0, sizeof(float)*n_inducing_points);
+      cudaMemset(w, 0, sizeof(float)*n_inducing_points*n_kernels);
     } else {
-      cudaMemcpy(w, init_w, sizeof(float)*n_inducing_points, cudaMemcpyHostToDevice);
+      cudaMemcpy(w, init_w, sizeof(float)*n_inducing_points*n_kernels, cudaMemcpyHostToDevice);
     }
   }
 
-  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const IKernel &kernel, const Opt opt, const float *init_w) :
-    DeviceData(kernel, opt, init_w) {
+  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const std::vector<IKernel*> &kernels, const Opt opt, const float *init_w) :
+    DeviceData(kernels, opt, init_w) {
     // malloc workspace
     int max_obs_per_point = ceil(max_range / meters_per_observation) + 1;
     n_data = raw_hits.size() * max_obs_per_point;
@@ -108,9 +124,11 @@ struct DeviceData {
     cudaMemcpy(d_origins, raw_origins.data(), sizeof(Point)*raw_origins.size(), cudaMemcpyHostToDevice);
 
     // Make observations from raw hits
+    srand(time(NULL));
+    int seed = rand();
     int threads = 512;
     int blocks = raw_hits.size() / threads + 1;
-    make_observations<<<threads, blocks>>>(*this, d_hits, d_origins, raw_hits.size(), 0);
+    make_observations<<<threads, blocks>>>(*this, d_hits, d_origins, raw_hits.size(), seed);
     thrust::device_ptr<MetaPoint> dp_mp(mp);
     auto dp_mp_end = thrust::remove_if(dp_mp, dp_mp + n_data, IsInvalidMP());
     n_data = dp_mp_end - dp_mp;
@@ -124,8 +142,8 @@ struct DeviceData {
     cudaFree(d_origins);
   }
 
-  DeviceData(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel, const Opt opt, const float *init_w) :
-    DeviceData(kernel, opt, init_w) {
+  DeviceData(const std::vector<Point> &points, const std::vector<float> &labels, const std::vector<IKernel*> &kernels, const Opt opt, const float *init_w) :
+    DeviceData(kernels, opt, init_w) {
     // malloc workspace
     n_data = points.size();
     cudaMalloc(&mp, sizeof(MetaPoint)*n_data);
@@ -156,6 +174,13 @@ struct DeviceData {
   void Cleanup() {
     if (mp) cudaFree(mp);
     if (bucket_starts) cudaFree(bucket_starts);
+
+    DeviceKernelTable *kt = (DeviceKernelTable*) malloc(sizeof(DeviceKernelTable));
+    for (size_t i=0; i<n_kernels; i++) {
+      cudaMemcpy(kt, &kernel_tables[i], sizeof(DeviceKernelTable), cudaMemcpyDeviceToHost);
+      kt->Cleanup();
+    }
+    cudaFree(kernel_tables);
   }
 };
 
@@ -217,36 +242,37 @@ HilbertMap::HilbertMap(DeviceData *data) :
   }
   auto toc_learn = std::chrono::steady_clock::now();
   auto t_learn_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_learn - tic_learn);
-  //printf("\tLearned w in %ld ms\n", t_learn_ms.count());
+  printf("\tLearned w in %ld ms\n", t_learn_ms.count());
 }
 
-HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const IKernel &kernel, Opt opt, const float *init_w)
-  : HilbertMap(new DeviceData(hits, origins, kernel, opt, init_w)) {
+HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const std::vector<IKernel*> &kernels, Opt opt, const float *init_w)
+  : HilbertMap(new DeviceData(hits, origins, kernels, opt, init_w)) {
 }
 
-HilbertMap::HilbertMap(const std::vector<Point> &points, const std::vector<float> &labels, const IKernel &kernel, Opt opt, const float *init_w)
-  : HilbertMap(new DeviceData(points, labels, kernel, opt, init_w)) {
+HilbertMap::HilbertMap(const std::vector<Point> &points, const std::vector<float> &labels, const std::vector<IKernel*> &kernels, Opt opt, const float *init_w)
+  : HilbertMap(new DeviceData(points, labels, kernels, opt, init_w)) {
 }
 
 HilbertMap::~HilbertMap() {
   data_->Cleanup();
-  data_->kernel_table.Cleanup();
 }
 
-__device__ float kernel_lookup(const DeviceData &data, float dx, float dy) {
-  float x_kt = dx - data.kernel_table.x0;
-  float y_kt = dy - data.kernel_table.y0;
+__device__ float kernel_lookup(const DeviceData &data, float dx, float dy, size_t kernel) {
+  DeviceKernelTable &kt = data.kernel_tables[kernel];
+
+  float x_kt = dx - kt.x0;
+  float y_kt = dy - kt.y0;
 
   if (x_kt < 0 || y_kt < 0)
     return 0.0f;
 
-  int idx = llrintf(x_kt*data.kernel_table.scale);
-  int idy = llrintf(y_kt*data.kernel_table.scale);
+  int idx = llrintf(x_kt*kt.scale);
+  int idy = llrintf(y_kt*kt.scale);
 
-  if (idx >= data.kernel_table.n_dim || idy >= data.kernel_table.n_dim)
+  if (idx >= kt.n_dim || idy >= kt.n_dim)
     return 0.0f;
 
-  return data.kernel_table.kernel_table[idx*data.kernel_table.n_dim + idy];
+  return kt.kernel_table[idx*kt.n_dim + idy];
 }
 
 __global__ void copy_observations(DeviceData data, Point *points, float *labels) {
@@ -307,7 +333,7 @@ __global__ void make_observations(DeviceData data, Point *hits, Point *origins, 
   for (int i=1; i<max_obs_per_point; i++) {
 
     // TODO make random
-    if (i < range) {
+    if ((i-1) < range) {
       float rand = 1.0f - curand_uniform(&curand_state); // because the range is (0, 1.0]
       data.mp[idx*max_obs_per_point + i].p.x = origin.x + rand*dx;
       data.mp[idx*max_obs_per_point + i].p.y = origin.y + rand*dy;
@@ -485,11 +511,11 @@ __global__ void compute_subbucket_indicies(DeviceData data) {
 
 __device__ float compute_wTphi(const DeviceData &data, Point x, int tidx, int threads, float *sh_mem) {
 
-  const int kwxm = data.kernel_width_xm;
-  const int num_evals_total = kwxm*kwxm;
+  const int kwxm = data.max_kernel_width_xm;
+  const int num_evals_total = kwxm*kwxm*data.n_kernels;
 
   const float inducing_points_scale = 1.0 / data.inducing_point_step;
-  const float kwx2 = data.kernel_width_xm/2.0;
+  const float kwx2 = kwxm/2.0;
 
   const int i0 = (x.x - data.opt.min) * inducing_points_scale - kwx2;
   const int j0 = (x.y - data.opt.min) * inducing_points_scale - kwx2;
@@ -497,14 +523,18 @@ __device__ float compute_wTphi(const DeviceData &data, Point x, int tidx, int th
   float thread_phi_sparse = 0.0f;
   for (int eval_num=tidx; eval_num < num_evals_total; eval_num += threads) {
 
-    int i = i0 + (eval_num / kwxm);
-    int j = j0 + (eval_num % kwxm);
+    size_t kernel = eval_num % data.n_kernels;
+    int idx = eval_num / data.n_kernels;
 
-    int idx_w = i*data.opt.inducing_points_n_dim + j;
+    int i = i0 + (idx / kwxm);
+    int j = j0 + (idx % kwxm);
+
+    int idx_w = (i*data.opt.inducing_points_n_dim + j)*data.n_kernels + kernel;
     float x_m_x = i*data.inducing_point_step + data.opt.min;
     float x_m_y = j*data.inducing_point_step + data.opt.min;
-    float k = kernel_lookup(data, x.x - x_m_x, x.y - x_m_y);
-    if (i >=0 && i < data.opt.inducing_points_n_dim && j>=0 && j<data.opt.inducing_points_n_dim) {
+    float k = kernel_lookup(data, x.x - x_m_x, x.y - x_m_y, kernel);
+    if (i >=0 && i < data.opt.inducing_points_n_dim && j>=0 && j<data.opt.inducing_points_n_dim
+        && kernel < data.n_kernels) {
       thread_phi_sparse += data.w[idx_w]*k;
     }
   }
@@ -547,11 +577,11 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
     end = data.bucket_starts[bidx*n_subbuckets + subbucket + 1];
   }
 
-  const int kwxm = data.kernel_width_xm;
-  const int num_evals_total = kwxm*kwxm;
+  const int kwxm = data.max_kernel_width_xm;
+  const int num_evals_total = kwxm*kwxm*data.n_kernels;
 
   const float inducing_points_scale = 1.0 / data.inducing_point_step;
-  const float kwx2 = data.kernel_width_xm/2.0;
+  const float kwx2 = kwxm/2.0;
 
   for (int data_idx = start; data_idx < end; ++data_idx) {
 
@@ -566,15 +596,20 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
     const int j0 = (x.y - data.opt.min) * inducing_points_scale - kwx2;
 
     for (int eval_num=tidx; eval_num < num_evals_total; eval_num += threads) {
-      int i = i0 + (eval_num / kwxm);
-      int j = j0 + (eval_num % kwxm);
+
+      size_t kernel = eval_num % data.n_kernels;
+      int idx = eval_num / data.n_kernels;
+
+      int i = i0 + (idx / kwxm);
+      int j = j0 + (idx % kwxm);
 
       // Evaluate kernel
-      int idx_w = i*data.opt.inducing_points_n_dim + j;
+      int idx_w = (i*data.opt.inducing_points_n_dim + j)*data.n_kernels + kernel;
       float x_m_x = i*data.inducing_point_step + data.opt.min;
       float x_m_y = j*data.inducing_point_step + data.opt.min;
-      float k = kernel_lookup(data, x.x - x_m_x, x.y - x_m_y);
-      if (i >=0 && i < data.opt.inducing_points_n_dim && j>=0 && j<data.opt.inducing_points_n_dim) {
+      float k = kernel_lookup(data, x.x - x_m_x, x.y - x_m_y, kernel);
+      if (i >=0 && i < data.opt.inducing_points_n_dim && j>=0 && j<data.opt.inducing_points_n_dim
+          && kernel < data.n_kernels) {
         float grad = c * k;
 
         // l1 reg
@@ -669,12 +704,9 @@ float HilbertMap::ComputeLogLikelihood(std::vector<Point> points, std::vector<fl
   cudaMalloc(&d_labels, sizeof(float)*gt_labels.size());
   cudaMemcpy(d_labels, gt_labels.data(), sizeof(float)*gt_labels.size(), cudaMemcpyHostToDevice);
 
-  dim3 threads;
-  threads.x = data_->kernel_width_xm;
-  threads.y = data_->kernel_width_xm;
-  threads.z = 1;
+  int threads = 32;
   size_t blocks = points.size();
-  int sm_size = threads.x*threads.y*sizeof(float);
+  int sm_size = threads*sizeof(float);
   compute_log_likelihood<<<blocks, threads, sm_size>>>(*data_, d_points, d_labels, d_scores);
   cudaError_t err = cudaDeviceSynchronize();
   if (err != cudaSuccess) {
@@ -693,9 +725,11 @@ float HilbertMap::ComputeLogLikelihood(std::vector<Point> points, std::vector<fl
 std::vector<float> HilbertMap::GetW() {
   int n_dim = data_->opt.inducing_points_n_dim;
 
-  std::vector<float> w(n_dim*n_dim, 0.0f);
+  size_t sz = n_dim * n_dim * data_->n_kernels;
 
-  cudaMemcpy(w.data(), data_->w, sizeof(float)*n_dim*n_dim, cudaMemcpyDeviceToHost);
+  std::vector<float> w(sz, 0.0f);
+
+  cudaMemcpy(w.data(), data_->w, sizeof(float)*sz, cudaMemcpyDeviceToHost);
 
   return w;
 }

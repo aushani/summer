@@ -10,10 +10,10 @@ Data::Data() :
  hits_(new std::vector<hm::Point>()),
  origins_(new std::vector<hm::Point>()) {
 
-  int trials = 10000;
-  sim_->GenerateSamples(trials, points_, labels_);
+  //int trials = 10000;
+  //sim_->GenerateSamples(trials, points_, labels_);
 
-  //sim_->GenerateGrid(10.0, points_, labels_);
+  sim_->GenerateGrid(10.0, points_, labels_);
   sim_->GenerateSimData(hits_, origins_);
 }
 
@@ -78,6 +78,10 @@ Data* DataManager::GetData() {
       printf("\tHave %ld data left\n", data_.size());
     }
     mutex_.unlock();
+
+    if (res == NULL) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
   }
 
   return res;
