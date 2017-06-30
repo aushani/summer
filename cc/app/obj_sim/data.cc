@@ -8,10 +8,13 @@ Data::Data() :
  points_(new std::vector<hm::Point>()),
  labels_(new std::vector<float>()),
  hits_(new std::vector<hm::Point>()),
- origins_(new std::vector<hm::Point>()) {
+ origins_(new std::vector<hm::Point>()),
+ occluded_points_(new std::vector<hm::Point>()),
+ occluded_labels_(new std::vector<float>()) {
 
   int trials = 10000;
   sim_->GenerateAllSamples(trials, points_, labels_);
+  sim_->GenerateOccludedSamples(trials, occluded_points_, occluded_labels_);
 
   //sim_->GenerateGrid(10.0, points_, labels_);
   sim_->GenerateSimData(hits_, origins_);
@@ -23,6 +26,9 @@ Data::~Data() {
   delete labels_;
   delete hits_;
   delete origins_;
+
+  delete occluded_points_;
+  delete occluded_labels_;
 }
 
 SimWorld* Data::GetSim() {
@@ -43,6 +49,14 @@ std::vector<hm::Point>* Data::GetHits() {
 
 std::vector<hm::Point>* Data::GetOrigins() {
   return origins_;
+}
+
+std::vector<hm::Point>* Data::GetOccludedPoints() {
+  return occluded_points_;
+}
+
+std::vector<float>* Data::GetOccludedLabels() {
+  return occluded_labels_;
 }
 
 DataManager::DataManager(int threads) {

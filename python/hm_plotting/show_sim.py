@@ -39,7 +39,7 @@ f, axarr = plt.subplots(nrows = 3, ncols = (examples+1))
 
 print "kernel..."
 
-for i, epoch in enumerate([1, 2]):
+for i, epoch in enumerate([500, 1000]):
   fn = '/home/aushani/summer/cc/kernel_%04d.csv' % (epoch)
   if os.path.isfile(fn):
     kernel = np.loadtxt(fn, delimiter=',')

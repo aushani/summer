@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
   printf("Object sim\n");
 
   // Start data threads
-  DataManager data_manager(5);
+  DataManager data_manager(64);
 
   std::vector<float> kernel_vector;
   int num_epochs = 1;
@@ -44,8 +44,8 @@ int main(int argc, char** argv) {
   hm::Opt opt_kernel;
   opt_kernel.min = -2.0;
   opt_kernel.max = 2.0;
-  opt_kernel.inducing_points_n_dim = 40;
-  opt_kernel.learning_rate = 0.1;
+  opt_kernel.inducing_points_n_dim = 20;
+  opt_kernel.learning_rate = 0.002;
   opt_kernel.l1_reg = 0.001;
 
   hm::Opt opt_w;
@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
   float decay_rate = 0.9999;
 
   LearnedKernel kernel(opt_kernel.max - opt_kernel.min, (opt_kernel.max - opt_kernel.min)/opt_kernel.inducing_points_n_dim);
-  kernel.CopyFrom(hm::SparseKernel(1.0));
+  kernel.CopyFrom(hm::SparseKernel(3.0));
 
   for (int epoch = 1; epoch<=num_epochs; epoch++) {
     printf("\n--- EPOCH %02d / %02d (learning rate = %7.5f) ---\n", epoch, num_epochs, opt_kernel.learning_rate);
@@ -67,6 +67,7 @@ int main(int argc, char** argv) {
     printf("\tGetting data...\n");
     Data *data = data_manager.GetData();
     printf("\tHave %ld sample points\n", data->GetPoints()->size());
+    printf("\tHave %ld occluded points\n", data->GetOccludedPoints()->size());
     printf("\tHave %ld data observations\n", data->GetHits()->size());
 
     // This kernel is actually w
@@ -104,7 +105,7 @@ int main(int argc, char** argv) {
     std::vector<hm::IKernel*> w_kernels;
     w_kernels.push_back(&w_kernel);
     auto tic_map = std::chrono::steady_clock::now();
-    hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernels, opt_kernel, epoch==1 ? NULL:kernel.GetData().data());
+    hm::HilbertMap map_kernel(*data->GetOccludedPoints(), *data->GetOccludedLabels(), w_kernels, opt_kernel, kernel.GetData().data());
     //hm::HilbertMap map_kernel(*data->GetHits(), *data->GetOrigins(), w_kernels, opt_kernel, kernel.GetData().data());
     auto toc_map = std::chrono::steady_clock::now();
     auto t_ms_map = std::chrono::duration_cast<std::chrono::milliseconds>(toc_map - tic_map);
@@ -131,8 +132,8 @@ int main(int argc, char** argv) {
 
     // Update opt
     opt_kernel.learning_rate *= decay_rate;
-    if (opt_kernel.learning_rate < 0.001)
-      break;
+    //if (opt_kernel.learning_rate < 0.001)
+    //  break;
 
     // Cleanup
     delete data;

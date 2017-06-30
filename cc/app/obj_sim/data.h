@@ -21,12 +21,18 @@ class Data {
   std::vector<hm::Point>* GetHits();
   std::vector<hm::Point>* GetOrigins();
 
+  std::vector<hm::Point>* GetOccludedPoints();
+  std::vector<float>* GetOccludedLabels();
+
  private:
   SimWorld *sim_ = NULL;
   std::vector<hm::Point> *points_ = NULL;
   std::vector<float> *labels_ = NULL;
   std::vector<hm::Point> *hits_ = NULL;
   std::vector<hm::Point> *origins_ = NULL;
+
+  std::vector<hm::Point> *occluded_points_ = NULL;
+  std::vector<float> *occluded_labels_ = NULL;
 };
 
 class DataManager {

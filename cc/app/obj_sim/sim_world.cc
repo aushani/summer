@@ -21,7 +21,12 @@ SimWorld::SimWorld() :
     double x = unif(re);
     double y = unif(re);
     //double size = rand_size(re);
+    x = 3.0;
+    y = 3.0;
     double size = 2.0;
+
+    if (std::abs(x) < 3 && std::abs(y) < 3)
+      continue;
 
     Shape obj = Shape::CreateStar(x, y, size);
 
