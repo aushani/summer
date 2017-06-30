@@ -11,7 +11,6 @@
 #include <chrono>
 
 #include "library/hilbert_map/hilbert_map.h"
-#include "library/hilbert_map/kernel.h"
 
 #include "app/obj_sim/sim_world.h"
 #include "app/obj_sim/learned_kernel.h"
@@ -43,24 +42,23 @@ int main(int argc, char** argv) {
     num_epochs = strtol(argv[1], NULL, 10);
 
   hm::Opt opt_kernel;
-  opt_kernel.min = -1.5;
-  opt_kernel.max = 1.5;
-  opt_kernel.inducing_points_n_dim = 20;
-  opt_kernel.learning_rate = 0.01;
-  opt_kernel.l1_reg = 0.01;
+  opt_kernel.min = -2.0;
+  opt_kernel.max = 2.0;
+  opt_kernel.inducing_points_n_dim = 40;
+  opt_kernel.learning_rate = 0.1;
+  opt_kernel.l1_reg = 0.001;
 
   hm::Opt opt_w;
   opt_w.min = -10.0;
   opt_w.max = 10.0;
   opt_w.inducing_points_n_dim = 100;
   opt_w.learning_rate = 0.1;
-  opt_w.l1_reg = 0.01;
+  opt_w.l1_reg = 0.001;
 
   float decay_rate = 0.9999;
 
-  // Make kernel
   LearnedKernel kernel(opt_kernel.max - opt_kernel.min, (opt_kernel.max - opt_kernel.min)/opt_kernel.inducing_points_n_dim);
-  kernel.CopyFrom(hm::SparseKernel(2.0));
+  kernel.CopyFrom(hm::SparseKernel(1.0));
 
   for (int epoch = 1; epoch<=num_epochs; epoch++) {
     printf("\n--- EPOCH %02d / %02d (learning rate = %7.5f) ---\n", epoch, num_epochs, opt_kernel.learning_rate);
@@ -89,10 +87,14 @@ int main(int argc, char** argv) {
     printf("\tLearning kernel...\n");
     std::vector<hm::IKernel*> w_kernels;
     w_kernels.push_back(&w_kernel);
-    hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernels, opt_kernel, epoch == 1 ? NULL:kernel.GetData().data());
-    //hm::HilbertMap map_kernel(*data->GetHits(), *data->GetOrigins(), w_kernels, opt_kernel, kernel.GetData().data());
+    auto tic_map = std::chrono::steady_clock::now();
+    //hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernels, opt_kernel, epoch==1 ? NULL:kernel.GetData().data());
+    hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernels, opt_kernel, kernel.GetData().data());
+    auto toc_map = std::chrono::steady_clock::now();
+    auto t_ms_map = std::chrono::duration_cast<std::chrono::milliseconds>(toc_map - tic_map);
+    printf("\tLearned map in %ld ms\n", t_ms_map.count());
+
     kernel_vector = map_kernel.GetW();
-    printf("kernel vector size: %ld\n", kernel_vector.size());
 
     // Copy kernel out
     for (int i=0; i<opt_kernel.inducing_points_n_dim; i++) {

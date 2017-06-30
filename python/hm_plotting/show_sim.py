@@ -51,7 +51,7 @@ axarr[2, 0].set_title('Learned Kernel')
 
 for ex in range(examples):
 
-  print 'Loading %d...' % (ex)
+  print 'Loading %d / %d ...' % (ex, examples)
 
   points = np.loadtxt('/home/aushani/summer/cc/points_%02d.csv' % (ex), delimiter=',')
   gt = np.loadtxt('/home/aushani/summer/cc/ground_truth_%02d.csv' % (ex), delimiter=',')
