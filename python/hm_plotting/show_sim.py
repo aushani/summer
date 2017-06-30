@@ -15,14 +15,15 @@ def show_kernel(kernel, ax):
 
 def show_grid(grid, ax, points=None):
   new_dim = int(round(grid.shape[0]**(0.5)))
-  x = np.reshape(grid[:, 0], (new_dim, new_dim))
-  y = np.reshape(grid[:, 1], (new_dim, new_dim))
-  z = np.reshape(grid[:, 2], (new_dim, new_dim))
+  if new_dim * new_dim == grid.shape[0]:
+    x = np.reshape(grid[:, 0], (new_dim, new_dim))
+    y = np.reshape(grid[:, 1], (new_dim, new_dim))
+    z = np.reshape(grid[:, 2], (new_dim, new_dim))
 
-  im = ax.pcolor(x, y, z)
-  plt.colorbar(im, ax=ax)
-
-  #ax.scatter(grid[:, 0], grid[:, 1], c=grid[:, 2], marker='.', s=1)
+    im = ax.pcolor(x, y, z)
+    plt.colorbar(im, ax=ax)
+  else:
+    ax.scatter(grid[:, 0], grid[:, 1], c=grid[:, 2], marker='.', s=1)
 
   if points != None:
     ax.hold(True)

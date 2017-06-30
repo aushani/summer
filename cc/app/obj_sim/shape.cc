@@ -6,12 +6,12 @@ Shape::Shape(const std::vector<Eigen::Vector2d> &corners) :
   corners_(corners) {
 }
 
-double Shape::GetHit(const Eigen::Vector2d &origin, double angle, Eigen::Vector2d *hit) {
+double Shape::GetHit(const Eigen::Vector2d &origin, double angle, Eigen::Vector2d *hit) const {
   Eigen::Vector2d ray(cos(angle), sin(angle));
   return GetHit(origin, ray, hit);
 }
 
-double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, Eigen::Vector2d *hit) {
+double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, Eigen::Vector2d *hit) const {
 
   // Find line representing ray
   Eigen::Vector2d p_o1 = origin + ray;

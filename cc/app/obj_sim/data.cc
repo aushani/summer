@@ -11,7 +11,7 @@ Data::Data() :
  origins_(new std::vector<hm::Point>()) {
 
   int trials = 10000;
-  sim_->GenerateSamples(trials, points_, labels_);
+  sim_->GenerateAllSamples(trials, points_, labels_);
 
   //sim_->GenerateGrid(10.0, points_, labels_);
   sim_->GenerateSimData(hits_, origins_);

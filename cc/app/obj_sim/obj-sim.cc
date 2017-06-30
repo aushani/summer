@@ -70,8 +70,23 @@ int main(int argc, char** argv) {
     printf("\tHave %ld data observations\n", data->GetHits()->size());
 
     // This kernel is actually w
-    printf("\tSetting up kernel...\n");
     LearnedKernel w_kernel(opt_w.max - opt_w.min, (opt_w.max - opt_w.min)/opt_w.inducing_points_n_dim);
+
+    std::vector<hm::IKernel*> kernels;
+    kernels.push_back(&kernel);
+    //hm::HilbertMap map_w(*data->GetPoints(), *data->GetLabels(), kernels, opt_w);
+    hm::HilbertMap map_w(*data->GetHits(), *data->GetOrigins(), kernels, opt_w);
+    std::vector<float> w_vector = map_w.GetW();
+    for (int i=0; i<opt_w.inducing_points_n_dim; i++) {
+      for (int j=0; j<opt_w.inducing_points_n_dim; j++) {
+        int idx = i * opt_w.inducing_points_n_dim + j;
+        float val = w_vector[idx];
+        w_kernel.SetPixel(i, j, val);
+      }
+    }
+
+    /*
+    printf("\tSetting up kernel...\n");
     for (size_t i = 0; i<w_kernel.GetDimSize(); i++) {
       for (size_t j = 0; j<w_kernel.GetDimSize(); j++) {
         w_kernel.SetPixel(i, j, 0.0f);
@@ -83,13 +98,14 @@ int main(int argc, char** argv) {
 
       w_kernel.SetLocation(center(0), center(1), 1.0f);
     }
+    */
 
     printf("\tLearning kernel...\n");
     std::vector<hm::IKernel*> w_kernels;
     w_kernels.push_back(&w_kernel);
     auto tic_map = std::chrono::steady_clock::now();
-    //hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernels, opt_kernel, epoch==1 ? NULL:kernel.GetData().data());
-    hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernels, opt_kernel, kernel.GetData().data());
+    hm::HilbertMap map_kernel(*data->GetPoints(), *data->GetLabels(), w_kernels, opt_kernel, epoch==1 ? NULL:kernel.GetData().data());
+    //hm::HilbertMap map_kernel(*data->GetHits(), *data->GetOrigins(), w_kernels, opt_kernel, kernel.GetData().data());
     auto toc_map = std::chrono::steady_clock::now();
     auto t_ms_map = std::chrono::duration_cast<std::chrono::milliseconds>(toc_map - tic_map);
     printf("\tLearned map in %ld ms\n", t_ms_map.count());

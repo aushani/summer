@@ -6,7 +6,8 @@
 namespace hm = library::hilbert_map;
 
 SimWorld::SimWorld() :
-  bounding_box_(Shape::CreateBox(0, 0, 50, 50)) {
+  bounding_box_(Shape::CreateBox(0, 0, 50, 50)),
+  origin_(0.0, 0.0) {
 
   double lower_bound = -8;
   double upper_bound = 8;
@@ -31,25 +32,32 @@ SimWorld::SimWorld() :
 
 }
 
+double SimWorld::GetHit(const Eigen::Vector2d &ray, Eigen::Vector2d *hit) {
+  Eigen::Vector2d ray_hat = ray.normalized();
+  double best_distance = bounding_box_.GetHit(origin_, ray_hat, hit);
+
+  Eigen::Vector2d b_hit;
+  for (const Shape &b : objects_) {
+    double dist = b.GetHit(origin_, ray_hat, &b_hit);
+    if (dist > 0 && dist < best_distance) {
+      *hit = b_hit;
+      best_distance = dist;
+    }
+  }
+
+  return best_distance;
+}
+
 void SimWorld::GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Point> *origins) {
-  Eigen::Vector2d origin(0.0, 0.0);
   Eigen::Vector2d hit;
 
   for (double angle = -M_PI; angle < M_PI; angle += 0.01) {
-    double best_distance = bounding_box_.GetHit(origin, angle, &hit);
+    Eigen::Vector2d ray(cos(angle), sin(angle));
+    double distance = GetHit(ray, &hit);
 
-    Eigen::Vector2d b_hit;
-    for ( Shape &b : objects_) {
-      double dist = b.GetHit(origin, angle, &b_hit);
-      if (dist > 0 && dist < best_distance) {
-        hit = b_hit;
-        best_distance = dist;
-      }
-    }
-
-    if (best_distance > 0) {
+    if (distance > 0) {
       hits->push_back(hm::Point(hit(0), hit(1)));
-      origins->push_back(hm::Point(origin(0), origin(1)));
+      origins->push_back(hm::Point(origin_(0), origin_(1)));
     }
   }
 }
@@ -78,7 +86,7 @@ void SimWorld::GenerateGrid(double size, std::vector<hm::Point> *points, std::ve
   }
 }
 
-void SimWorld::GenerateSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels, bool visible, bool occluded) {
   // Find extent of sim
   double x_min = GetMinX();
   double x_max = GetMaxX();
@@ -94,9 +102,15 @@ void SimWorld::GenerateSamples(size_t trials, std::vector<hm::Point> *points, st
   std::vector<hm::Point> occu_points;
   std::vector<hm::Point> free_points;
 
-  while (occu_points.size() + free_points.size() < trials) {
+  for (size_t i=0; i<trials; i++) {
     double x = random_x(re);
     double y = random_y(re);
+
+    // Check if it matches the flags we have
+    // If we don't have visible points and it is visible, or we don't want occluded points and it is occluded
+    if ( (!visible && IsVisible(x, y)) || (!occluded && IsOccluded(x, y)) ) {
+      continue;
+    }
 
     if (IsOccupied(x, y)) {
       occu_points.push_back(hm::Point(x, y));
@@ -118,6 +132,24 @@ void SimWorld::GenerateSamples(size_t trials, std::vector<hm::Point> *points, st
   }
 }
 
+void SimWorld::GenerateAllSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels) {
+  bool visible = true;
+  bool occluded = true;
+  GenerateSamples(trials, points, labels, visible, occluded);
+}
+
+void SimWorld::GenerateVisibleSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels) {
+  bool visible = true;
+  bool occluded = false;
+  GenerateSamples(trials, points, labels, visible, occluded);
+}
+
+void SimWorld::GenerateOccludedSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels) {
+  bool visible = false;
+  bool occluded = true;
+  GenerateSamples(trials, points, labels, visible, occluded);
+}
+
 bool SimWorld::IsOccupied(float x, float y) {
   for (Shape &b : objects_) {
     if (b.IsInside(x, y))
@@ -128,57 +160,75 @@ bool SimWorld::IsOccupied(float x, float y) {
 }
 
 double SimWorld::GetMinX() const {
-  double x_min = 0.0;
-  bool first = false;
-  for (const Shape &s: objects_) {
-    double s_x_min = s.GetMinX();
+  return -10.0;
+  //double x_min = 0.0;
+  //bool first = false;
+  //for (const Shape &s: objects_) {
+  //  double s_x_min = s.GetMinX();
 
-    if (s_x_min < x_min || first)
-      x_min = s_x_min;
-  }
+  //  if (s_x_min < x_min || first)
+  //    x_min = s_x_min;
+  //}
 
-  return x_min;
+  //return x_min;
 }
 
 double SimWorld::GetMaxX() const {
-  double x_max = 0.0;
-  bool first = false;
-  for (const Shape &s: objects_) {
-    double s_x_max = s.GetMaxX();
+  return 10.0;
+  //double x_max = 0.0;
+  //bool first = false;
+  //for (const Shape &s: objects_) {
+  //  double s_x_max = s.GetMaxX();
 
-    if (s_x_max > x_max || first)
-      x_max = s_x_max;
-  }
+  //  if (s_x_max > x_max || first)
+  //    x_max = s_x_max;
+  //}
 
-  return x_max;
+  //return x_max;
 }
 
 double SimWorld::GetMinY() const {
-  double y_min = 0.0;
-  bool first = false;
-  for (const Shape &s: objects_) {
-    double s_y_min = s.GetMinY();
+  return -10.0;
+  //double y_min = 0.0;
+  //bool first = false;
+  //for (const Shape &s: objects_) {
+  //  double s_y_min = s.GetMinY();
 
-    if (s_y_min < y_min || first)
-      y_min = s_y_min;
-  }
+  //  if (s_y_min < y_min || first)
+  //    y_min = s_y_min;
+  //}
 
-  return y_min;
+  //return y_min;
 }
 
 double SimWorld::GetMaxY() const {
-  double y_max = 0.0;
-  bool first = false;
-  for (const Shape &s: objects_) {
-    double s_y_max = s.GetMaxY();
+  return 10.0;
+  //double y_max = 0.0;
+  //bool first = false;
+  //for (const Shape &s: objects_) {
+  //  double s_y_max = s.GetMaxY();
 
-    if (s_y_max > y_max || first)
-      y_max = s_y_max;
-  }
+  //  if (s_y_max > y_max || first)
+  //    y_max = s_y_max;
+  //}
 
-  return y_max;
+  //return y_max;
 }
 
 const std::vector<Shape>& SimWorld::GetObjects() {
   return objects_;
+}
+
+bool SimWorld::IsVisible(float x, float y) {
+  Eigen::Vector2d point(x, y);
+  Eigen::Vector2d ray = (point - origin_);
+
+  Eigen::Vector2d hit;
+  double distance = GetHit(ray, &hit);
+
+  return distance >= ray.norm();
+}
+
+bool SimWorld::IsOccluded(float x, float y) {
+  return !IsVisible(x, y);
 }
