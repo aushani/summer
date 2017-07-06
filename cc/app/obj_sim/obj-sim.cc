@@ -11,12 +11,13 @@
 #include <chrono>
 
 #include "library/hilbert_map/hilbert_map.h"
+#include "library/sim_world/sim_world.h"
 
-#include "app/obj_sim/sim_world.h"
 #include "app/obj_sim/learned_kernel.h"
 #include "app/obj_sim/data.h"
 
 namespace hm = library::hilbert_map;
+namespace sw = library::sim_world;
 
 void SaveKernel(const hm::IKernel &kernel, const char *fn) {
   std::ofstream kernel_file;
@@ -151,7 +152,7 @@ int main(int argc, char** argv) {
     // Now actually make a HM with the kernel we learned
     std::vector<hm::Point> hits, origins;
 
-    SimWorld sim;
+    sw::SimWorld sim;
     sim.GenerateSimData(&hits, &origins);
 
     std::vector<hm::IKernel*> kernels;

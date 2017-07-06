@@ -5,17 +5,17 @@
 #include <deque>
 
 #include "library/hilbert_map/hilbert_map.h"
-
-#include "app/obj_sim/sim_world.h"
+#include "library/sim_world/sim_world.h"
 
 namespace hm = library::hilbert_map;
+namespace sw = library::sim_world;
 
 class Data {
  public:
   Data();
   ~Data();
 
-  SimWorld* GetSim();
+  sw::SimWorld* GetSim();
   std::vector<hm::Point>* GetPoints();
   std::vector<float>* GetLabels();
   std::vector<hm::Point>* GetHits();
@@ -25,7 +25,7 @@ class Data {
   std::vector<float>* GetOccludedLabels();
 
  private:
-  SimWorld *sim_ = NULL;
+  sw::SimWorld *sim_ = NULL;
   std::vector<hm::Point> *points_ = NULL;
   std::vector<float> *labels_ = NULL;
   std::vector<hm::Point> *hits_ = NULL;

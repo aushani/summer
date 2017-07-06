@@ -4,7 +4,7 @@
 #include <chrono>
 
 Data::Data() :
- sim_(new SimWorld()),
+ sim_(new sw::SimWorld()),
  points_(new std::vector<hm::Point>()),
  labels_(new std::vector<float>()),
  hits_(new std::vector<hm::Point>()),
@@ -31,7 +31,7 @@ Data::~Data() {
   delete occluded_labels_;
 }
 
-SimWorld* Data::GetSim() {
+sw::SimWorld* Data::GetSim() {
   return sim_;
 }
 

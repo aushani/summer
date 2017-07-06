@@ -2,10 +2,15 @@
 
 #include <vector>
 
-#include "app/obj_sim/shape.h"
 #include "library/hilbert_map/hilbert_map.h"
+#include "library/sim_world/shape.h"
 
-namespace hm = library::hilbert_map;
+namespace library {
+namespace sim_world {
+
+namespace {
+  namespace hm = library::hilbert_map;
+}
 
 class SimWorld {
  public:
@@ -39,3 +44,6 @@ class SimWorld {
 
   void GenerateSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels, bool visible, bool occluded);
 };
+
+}
+}

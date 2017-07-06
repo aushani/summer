@@ -1,6 +1,9 @@
-#include "shape.h"
+#include "library/sim_world/shape.h"
 
 #include <Eigen/Geometry>
+
+namespace library {
+namespace sim_world {
 
 Shape::Shape(const std::vector<Eigen::Vector2d> &corners) :
   corners_(corners) {
@@ -183,4 +186,7 @@ Shape Shape::CreateStar(double c_x, double c_y, double size) {
   }
 
   return Shape(corners);
+}
+
+}
 }

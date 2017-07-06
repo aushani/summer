@@ -3,6 +3,9 @@
 #include <vector>
 #include <Eigen/Core>
 
+namespace library {
+namespace sim_world {
+
 class Shape {
  public:
   Shape(const std::vector<Eigen::Vector2d> &corners);
@@ -25,3 +28,6 @@ class Shape {
  private:
   std::vector<Eigen::Vector2d> corners_;
 };
+
+}
+}

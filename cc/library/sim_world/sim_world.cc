@@ -1,9 +1,14 @@
-#include "app/obj_sim/sim_world.h"
+#include "library/sim_world/sim_world.h"
 
 #include <random>
 #include <chrono>
 
-namespace hm = library::hilbert_map;
+namespace library {
+namespace sim_world {
+
+namespace {
+  namespace hm = library::hilbert_map;
+}
 
 SimWorld::SimWorld() :
   bounding_box_(Shape::CreateBox(0, 0, 50, 50)),
@@ -236,4 +241,7 @@ bool SimWorld::IsVisible(float x, float y) {
 
 bool SimWorld::IsOccluded(float x, float y) {
   return !IsVisible(x, y);
+}
+
+}
 }
