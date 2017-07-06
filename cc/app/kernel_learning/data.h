@@ -10,6 +10,9 @@
 namespace hm = library::hilbert_map;
 namespace sw = library::sim_world;
 
+namespace app {
+namespace kernel_learning {
+
 class Data {
  public:
   Data();
@@ -54,3 +57,6 @@ class DataManager {
 
   void GenerateData();
 };
+
+}
+}

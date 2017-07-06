@@ -1,7 +1,10 @@
-#include "app/obj_sim/learned_kernel.h"
+#include "app/kernel_learning/learned_kernel.h"
 
 #include <cmath>
 #include <iostream>
+
+namespace app {
+namespace kernel_learning {
 
 LearnedKernel::LearnedKernel(float full_width, float res) :
   dim_size_(ceil(full_width/res)),
@@ -86,4 +89,7 @@ float LearnedKernel::GetResolution() const {
 
 const std::vector<float>& LearnedKernel::GetData() const {
   return vals_;
+}
+
+}
 }

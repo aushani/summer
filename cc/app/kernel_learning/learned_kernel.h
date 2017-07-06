@@ -7,6 +7,9 @@
 
 namespace hm = library::hilbert_map;
 
+namespace app {
+namespace kernel_learning {
+
 class LearnedKernel : public hm::IKernel {
  public:
   LearnedKernel(float full_width, float res);
@@ -35,3 +38,6 @@ class LearnedKernel : public hm::IKernel {
   std::vector<float> vals_;
 
 };
+
+}
+}

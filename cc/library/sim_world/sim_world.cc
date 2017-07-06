@@ -3,12 +3,10 @@
 #include <random>
 #include <chrono>
 
+namespace hm = library::hilbert_map;
+
 namespace library {
 namespace sim_world {
-
-namespace {
-  namespace hm = library::hilbert_map;
-}
 
 SimWorld::SimWorld() :
   bounding_box_(Shape::CreateBox(0, 0, 50, 50)),
@@ -26,8 +24,8 @@ SimWorld::SimWorld() :
     double x = unif(re);
     double y = unif(re);
     //double size = rand_size(re);
-    x = 3.0;
-    y = 3.0;
+    //x = 3.0;
+    //y = 3.0;
     double size = 2.0;
 
     if (std::abs(x) < 3 && std::abs(y) < 3)

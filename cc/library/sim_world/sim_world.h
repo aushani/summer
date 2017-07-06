@@ -5,12 +5,10 @@
 #include "library/hilbert_map/hilbert_map.h"
 #include "library/sim_world/shape.h"
 
+namespace hm = library::hilbert_map;
+
 namespace library {
 namespace sim_world {
-
-namespace {
-  namespace hm = library::hilbert_map;
-}
 
 class SimWorld {
  public:

@@ -1,7 +1,13 @@
-#include "app/obj_sim/data.h"
+#include "app/kernel_learning/data.h"
 
 #include <random>
 #include <chrono>
+
+namespace hm = library::hilbert_map;
+namespace sw = library::sim_world;
+
+namespace app {
+namespace kernel_learning {
 
 Data::Data() :
  sim_(new sw::SimWorld()),
@@ -117,4 +123,7 @@ void DataManager::GenerateData() {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
   }
+}
+
+}
 }

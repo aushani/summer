@@ -13,11 +13,12 @@
 #include "library/hilbert_map/hilbert_map.h"
 #include "library/sim_world/sim_world.h"
 
-#include "app/obj_sim/learned_kernel.h"
-#include "app/obj_sim/data.h"
+#include "app/kernel_learning/learned_kernel.h"
+#include "app/kernel_learning/data.h"
 
 namespace hm = library::hilbert_map;
 namespace sw = library::sim_world;
+using namespace app::kernel_learning;
 
 void SaveKernel(const hm::IKernel &kernel, const char *fn) {
   std::ofstream kernel_file;
