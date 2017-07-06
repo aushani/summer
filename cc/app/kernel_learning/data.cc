@@ -3,7 +3,7 @@
 #include <random>
 #include <chrono>
 
-namespace hm = library::hilbert_map;
+namespace ge = library::geometry;
 namespace sw = library::sim_world;
 
 namespace app {
@@ -11,11 +11,11 @@ namespace kernel_learning {
 
 Data::Data() :
  sim_(new sw::SimWorld()),
- points_(new std::vector<hm::Point>()),
+ points_(new std::vector<ge::Point>()),
  labels_(new std::vector<float>()),
- hits_(new std::vector<hm::Point>()),
- origins_(new std::vector<hm::Point>()),
- occluded_points_(new std::vector<hm::Point>()),
+ hits_(new std::vector<ge::Point>()),
+ origins_(new std::vector<ge::Point>()),
+ occluded_points_(new std::vector<ge::Point>()),
  occluded_labels_(new std::vector<float>()) {
 
   int trials = 10000;
@@ -41,7 +41,7 @@ sw::SimWorld* Data::GetSim() {
   return sim_;
 }
 
-std::vector<hm::Point>* Data::GetPoints() {
+std::vector<ge::Point>* Data::GetPoints() {
   return points_;
 }
 
@@ -49,15 +49,15 @@ std::vector<float>* Data::GetLabels() {
   return labels_;
 }
 
-std::vector<hm::Point>* Data::GetHits() {
+std::vector<ge::Point>* Data::GetHits() {
   return hits_;
 }
 
-std::vector<hm::Point>* Data::GetOrigins() {
+std::vector<ge::Point>* Data::GetOrigins() {
   return origins_;
 }
 
-std::vector<hm::Point>* Data::GetOccludedPoints() {
+std::vector<ge::Point>* Data::GetOccludedPoints() {
   return occluded_points_;
 }
 

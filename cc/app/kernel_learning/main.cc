@@ -16,8 +16,10 @@
 #include "app/kernel_learning/learned_kernel.h"
 #include "app/kernel_learning/data.h"
 
+namespace ge = library::geometry;
 namespace hm = library::hilbert_map;
 namespace sw = library::sim_world;
+
 using namespace app::kernel_learning;
 
 void SaveKernel(const hm::IKernel &kernel, const char *fn) {
@@ -151,7 +153,7 @@ int main(int argc, char** argv) {
     printf("\tMaking example %d\n", example);
 
     // Now actually make a HM with the kernel we learned
-    std::vector<hm::Point> hits, origins;
+    std::vector<ge::Point> hits, origins;
 
     sw::SimWorld sim;
     sim.GenerateSimData(&hits, &origins);
@@ -172,7 +174,7 @@ int main(int argc, char** argv) {
     points_file.close();
 
     // Evaluate
-    std::vector<hm::Point> query_points;
+    std::vector<ge::Point> query_points;
     std::vector<float> gt_labels;
     sim.GenerateGrid(10.0, &query_points, &gt_labels);
     std::vector<float> probs = map.GetOccupancy(query_points);

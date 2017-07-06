@@ -1,6 +1,5 @@
 cc_library(
-    name = "sim_world",
+    name = "geometry",
     srcs = glob(["*.cc", "*.h"]),
     visibility = ["//visibility:public"],
-    deps = ["@eigen//:eigen", "//library/geometry"]
 )

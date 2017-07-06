@@ -12,12 +12,14 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
+namespace ge = library::geometry;
+
 namespace library {
 namespace hilbert_map {
 
 // Forward declaration of kernels
-__global__ void copy_observations(DeviceData data, Point *points, float *labels);
-__global__ void make_observations(DeviceData data, Point *hits, Point *origins, int n_obs, unsigned int seed);
+__global__ void copy_observations(DeviceData data, ge::Point *points, float *labels);
+__global__ void make_observations(DeviceData data, ge::Point *hits, ge::Point *origins, int n_obs, unsigned int seed);
 __global__ void perform_w_update_buckets(DeviceData data, int subbucket);
 __global__ void populate_meta_info(DeviceData data);
 __global__ void compute_bucket_indicies(DeviceData data);
@@ -25,7 +27,7 @@ __global__ void compute_subbucket_indicies(DeviceData data);
 
 struct MetaPoint {
 
-  Point p;
+  ge::Point p;
   float label;
   int valid;
 
@@ -108,7 +110,7 @@ struct DeviceData {
     }
   }
 
-  DeviceData(const std::vector<Point> &raw_hits, const std::vector<Point> &raw_origins, const std::vector<IKernel*> &kernels, const Opt opt, const float *init_w) :
+  DeviceData(const std::vector<ge::Point> &raw_hits, const std::vector<ge::Point> &raw_origins, const std::vector<IKernel*> &kernels, const Opt opt, const float *init_w) :
     DeviceData(kernels, opt, init_w) {
     // malloc workspace
     int max_obs_per_point = ceil(max_range / meters_per_observation) + 1;
@@ -116,12 +118,12 @@ struct DeviceData {
     cudaMalloc(&mp, sizeof(MetaPoint)*n_data);
 
     // Copy data to device
-    Point *d_hits, *d_origins;
-    cudaMalloc(&d_hits, sizeof(Point)*raw_hits.size());
-    cudaMalloc(&d_origins, sizeof(Point)*raw_origins.size());
+    ge::Point *d_hits, *d_origins;
+    cudaMalloc(&d_hits, sizeof(ge::Point)*raw_hits.size());
+    cudaMalloc(&d_origins, sizeof(ge::Point)*raw_origins.size());
 
-    cudaMemcpy(d_hits, raw_hits.data(), sizeof(Point)*raw_hits.size(), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_origins, raw_origins.data(), sizeof(Point)*raw_origins.size(), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_hits, raw_hits.data(), sizeof(ge::Point)*raw_hits.size(), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_origins, raw_origins.data(), sizeof(ge::Point)*raw_origins.size(), cudaMemcpyHostToDevice);
 
     // Make observations from raw hits
     srand(time(NULL));
@@ -142,19 +144,19 @@ struct DeviceData {
     cudaFree(d_origins);
   }
 
-  DeviceData(const std::vector<Point> &points, const std::vector<float> &labels, const std::vector<IKernel*> &kernels, const Opt opt, const float *init_w) :
+  DeviceData(const std::vector<ge::Point> &points, const std::vector<float> &labels, const std::vector<IKernel*> &kernels, const Opt opt, const float *init_w) :
     DeviceData(kernels, opt, init_w) {
     // malloc workspace
     n_data = points.size();
     cudaMalloc(&mp, sizeof(MetaPoint)*n_data);
 
     // Copy data to device
-    Point *d_points;
+    ge::Point *d_points;
     float *d_labels;
-    cudaMalloc(&d_points, sizeof(Point)*points.size());
+    cudaMalloc(&d_points, sizeof(ge::Point)*points.size());
     cudaMalloc(&d_labels, sizeof(float)*labels.size());
 
-    cudaMemcpy(d_points, points.data(), sizeof(Point)*points.size(), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_points, points.data(), sizeof(ge::Point)*points.size(), cudaMemcpyHostToDevice);
     cudaMemcpy(d_labels, labels.data(), sizeof(float)*labels.size(), cudaMemcpyHostToDevice);
 
     // Make observations from raw hits
@@ -245,11 +247,11 @@ HilbertMap::HilbertMap(DeviceData *data) :
   printf("\tLearned w in %ld ms\n", t_learn_ms.count());
 }
 
-HilbertMap::HilbertMap(const std::vector<Point> &hits, const std::vector<Point> &origins, const std::vector<IKernel*> &kernels, Opt opt, const float *init_w)
+HilbertMap::HilbertMap(const std::vector<ge::Point> &hits, const std::vector<ge::Point> &origins, const std::vector<IKernel*> &kernels, Opt opt, const float *init_w)
   : HilbertMap(new DeviceData(hits, origins, kernels, opt, init_w)) {
 }
 
-HilbertMap::HilbertMap(const std::vector<Point> &points, const std::vector<float> &labels, const std::vector<IKernel*> &kernels, Opt opt, const float *init_w)
+HilbertMap::HilbertMap(const std::vector<ge::Point> &points, const std::vector<float> &labels, const std::vector<IKernel*> &kernels, Opt opt, const float *init_w)
   : HilbertMap(new DeviceData(points, labels, kernels, opt, init_w)) {
 }
 
@@ -275,7 +277,7 @@ __device__ float kernel_lookup(const DeviceData &data, float dx, float dy, size_
   return kt.kernel_table[idx*kt.n_dim + idy];
 }
 
-__global__ void copy_observations(DeviceData data, Point *points, float *labels) {
+__global__ void copy_observations(DeviceData data, ge::Point *points, float *labels) {
 
   // Figure out where this thread is
   const int bidx = blockIdx.x;
@@ -288,7 +290,7 @@ __global__ void copy_observations(DeviceData data, Point *points, float *labels)
   if (idx >= data.n_data)
     return;
 
-  Point point = points[idx];
+  ge::Point point = points[idx];
   float label = labels[idx];
 
   // Add hit
@@ -297,7 +299,7 @@ __global__ void copy_observations(DeviceData data, Point *points, float *labels)
   data.mp[idx].valid = 1;
 }
 
-__global__ void make_observations(DeviceData data, Point *hits, Point *origins, int n_obs, unsigned int seed) {
+__global__ void make_observations(DeviceData data, ge::Point *hits, ge::Point *origins, int n_obs, unsigned int seed) {
 
   // Figure out where this thread is
   const int bidx = blockIdx.x;
@@ -316,8 +318,8 @@ __global__ void make_observations(DeviceData data, Point *hits, Point *origins, 
 
   int max_obs_per_point = ceil(data.max_range / data.meters_per_observation) + 1;
 
-  Point hit = hits[idx];
-  Point origin = origins[idx];
+  ge::Point hit = hits[idx];
+  ge::Point origin = origins[idx];
 
   // Add hit
   data.mp[idx*max_obs_per_point].p = hit;
@@ -365,7 +367,7 @@ __global__ void populate_meta_info(DeviceData data) {
     return;
   }
 
-  Point p = data.mp[idx].p;
+  ge::Point p = data.mp[idx].p;
 
   // Compute bucket
   int bucket_i = llrintf(p.x/data.bucket_size);
@@ -509,7 +511,7 @@ __global__ void compute_subbucket_indicies(DeviceData data) {
   //}
 }
 
-__device__ float compute_wTphi(const DeviceData &data, Point x, int tidx, int threads, float *sh_mem) {
+__device__ float compute_wTphi(const DeviceData &data, ge::Point x, int tidx, int threads, float *sh_mem) {
 
   const int kwxm = data.max_kernel_width_xm;
   const int num_evals_total = kwxm*kwxm*data.n_kernels;
@@ -585,7 +587,7 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
 
   for (int data_idx = start; data_idx < end; ++data_idx) {
 
-    Point x = data.mp[data_idx].p;
+    ge::Point x = data.mp[data_idx].p;
     float y = data.mp[data_idx].label;
 
     float wTphi = compute_wTphi(data, x, tidx, threads, phi_sparse);
@@ -624,7 +626,7 @@ __global__ void perform_w_update_buckets(DeviceData data, int subbucket) {
   }
 }
 
-__global__ void compute_occupancy(DeviceData data, Point *points, float *res) {
+__global__ void compute_occupancy(DeviceData data, ge::Point *points, float *res) {
 
   // Figure out where this thread is
   const int bidx = blockIdx.x;
@@ -634,7 +636,7 @@ __global__ void compute_occupancy(DeviceData data, Point *points, float *res) {
 
   extern __shared__ float phi_sparse[];
 
-  Point x = points[bidx];
+  ge::Point x = points[bidx];
 
   float wTphi = compute_wTphi(data, x, tidx, threads, phi_sparse);
 
@@ -643,14 +645,14 @@ __global__ void compute_occupancy(DeviceData data, Point *points, float *res) {
   }
 }
 
-std::vector<float> HilbertMap::GetOccupancy(std::vector<Point> points) {
+std::vector<float> HilbertMap::GetOccupancy(std::vector<ge::Point> points) {
 
   float *d_res;
   cudaMalloc(&d_res, sizeof(float)*points.size());
 
-  Point *d_points;
-  cudaMalloc(&d_points, sizeof(Point)*points.size());
-  cudaMemcpy(d_points, points.data(), sizeof(Point)*points.size(), cudaMemcpyHostToDevice);
+  ge::Point *d_points;
+  cudaMalloc(&d_points, sizeof(ge::Point)*points.size());
+  cudaMemcpy(d_points, points.data(), sizeof(ge::Point)*points.size(), cudaMemcpyHostToDevice);
 
   int threads = 64;
   size_t blocks = points.size();
@@ -670,7 +672,7 @@ std::vector<float> HilbertMap::GetOccupancy(std::vector<Point> points) {
   return res;
 }
 
-__global__ void compute_log_likelihood(DeviceData data, Point *points, float *gt_labels, float *scores) {
+__global__ void compute_log_likelihood(DeviceData data, ge::Point *points, float *gt_labels, float *scores) {
 
   // Figure out where this thread is
   const int bidx = blockIdx.x;
@@ -680,7 +682,7 @@ __global__ void compute_log_likelihood(DeviceData data, Point *points, float *gt
 
   extern __shared__ float phi_sparse[];
 
-  Point x = points[bidx];
+  ge::Point x = points[bidx];
   float y = gt_labels[bidx];
 
   float wTphi = compute_wTphi(data, x, tidx, threads, phi_sparse);
@@ -690,15 +692,15 @@ __global__ void compute_log_likelihood(DeviceData data, Point *points, float *gt
   }
 }
 
-float HilbertMap::ComputeLogLikelihood(std::vector<Point> points, std::vector<float> gt_labels) {
+float HilbertMap::ComputeLogLikelihood(std::vector<ge::Point> points, std::vector<float> gt_labels) {
 
   // Allocate
   float *d_scores;
   cudaMalloc(&d_scores, sizeof(float)*points.size());
 
-  Point *d_points;
-  cudaMalloc(&d_points, sizeof(Point)*points.size());
-  cudaMemcpy(d_points, points.data(), sizeof(Point)*points.size(), cudaMemcpyHostToDevice);
+  ge::Point *d_points;
+  cudaMalloc(&d_points, sizeof(ge::Point)*points.size());
+  cudaMemcpy(d_points, points.data(), sizeof(ge::Point)*points.size(), cudaMemcpyHostToDevice);
 
   float *d_labels;
   cudaMalloc(&d_labels, sizeof(float)*gt_labels.size());

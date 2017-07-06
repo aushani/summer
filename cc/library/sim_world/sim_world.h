@@ -2,10 +2,10 @@
 
 #include <vector>
 
-#include "library/hilbert_map/hilbert_map.h"
+#include "library/geometry/point.h"
 #include "library/sim_world/shape.h"
 
-namespace hm = library::hilbert_map;
+namespace ge = library::geometry;
 
 namespace library {
 namespace sim_world {
@@ -14,11 +14,11 @@ class SimWorld {
  public:
   SimWorld();
 
-  void GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Point> *origins);
-  void GenerateGrid(double size, std::vector<hm::Point> *points, std::vector<float> *labels);
-  void GenerateAllSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels);
-  void GenerateVisibleSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels);
-  void GenerateOccludedSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels);
+  void GenerateSimData(std::vector<ge::Point> *hits, std::vector<ge::Point> *origins);
+  void GenerateGrid(double size, std::vector<ge::Point> *points, std::vector<float> *labels);
+  void GenerateAllSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels);
+  void GenerateVisibleSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels);
+  void GenerateOccludedSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels);
 
   const std::vector<Shape>& GetObjects();
 
@@ -40,7 +40,7 @@ class SimWorld {
 
   double GetHit(const Eigen::Vector2d &ray, Eigen::Vector2d *hit);
 
-  void GenerateSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels, bool visible, bool occluded);
+  void GenerateSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels, bool visible, bool occluded);
 };
 
 }

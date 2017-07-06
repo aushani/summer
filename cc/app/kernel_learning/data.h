@@ -7,7 +7,7 @@
 #include "library/hilbert_map/hilbert_map.h"
 #include "library/sim_world/sim_world.h"
 
-namespace hm = library::hilbert_map;
+namespace ge = library::geometry;
 namespace sw = library::sim_world;
 
 namespace app {
@@ -19,22 +19,22 @@ class Data {
   ~Data();
 
   sw::SimWorld* GetSim();
-  std::vector<hm::Point>* GetPoints();
+  std::vector<ge::Point>* GetPoints();
   std::vector<float>* GetLabels();
-  std::vector<hm::Point>* GetHits();
-  std::vector<hm::Point>* GetOrigins();
+  std::vector<ge::Point>* GetHits();
+  std::vector<ge::Point>* GetOrigins();
 
-  std::vector<hm::Point>* GetOccludedPoints();
+  std::vector<ge::Point>* GetOccludedPoints();
   std::vector<float>* GetOccludedLabels();
 
  private:
   sw::SimWorld *sim_ = NULL;
-  std::vector<hm::Point> *points_ = NULL;
+  std::vector<ge::Point> *points_ = NULL;
   std::vector<float> *labels_ = NULL;
-  std::vector<hm::Point> *hits_ = NULL;
-  std::vector<hm::Point> *origins_ = NULL;
+  std::vector<ge::Point> *hits_ = NULL;
+  std::vector<ge::Point> *origins_ = NULL;
 
-  std::vector<hm::Point> *occluded_points_ = NULL;
+  std::vector<ge::Point> *occluded_points_ = NULL;
   std::vector<float> *occluded_labels_ = NULL;
 };
 

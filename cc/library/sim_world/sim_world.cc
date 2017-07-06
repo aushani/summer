@@ -3,7 +3,7 @@
 #include <random>
 #include <chrono>
 
-namespace hm = library::hilbert_map;
+namespace ge = library::geometry;
 
 namespace library {
 namespace sim_world {
@@ -56,7 +56,7 @@ double SimWorld::GetHit(const Eigen::Vector2d &ray, Eigen::Vector2d *hit) {
   return best_distance;
 }
 
-void SimWorld::GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Point> *origins) {
+void SimWorld::GenerateSimData(std::vector<ge::Point> *hits, std::vector<ge::Point> *origins) {
   Eigen::Vector2d hit;
 
   for (double angle = -M_PI; angle < M_PI; angle += 0.01) {
@@ -64,13 +64,13 @@ void SimWorld::GenerateSimData(std::vector<hm::Point> *hits, std::vector<hm::Poi
     double distance = GetHit(ray, &hit);
 
     if (distance > 0) {
-      hits->push_back(hm::Point(hit(0), hit(1)));
-      origins->push_back(hm::Point(origin_(0), origin_(1)));
+      hits->push_back(ge::Point(hit(0), hit(1)));
+      origins->push_back(ge::Point(origin_(0), origin_(1)));
     }
   }
 }
 
-void SimWorld::GenerateGrid(double size, std::vector<hm::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateGrid(double size, std::vector<ge::Point> *points, std::vector<float> *labels) {
   // Find extent of sim
   //double x_min = GetMinX();
   //double x_max = GetMaxX();
@@ -94,7 +94,7 @@ void SimWorld::GenerateGrid(double size, std::vector<hm::Point> *points, std::ve
   }
 }
 
-void SimWorld::GenerateSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels, bool visible, bool occluded) {
+void SimWorld::GenerateSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels, bool visible, bool occluded) {
   // Find extent of sim
   double x_min = GetMinX();
   double x_max = GetMaxX();
@@ -107,8 +107,8 @@ void SimWorld::GenerateSamples(size_t trials, std::vector<hm::Point> *points, st
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
-  std::vector<hm::Point> occu_points;
-  std::vector<hm::Point> free_points;
+  std::vector<ge::Point> occu_points;
+  std::vector<ge::Point> free_points;
 
   for (size_t i=0; i<trials; i++) {
     double x = random_x(re);
@@ -121,9 +121,9 @@ void SimWorld::GenerateSamples(size_t trials, std::vector<hm::Point> *points, st
     }
 
     if (IsOccupied(x, y)) {
-      occu_points.push_back(hm::Point(x, y));
+      occu_points.push_back(ge::Point(x, y));
     } else {
-      free_points.push_back(hm::Point(x, y));
+      free_points.push_back(ge::Point(x, y));
     }
   }
 
@@ -140,19 +140,19 @@ void SimWorld::GenerateSamples(size_t trials, std::vector<hm::Point> *points, st
   }
 }
 
-void SimWorld::GenerateAllSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateAllSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels) {
   bool visible = true;
   bool occluded = true;
   GenerateSamples(trials, points, labels, visible, occluded);
 }
 
-void SimWorld::GenerateVisibleSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateVisibleSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels) {
   bool visible = true;
   bool occluded = false;
   GenerateSamples(trials, points, labels, visible, occluded);
 }
 
-void SimWorld::GenerateOccludedSamples(size_t trials, std::vector<hm::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateOccludedSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels) {
   bool visible = false;
   bool occluded = true;
   GenerateSamples(trials, points, labels, visible, occluded);

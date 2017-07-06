@@ -15,6 +15,7 @@
 #include "library/hilbert_map/kernel.h"
 
 namespace hm = library::hilbert_map;
+namespace ge = library::geometry;
 
 template<typename Out>
 void split(const std::string &s, char delim, Out result) {
@@ -32,7 +33,7 @@ std::vector<std::string> split(const std::string &s, char delim) {
   return elems;
 }
 
-void load(char* fn, std::vector<hm::Point> &hits, std::vector<hm::Point> &origins) {
+void load(char* fn, std::vector<ge::Point> &hits, std::vector<ge::Point> &origins) {
   std::ifstream file;
   file.open(fn);
 
@@ -47,7 +48,7 @@ void load(char* fn, std::vector<hm::Point> &hits, std::vector<hm::Point> &origin
       double t = atof(tokens[184].c_str());
       //printf("%5.3f %5.3f %5.3f\n", x, y, t);
 
-      hm::Point p_origin(x, y);
+      ge::Point p_origin(x, y);
 
 
       for (int i=2; i<182; i++) {
@@ -56,7 +57,7 @@ void load(char* fn, std::vector<hm::Point> &hits, std::vector<hm::Point> &origin
         if (range < 80) {
           double p_x = range*cos(angle_d*M_PI/180.0 + t) + x;
           double p_y = range*sin(angle_d*M_PI/180.0 + t) + y;
-          hm::Point p_hit(p_x, p_y);
+          ge::Point p_hit(p_x, p_y);
           hits.push_back(p_hit);
           origins.push_back(p_origin);
         }
@@ -73,7 +74,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  std::vector<hm::Point> hits, origins;
+  std::vector<ge::Point> hits, origins;
   auto tic_load = std::chrono::steady_clock::now();
   load(argv[1], hits, origins);
   auto toc_load = std::chrono::steady_clock::now();
@@ -100,12 +101,12 @@ int main(int argc, char** argv) {
   auto t_build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(toc_build - tic_build);
   printf("Took %5.3f ms avg for build\n", ((double)t_build_ms.count())/trials);
 
-  std::vector<hm::Point> query_points;
+  std::vector<ge::Point> query_points;
 
   auto tic = std::chrono::steady_clock::now();
   for (double x = -25; x<25; x+=0.1) {
     for (double y = -25; y<25; y+=0.1) {
-      hm::Point p(x, y);
+      ge::Point p(x, y);
       query_points.push_back(p);
     }
   }
