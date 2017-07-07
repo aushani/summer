@@ -8,7 +8,7 @@ namespace ge = library::geometry;
 namespace library {
 namespace sim_world {
 
-Data::Data() :
+Data::Data(bool gen_random, bool gen_occluded) :
  sim_(new SimWorld(5)),
  points_(new std::vector<ge::Point>()),
  labels_(new std::vector<float>()),
@@ -19,9 +19,15 @@ Data::Data() :
  obs_points_(new std::vector<ge::Point>()),
  obs_labels_(new std::vector<float>()) {
 
-  int trials = 10000;
-  sim_->GenerateAllSamples(trials, points_, labels_);
-  sim_->GenerateOccludedSamples(trials, occluded_points_, occluded_labels_);
+  if (gen_random) {
+    int trials = 10000;
+    sim_->GenerateAllSamples(trials, points_, labels_);
+  }
+
+  if (gen_occluded) {
+    int trials = 10000;
+    sim_->GenerateOccludedSamples(trials, occluded_points_, occluded_labels_);
+  }
 
   //sim_->GenerateGrid(10.0, points_, labels_);
   sim_->GenerateSimData(hits_, origins_);
@@ -78,7 +84,8 @@ std::vector<float>* Data::GetObsLabels() {
   return obs_labels_;
 }
 
-DataManager::DataManager(int threads) {
+DataManager::DataManager(int threads, bool gen_random, bool gen_occluded) :
+ gen_random_(gen_random), gen_occluded_(gen_occluded) {
   for (int i=0; i<threads; i++) {
     threads_.push_back(std::thread(&DataManager::GenerateData, this));
   }
@@ -108,7 +115,7 @@ Data* DataManager::GetData() {
     if (!data_.empty()) {
       res = data_.front();
       data_.pop_front();
-      printf("\tHave %ld data left\n", data_.size());
+      //printf("\tHave %ld data left\n", data_.size());
     }
     mutex_.unlock();
 
@@ -122,7 +129,7 @@ Data* DataManager::GetData() {
 
 void DataManager::GenerateData() {
   while (!done_) {
-    Data *d = new Data();
+    Data *d = new Data(gen_random_, gen_occluded_);
 
     mutex_.lock();
     size_t sz = data_.size();

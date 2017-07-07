@@ -23,10 +23,10 @@ SimWorld::SimWorld(int n_shapes) :
   while (shapes_.size() < n_shapes) {
     double x = unif(re);
     double y = unif(re);
-    //double size = rand_size(re);
+    double size = rand_size(re);
     //x = 3.0;
     //y = 3.0;
-    double size = 2.0;
+    //double size = 2.0;
 
     if (std::abs(x) < 3 && std::abs(y) < 3)
       continue;

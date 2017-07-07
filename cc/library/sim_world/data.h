@@ -14,12 +14,13 @@ namespace sim_world {
 
 class Data {
  public:
-  Data();
+  Data(bool gen_random, bool gen_occluded);
   ~Data();
 
   SimWorld* GetSim();
   std::vector<ge::Point>* GetPoints();
   std::vector<float>* GetLabels();
+
   std::vector<ge::Point>* GetHits();
   std::vector<ge::Point>* GetOrigins();
 
@@ -45,7 +46,7 @@ class Data {
 
 class DataManager {
  public:
-  DataManager(int threads);
+  DataManager(int threads, bool gen_random=true, bool gen_occluded=true);
   ~DataManager();
 
   Data* GetData();
@@ -57,6 +58,9 @@ class DataManager {
   std::vector<std::thread> threads_;
   std::deque<Data*> data_;
   std::mutex mutex_;
+
+  bool gen_random_;
+  bool gen_occluded_;
 
   volatile bool done_ = false;
 
