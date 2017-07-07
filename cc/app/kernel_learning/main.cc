@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
     // Now actually make a HM with the kernel we learned
     std::vector<ge::Point> hits, origins;
 
-    sw::SimWorld sim;
+    sw::SimWorld sim(5);
     sim.GenerateSimData(&hits, &origins);
 
     std::vector<hm::IKernel*> kernels;

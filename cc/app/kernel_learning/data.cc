@@ -10,7 +10,7 @@ namespace app {
 namespace kernel_learning {
 
 Data::Data() :
- sim_(new sw::SimWorld()),
+ sim_(new sw::SimWorld(5)),
  points_(new std::vector<ge::Point>()),
  labels_(new std::vector<float>()),
  hits_(new std::vector<ge::Point>()),

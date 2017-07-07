@@ -12,15 +12,18 @@ namespace sim_world {
 
 class SimWorld {
  public:
-  SimWorld();
+  SimWorld(int n_shapes);
+
+  void AddShape(const Shape &obj);
 
   void GenerateSimData(std::vector<ge::Point> *hits, std::vector<ge::Point> *origins);
-  void GenerateGrid(double size, std::vector<ge::Point> *points, std::vector<float> *labels);
+  void GenerateSimData(std::vector<ge::Point> *points, std::vector<float> *labels);
+  void GenerateGrid(double size, std::vector<ge::Point> *points, std::vector<float> *labels, double res = 0.1);
   void GenerateAllSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels);
   void GenerateVisibleSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels);
   void GenerateOccludedSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels);
 
-  const std::vector<Shape>& GetObjects();
+  const std::vector<Shape>& GetShapes();
 
   bool IsOccupied(float x, float y);
 
@@ -32,8 +35,10 @@ class SimWorld {
   double GetMinY() const;
   double GetMaxY() const;
 
+  std::vector<ge::Point> GetObjectLocations();
+
  private:
-  std::vector<Shape> objects_;
+  std::vector<Shape> shapes_;
   Shape bounding_box_;
 
   Eigen::Vector2d origin_;
