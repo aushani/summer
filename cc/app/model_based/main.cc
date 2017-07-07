@@ -28,7 +28,7 @@ struct comp {
 
 double EvalProb(const std::vector<ge::Point> &points, const std::vector<float> &labels, const ObjectModel &model, const ObjectModel &no_obj, const ge::Point &p) {
   double log_l_obj = 0;
-  double log_l_noobj = 20;
+  double log_l_noobj = 0;
 
   int updates = 0;
 
@@ -55,21 +55,21 @@ double EvalProb(const std::vector<ge::Point> &points, const std::vector<float> &
 
   //printf("%f vs %f (%d)\n", log_l_obj, log_l_noobj, updates);
 
-  return log_l_obj - log_l_noobj;
+  //return log_l_obj - log_l_noobj;
 
-  //double min = fmin(log_l_obj, log_l_noobj);
-  //log_l_obj -= min;
-  //log_l_noobj -= min;
+  double min = fmin(log_l_obj, log_l_noobj);
+  log_l_obj -= min;
+  log_l_noobj -= min;
 
-  //if (log_l_obj > 100)
-  //  return 1.0;
-  //if (log_l_noobj > 100)
-  //  return 0.0;
+  if (log_l_obj > 100)
+    return 1.0;
+  if (log_l_noobj > 100)
+    return 0.0;
 
-  //double sum = exp(log_l_obj) + exp(log_l_noobj);
-  //double prob = exp(log_l_obj)/sum;
+  double sum = exp(log_l_obj) + exp(log_l_noobj);
+  double prob = exp(log_l_obj)/sum;
 
-  //return prob;
+  return prob;
 }
 
 std::map<ge::Point, double, comp> Detect(const std::vector<ge::Point> &points, const std::vector<float> &labels, const ObjectModel &model, const ObjectModel &no_obj) {
@@ -89,6 +89,58 @@ std::map<ge::Point, double, comp> Detect(const std::vector<ge::Point> &points, c
   return map;
 }
 
+double EvalOccuProb(const std::map<ge::Point, double, comp> &map, const ObjectModel &model, const ge::Point &x) {
+
+  double val_occu = 0.0;
+  double val_free = 0.0;
+
+  for (auto it = map.begin(); it != map.end(); it++) {
+    const ge::Point &p = it->first;
+    ge::Point p_m(p.x - x.x, p.y - x.y);
+
+    if (!model.InBounds(p_m))
+      continue;
+
+    double p_occu = model.EvaluateLikelihood(p_m, 1.0);
+    if (p_occu < 1e-3)
+      p_occu = 1e-3;
+    if (p_occu > 0.999)
+      p_occu = 0.999;
+
+    double p_free = 1 - p_occu;
+
+    double p_obj = it->second;
+    if (p_obj < 1e-3)
+      p_obj = 1e-3;
+    if (p_obj > 0.999)
+      p_obj = 0.999;
+    double p_no_obj = 1 - p_obj;
+
+    val_occu += log(p_occu);
+    val_occu += log(p_obj);
+
+    val_free += log(p_free);
+    val_free += log(p_obj);
+  }
+
+  printf("val: %5.3f, %5.3f\n", val_occu, val_free);
+
+  double min = fmin(val_occu, val_free);
+  val_occu -= min;
+  val_free -= min;
+
+  if (val_occu > 100)
+    return 1.0;
+
+  if (val_free > 100)
+    return 0.0;
+
+  double sum = exp(val_occu) + exp(val_free);
+  double prob = exp(val_occu)/sum;
+
+  return prob;
+}
+
 int main(int argc, char** argv) {
   printf("Model based detector\n");
 
@@ -98,7 +150,7 @@ int main(int argc, char** argv) {
 
   library::timer::Timer t;
 
-  ObjectModel model(2.0, 0.25);
+  ObjectModel model(2.0, 0.1);
   ObjectModel no_obj(2.0, 1.0);
 
   t.Start();
@@ -157,15 +209,14 @@ int main(int argc, char** argv) {
   //sim.GenerateGrid(10.0, &points, &labels, 0.25);
   printf("Took %5.3f ms to generate %ld samples\n", t.GetMs(), points.size());
 
-  for (auto p_center : sim.GetObjectLocations()) {
-    printf("Score at obj is: %5.3f\n", EvalProb(points, labels, model, no_obj, p_center));
-    printf("Score at obj + (2, 2) is: %5.3f\n", EvalProb(points, labels, model, no_obj, ge::Point(p_center.x + 2, p_center.y + 2)));
-  }
-
-
   t.Start();
   auto map = Detect(points, labels, model, no_obj);
   printf("Took %5.3f ms to detect\n", t.GetMs());
+
+  for (auto p_center : sim.GetObjectLocations()) {
+    printf("Score at obj is: %5.3f\n", EvalOccuProb(map, model, p_center));
+    printf("Score at obj + (2, 2) is: %5.3f\n", EvalOccuProb(map, model, ge::Point(p_center.x + 2, p_center.y + 2)));
+  }
 
   // Write out data
   printf("Saving data...\n");
@@ -212,9 +263,11 @@ int main(int argc, char** argv) {
     float y = it->first.y;
 
     double p_m = it->second;
-    double p = p_m > 0.5 ? 1:0;
+    //double p = p_m > 0.5 ? 1:0;
+    //double p_occu = EvalOccuProb(map, model, it->first);
+    double p_occu = 0.5;
 
-    res_file << x << ", " << y << ", " << p << ", " << p_m << std::endl;
+    res_file << x << ", " << y << ", " << p_occu << ", " << p_m << std::endl;
   }
   res_file.close();
 

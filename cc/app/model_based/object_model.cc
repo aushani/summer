@@ -14,18 +14,22 @@ bool ObjectModel::InBounds(const ge::Point &x) const {
 }
 
 double ObjectModel::EvaluateLikelihood(const ge::Point &x, double label) const {
-  //double count_free = LookupCount(x, -1.0);
-  //double count_occu = LookupCount(x, 1.0);
-  //double count_pos = count_free + count_occu;
+  double count_free = LookupCount(x, -1.0);
+  double count_occu = LookupCount(x, 1.0);
+  double count_pos = count_free + count_occu;
+
+  if (count_pos == 0)
+    return 0.5;
 
   //double p_x = count_pos / sum_counts_;
-  //double p_y = (label > 0 ? count_occu:count:free) / (count_pos);
+  double p_y = (label > 0 ? count_occu:count_free) / (count_pos);
+  return p_y;
   //double p = p_y * p_x;
 
-  double p = ((double) LookupCount(x, label)) / sum_counts_;
-  double l = p / (res_*res_);
+  //double p = ((double) LookupCount(x, label)) / sum_counts_;
+  //double l = p / (res_*res_);
 
-  return l;
+  //return l;
 }
 
 void ObjectModel::Build(const ge::Point &x, double label) {
