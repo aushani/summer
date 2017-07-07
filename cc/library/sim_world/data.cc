@@ -1,22 +1,23 @@
-#include "app/kernel_learning/data.h"
+#include "library/sim_world/data.h"
 
 #include <random>
 #include <chrono>
 
 namespace ge = library::geometry;
-namespace sw = library::sim_world;
 
-namespace app {
-namespace kernel_learning {
+namespace library {
+namespace sim_world {
 
 Data::Data() :
- sim_(new sw::SimWorld(5)),
+ sim_(new SimWorld(5)),
  points_(new std::vector<ge::Point>()),
  labels_(new std::vector<float>()),
  hits_(new std::vector<ge::Point>()),
  origins_(new std::vector<ge::Point>()),
  occluded_points_(new std::vector<ge::Point>()),
- occluded_labels_(new std::vector<float>()) {
+ occluded_labels_(new std::vector<float>()),
+ obs_points_(new std::vector<ge::Point>()),
+ obs_labels_(new std::vector<float>()) {
 
   int trials = 10000;
   sim_->GenerateAllSamples(trials, points_, labels_);
@@ -24,6 +25,7 @@ Data::Data() :
 
   //sim_->GenerateGrid(10.0, points_, labels_);
   sim_->GenerateSimData(hits_, origins_);
+  sim_->GenerateSimData(obs_points_, obs_labels_);
 }
 
 Data::~Data() {
@@ -35,9 +37,12 @@ Data::~Data() {
 
   delete occluded_points_;
   delete occluded_labels_;
+
+  delete obs_points_;
+  delete obs_labels_;
 }
 
-sw::SimWorld* Data::GetSim() {
+SimWorld* Data::GetSim() {
   return sim_;
 }
 
@@ -63,6 +68,14 @@ std::vector<ge::Point>* Data::GetOccludedPoints() {
 
 std::vector<float>* Data::GetOccludedLabels() {
   return occluded_labels_;
+}
+
+std::vector<ge::Point>* Data::GetObsPoints() {
+  return obs_points_;
+}
+
+std::vector<float>* Data::GetObsLabels() {
+  return obs_labels_;
 }
 
 DataManager::DataManager(int threads) {

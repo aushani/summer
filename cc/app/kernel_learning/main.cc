@@ -12,9 +12,9 @@
 
 #include "library/hilbert_map/hilbert_map.h"
 #include "library/sim_world/sim_world.h"
+#include "library/sim_world/data.h"
 
 #include "app/kernel_learning/learned_kernel.h"
-#include "app/kernel_learning/data.h"
 
 namespace ge = library::geometry;
 namespace hm = library::hilbert_map;
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
   printf("Object sim\n");
 
   // Start data threads
-  DataManager data_manager(64);
+  sw::DataManager data_manager(64);
 
   std::vector<float> kernel_vector;
   int num_epochs = 1;
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
 
     // Get data
     printf("\tGetting data...\n");
-    Data *data = data_manager.GetData();
+    sw::Data *data = data_manager.GetData();
     printf("\tHave %ld sample points\n", data->GetPoints()->size());
     printf("\tHave %ld occluded points\n", data->GetOccludedPoints()->size());
     printf("\tHave %ld data observations\n", data->GetHits()->size());
