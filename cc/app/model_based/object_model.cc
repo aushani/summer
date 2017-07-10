@@ -13,7 +13,7 @@ bool ObjectModel::InBounds(const ge::Point &x) const {
   return GetTableIndex(x, 1.0) != -1;
 }
 
-double ObjectModel::EvaluateLikelihood(const ge::Point &x, double label) const {
+double ObjectModel::EvaluateProbability(const ge::Point &x, double label) const {
   double count_free = LookupCount(x, -1.0);
   double count_occu = LookupCount(x, 1.0);
   double count_pos = count_free + count_occu;
@@ -61,4 +61,27 @@ int ObjectModel::GetTableIndex(const ge::Point &x, double label) const {
   int idx_label = label > 0 ? 1:0;
 
   return (idx_x * dim_size_ + idx_y)*2 + idx_label;
+}
+
+ObjectModel ObjectModel::Dialate(double dialate_size) const {
+  ObjectModel om(size_, res_);
+
+  for (double x = -size_; x <= size_; x += res_) {
+    for (double y = -size_; y <= size_; y += res_) {
+
+      int count_free = 0;
+      int count_occu = 0;
+
+      for (double dx = -dialate_size; dx <= dialate_size; dx += res_) {
+        for (double dy = -dialate_size; dy <= dialate_size; dy += res_) {
+          count_free += LookupCount(ge::Point(x + dx, y + dy), -1.0);
+          count_occu += LookupCount(ge::Point(x + dx, y + dy), 1.0);
+        }
+      }
+      om.counts_[GetTableIndex(ge::Point(x, y), -1.0)] = count_free;
+      om.counts_[GetTableIndex(ge::Point(x, y), 1.0)] = count_occu;
+    }
+  }
+
+  return om;
 }

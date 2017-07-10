@@ -23,10 +23,10 @@ SimWorld::SimWorld(int n_shapes) :
   while (shapes_.size() < n_shapes) {
     double x = unif(re);
     double y = unif(re);
-    double size = rand_size(re);
+    //double size = rand_size(re);
     //x = 3.0;
     //y = 3.0;
-    //double size = 2.0;
+    double size = 2.0;
 
     if (std::abs(x) < 3 && std::abs(y) < 3)
       continue;
@@ -63,7 +63,7 @@ double SimWorld::GetHit(const Eigen::Vector2d &ray, Eigen::Vector2d *hit) {
 void SimWorld::GenerateSimData(std::vector<ge::Point> *hits, std::vector<ge::Point> *origins) {
   Eigen::Vector2d hit;
 
-  for (double angle = -M_PI; angle < M_PI; angle += 0.01) {
+  for (double angle = -M_PI; angle < M_PI; angle += 0.1) {
     Eigen::Vector2d ray(cos(angle), sin(angle));
     double distance = GetHit(ray, &hit);
 
@@ -81,7 +81,7 @@ void SimWorld::GenerateSimData(std::vector<ge::Point> *points, std::vector<float
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
-  for (double angle = -M_PI; angle < M_PI; angle += 0.01) {
+  for (double angle = -M_PI; angle < M_PI; angle += 0.1) {
     Eigen::Vector2d ray(cos(angle), sin(angle));
     double distance = GetHit(ray, &hit);
 

@@ -13,8 +13,10 @@ class ObjectModel {
 
   bool InBounds(const ge::Point &x) const;
 
-  double EvaluateLikelihood(const ge::Point &x, double label) const;
+  double EvaluateProbability(const ge::Point &x, double label) const;
   void Build(const ge::Point &x, double label);
+
+  ObjectModel Dialate(double dialate_size) const;
 
  private:
   double size_;
