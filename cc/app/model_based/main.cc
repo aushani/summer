@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
-  for (int trial = 0; trial<1000; trial++) {
+  for (int trial = 0; trial<10000; trial++) {
     if (trial % 100 == 0) {
       printf("Trial %d\n", trial);
     }
@@ -184,11 +184,11 @@ int main(int argc, char** argv) {
   //}
 
   for (double sensor_angle = -M_PI; sensor_angle < M_PI; sensor_angle += 0.01) {
-    for (double percentile = 0.5; percentile <= 0.5; percentile+=0.1) {
+    for (double percentile = 0.2; percentile <= 0.8; percentile+=0.2) {
       double range = model.GetExpectedRange(x_sensor_object, object_angle, sensor_angle, percentile);
       double x = cos(sensor_angle)*range;
       double y = sin(sensor_angle)*range;
-      model_file << x << "," << y << std::endl;
+      model_file << x << "," << y << "," << percentile << std::endl;
     }
   }
   model_file.close();

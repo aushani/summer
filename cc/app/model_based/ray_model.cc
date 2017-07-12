@@ -87,23 +87,13 @@ double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, do
     double p_ray_noobj = h_neg.GetProbability(dist_obs);
 
     // Occlusion doesn't tell us anything
+    // assume p_ray_obj = p_ray_noobj when occluded
     if (dist_obs < h.GetMin()) {
       //printf("\n");
       //printf("Angle %5.3f Dist Line %5.3f\n", angle * 180.0/M_PI, dist_line);
       //printf("Occlusion at dist obs %5.3f: %5.3f vs %5.3f\n", dist_obs, p_ray_obj, p_ray_noobj);
       continue;
     }
-
-    // Ray passing through is pretty bad
-    if (dist_obs > h.GetMax()) {
-      //printf("\n");
-      //printf("Angle %5.3f Dist Line %5.3f\n", angle * 180.0/M_PI, dist_line);
-      //printf("Pass through at dist obs %5.3f: %5.3f vs %5.3f\n", dist_obs, p_ray_obj, p_ray_noobj);
-      //continue;
-    }
-
-    //p_ray_obj = 1 - h.GetCumulativeProbability(dist_obs);
-    //p_ray_noobj = 1.0;
 
     if (p_ray_obj < 1e-9)
       p_ray_obj = 1e-9;
