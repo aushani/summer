@@ -95,7 +95,7 @@ DataManager::~DataManager() {
   Finish();
 
   for (size_t i=0; i<threads_.size(); i++) {
-    printf("joining thread %ld\n", i);
+    //printf("joining thread %ld\n", i);
     threads_[i].join();
   }
 

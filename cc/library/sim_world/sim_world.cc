@@ -16,6 +16,7 @@ SimWorld::SimWorld(int n_shapes) :
   double upper_bound = 8;
   std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
   std::uniform_real_distribution<double> rand_size(1.0, 2.0);
+  std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
@@ -27,11 +28,14 @@ SimWorld::SimWorld(int n_shapes) :
     //x = 3.0;
     //y = 3.0;
     double size = 2.0;
+    double angle = rand_angle(re);
 
     if (std::abs(x) < 3 && std::abs(y) < 3)
       continue;
 
     Shape obj = Shape::CreateStar(x, y, size);
+    //Shape obj = Shape::CreateBox(0, 3, 2, 2);
+    //obj.Rotate(rand_angle);
 
     // Check for origin inside
     if (!obj.IsInside(0, 0))
@@ -63,7 +67,7 @@ double SimWorld::GetHit(const Eigen::Vector2d &ray, Eigen::Vector2d *hit) {
 void SimWorld::GenerateSimData(std::vector<ge::Point> *hits, std::vector<ge::Point> *origins) {
   Eigen::Vector2d hit;
 
-  for (double angle = -M_PI; angle < M_PI; angle += 0.1) {
+  for (double angle = -M_PI; angle < M_PI; angle += 0.01) {
     Eigen::Vector2d ray(cos(angle), sin(angle));
     double distance = GetHit(ray, &hit);
 
@@ -81,7 +85,7 @@ void SimWorld::GenerateSimData(std::vector<ge::Point> *points, std::vector<float
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
-  for (double angle = -M_PI; angle < M_PI; angle += 0.1) {
+  for (double angle = -M_PI; angle < M_PI; angle += 0.01) {
     Eigen::Vector2d ray(cos(angle), sin(angle));
     double distance = GetHit(ray, &hit);
 

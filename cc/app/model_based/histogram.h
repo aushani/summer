@@ -8,6 +8,8 @@ class Histogram {
   Histogram(double min, double max, double res);
 
   bool InRange(double val) const;
+  double GetMin() const;
+  double GetMax() const;
 
   void Mark(double val);
 
@@ -15,7 +17,11 @@ class Histogram {
   int GetCountsTotal() const;
 
   double GetProbability(double val) const;
+  double GetLikelihood(double val) const;
   double GetCumulativeProbability(double val) const;
+
+  double GetMedian() const;
+  double GetPercentile(double percentile) const;
 
  private:
   double min_;
@@ -26,4 +32,5 @@ class Histogram {
   int counts_total_ = 0;
 
   size_t GetIndex(double val) const;
+  double GetValue(size_t idx) const;
 };

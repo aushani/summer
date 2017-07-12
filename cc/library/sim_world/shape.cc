@@ -162,6 +162,17 @@ double Shape::GetMaxY() const {
   return max_y;
 }
 
+void Shape::Rotate(double angle_radians) {
+  double s = sin(angle_radians);
+  double c = cos(angle_radians);
+  for (auto& corner : corners_) {
+    double x = corner(0)*c + corner(1)*s;
+    double y = corner(0)*s + corner(1)*c;
+    corner(0) = x;
+    corner(1) = y;
+  }
+}
+
 Shape Shape::CreateBox(double c_x, double c_y, double width, double length) {
   std::vector<Eigen::Vector2d> corners;
 

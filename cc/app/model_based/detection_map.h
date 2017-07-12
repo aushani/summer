@@ -23,7 +23,6 @@ class DetectionMap {
  public:
   DetectionMap(double size, double res, const RayModel &model);
 
-  void ProcessObservation(const ge::Point &hit);
   void ProcessObservations(const std::vector<ge::Point> &hits);
 
   double Lookup(const ge::Point &p);

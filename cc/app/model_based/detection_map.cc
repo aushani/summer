@@ -13,25 +13,22 @@ DetectionMap::DetectionMap(double size, double res, const RayModel &model) :
   }
 }
 
-void DetectionMap::ProcessObservation(const ge::Point &hit) {
-  Eigen::Vector2d x_hit;
-  x_hit(0) = hit.x;
-  x_hit(1) = hit.y;
+void DetectionMap::ProcessObservations(const std::vector<ge::Point> &hits) {
+  std::vector<Eigen::Vector2d> x_hits;
+  for (auto h : hits) {
+    Eigen::Vector2d hit;
+    hit << h.x, h.y;
+    x_hits.push_back(hit);
+  }
 
   for (auto it = scores_.begin(); it != scores_.end(); it++) {
     Eigen::Vector2d x_sensor_object;
     x_sensor_object(0) = it->first.pos.x;
     x_sensor_object(1) = it->first.pos.y;
     double object_angle = it->first.angle;
-    double update = model_.EvaluateObservation(x_sensor_object, object_angle, x_hit);
+    double update = model_.EvaluateObservations(x_sensor_object, object_angle, x_hits);
 
     it->second += update;
-  }
-}
-
-void DetectionMap::ProcessObservations(const std::vector<ge::Point> &hits) {
-  for (auto h : hits) {
-    ProcessObservation(h);
   }
   printf("Done\n");
 }
@@ -40,7 +37,13 @@ double DetectionMap::Lookup(const ge::Point &p) {
   ObjectState s;
   s.pos = p;
 
-  return scores_[s];
+  double score = scores_[s];
+
+  if (score < -100)
+    return 0.0f;
+  if (score > 100)
+    return 1.0f;
+  return 1/(1+exp(-score));
 }
 
 const std::map<ObjectState, double>& DetectionMap::GetScores() const {

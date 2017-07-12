@@ -22,6 +22,8 @@ class Shape {
   double GetMinY() const;
   double GetMaxY() const;
 
+  void Rotate(double angle_radians);
+
   static Shape CreateBox(double c_x, double c_y, double width, double length);
   static Shape CreateStar(double c_x, double c_y, double size);
 
