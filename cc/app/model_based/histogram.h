@@ -28,6 +28,9 @@ class Histogram {
   double max_;
   double res_;
 
+  double observed_min_ = 0.0;
+  double observed_max_ = 0.0;
+
   std::vector<int> counts_;
   int counts_total_ = 0;
 

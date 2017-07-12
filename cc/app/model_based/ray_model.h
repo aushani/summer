@@ -24,8 +24,8 @@ class RayModel {
   double GetProbability(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit);
 
  private:
-  const double kAngleStep_ = 0.1;
-  const double kDistanceStep_ = 0.1;
+  const double kAngleStep_ = 0.05;
+  const double kDistanceStep_ = 0.05;
 
   double max_size_;
   int angle_dim_;

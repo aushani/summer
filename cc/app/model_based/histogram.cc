@@ -11,6 +11,7 @@ Histogram::Histogram(double min, double max, double res) :
 bool Histogram::InRange(double val) const {
   return val >= min_ && val <= max_;
 }
+
 double Histogram::GetMin() const {
   return min_;
 }
@@ -23,6 +24,12 @@ void Histogram::Mark(double val) {
   size_t idx = GetIndex(val);
   counts_[idx]++;
   counts_total_++;
+
+  if (counts_total_ == 1 || val < observed_min_)
+    observed_min_ = val;
+
+  if (counts_total_ == 1 || val > observed_max_)
+    observed_max_ = val;
 }
 
 int Histogram::GetCount(double val) const {
@@ -43,8 +50,13 @@ double Histogram::GetProbability(double val) const {
 }
 
 double Histogram::GetLikelihood(double val) const {
-  if (val < min_ || val > max_)
-    return 0.0f;
+  if (val <= min_) {
+    return GetProbability(val)/(min_ - observed_min_);
+  }
+
+  if (val >= max_) {
+    return GetProbability(val)/(observed_max_ - max_);
+  }
 
   return GetProbability(val)/res_;
 }

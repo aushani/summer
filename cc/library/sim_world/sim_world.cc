@@ -32,7 +32,7 @@ SimWorld::SimWorld(int n_shapes) :
 
     Shape obj = Shape::CreateStar(x, y, size);
     //Shape obj = Shape::CreateBox(0, 3, 2, 2);
-    //obj.Rotate(rand_angle);
+    obj.Rotate(angle);
 
     // Check for origin inside
     if (!obj.IsInside(0, 0))

@@ -16,19 +16,30 @@ def show_model(model, ax_o, ax_f):
     ax.axis('equal')
     ax.axis((np.min(model[:, 0]), np.max(model[:, 0]), np.min(model[:, 1]), np.max(model[:, 1])))
 
-def show_detection(res, ax_score, ax_prob, points=None):
-  new_dim = int(round(res.shape[0]**(0.5)))
-  x = np.reshape(res[:, 0], (new_dim, new_dim))
-  y = np.reshape(res[:, 1], (new_dim, new_dim))
+def show_detection(res, ax_score, ax_prob, points=None, angle=0):
+  unique_xs = np.unique(res[:, 0])
+  unique_ys = np.unique(res[:, 1])
+  unique_angles = np.unique(res[:, 2])
 
-  score = np.reshape(res[:, 2], (new_dim, new_dim))
-  prob = np.reshape(res[:, 3], (new_dim, new_dim))
+  grid_shape = (len(unique_xs), len(unique_ys), len(unique_angles))
+  print grid_shape
 
-  im = ax_score.pcolor(x, y, score)
+  x = np.reshape(res[:, 0], grid_shape)
+  y = np.reshape(res[:, 1], grid_shape)
+
+  score = np.reshape(res[:, 3], grid_shape)
+  prob = np.reshape(res[:, 4], grid_shape)
+
+  x_angle = x[:, :, angle]
+  y_angle = y[:, :, angle]
+  score_angle = score[:, :, angle]
+  prob_angle = prob[:, :, angle]
+
+  im = ax_score.pcolor(x_angle, y_angle, score_angle)
   ax_score.scatter(0, 0, c='g', marker='x')
   plt.colorbar(im, ax=ax_score, label='Score')
 
-  im = ax_prob.pcolor(x, y, prob)
+  im = ax_prob.pcolor(x_angle, y_angle, prob_angle)
   ax_prob.scatter(0, 0, c='g', marker='x')
   plt.colorbar(im, ax=ax_prob, label='Prob')
 
@@ -46,43 +57,49 @@ def show_detection(res, ax_score, ax_prob, points=None):
   ax_prob.set_title('Detection (Prob)')
 
   # Non maximal supression
-  for i in range(new_dim):
-    for j in range(new_dim):
-      val = score[i, j]
-      if val < 1:
+  for i in range(grid_shape[0]):
+    for j in range(grid_shape[1]):
+      val = score[i, j, angle]
+      if val < 10:
         continue
 
-      i0 = i - 5
+      window_size = 5
+
+      i0 = i - window_size
       if i0 < 0:
         i0 = 0
-      j0 = j - 5
+      j0 = j - window_size
       if j0 < 0:
         j0 = 0
-      i_max = i + 5
-      if i_max > new_dim:
-        i_max = new_dim
-      j_max = j + 5
-      if j_max > new_dim:
-        j_max = new_dim
+      i_max = i + window_size
+      if i_max > grid_shape[0]:
+        i_max = grid_shape[0]
+      j_max = j + window_size
+      if j_max > grid_shape[1]:
+        j_max = grid_shape[1]
 
       is_max = True
 
       for im in range(i0, i_max):
         for jm in range(j0, j_max):
-          if score[im, jm] > val:
-            is_max = False
+          for k in range(grid_shape[2]):
+            if score[im, jm, k] > val:
+              is_max = False
+              break
+
+          if is_max is False:
             break
 
         if is_max is False:
           break
 
       if is_max:
-        print 'max at %d, %d = %f' % (i, j, val)
-        ax_score.scatter(x[i, j], y[i, j], c='r', marker='x')
-        ax_prob.scatter(x[i, j], y[i, j], c='r', marker='x')
+        print 'max at %5.3f, %5.3f, %f = %f' % (x[i, j, angle], y[i, j, angle], unique_angles[angle], val)
+        ax_score.scatter(x[i, j, angle], y[i, j, angle], c='r', marker='x')
+        ax_prob.scatter(x[i, j, angle], y[i, j, angle], c='r', marker='x')
 
 
-f, axarr = plt.subplots(nrows = 3, ncols = 2)
+f, axarr = plt.subplots(nrows = 5, ncols = 4)
 
 points = np.loadtxt('/home/aushani/summer/cc/data.csv', delimiter=',')
 gt = np.loadtxt('/home/aushani/summer/cc/ground_truth.csv', delimiter=',')
@@ -91,8 +108,8 @@ model = np.loadtxt('/home/aushani/summer/cc/model.csv', delimiter=',')
 
 print res.shape
 
-print 'Detections scores range from %f to %f' % (np.min(res[:, 2]), np.max(res[:, 2]))
-print 'Detections probs range from %f to %f' % (np.min(res[:, 3]), np.max(res[:, 3]))
+print 'Detections scores range from %f to %f' % (np.min(res[:, 3]), np.max(res[:, 3]))
+print 'Detections probs range from %f to %f' % (np.min(res[:, 4]), np.max(res[:, 4]))
 
 print 'Plotting...'
 
@@ -110,15 +127,23 @@ axarr[0, 1].axis('equal')
 axarr[0, 1].grid(True)
 axarr[0, 1].set_title('Ground Truth')
 
-show_detection(res, axarr[1, 0], axarr[1, 1], points=points)
+axarr[0, 2].scatter(model[:, 0], model[:, 1], c=model[:, 2], marker='x', s=10)
+axarr[0, 2].axis('equal')
+axarr[0, 2].axis((-5, 5, 0, 6))
+axarr[0, 2].grid(True)
+axarr[0, 2].set_title('Synthetic scan from model')
 
-axarr[2, 0].scatter(model[:, 0], model[:, 1], c=model[:, 2], marker='x', s=10)
-#axarr[2, 0].scatter(points[:, 0], points[:, 1], c='k', marker='.', s=1)
-axarr[2, 0].scatter(0, 0, c='r', marker='x')
-axarr[2, 0].axis((-5, 5, 0, 6))
-axarr[0, 0].axis('equal')
-axarr[2, 0].grid(True)
-axarr[2, 0].set_title('Synthetic scan from model')
+show_detection(res, axarr[1, 0], axarr[1, 1], points=points, angle = 0)
+show_detection(res, axarr[1, 2], axarr[1, 3], points=points, angle = 1)
+
+show_detection(res, axarr[2, 0], axarr[2, 1], points=points, angle = 2)
+show_detection(res, axarr[2, 2], axarr[2, 3], points=points, angle = 3)
+
+show_detection(res, axarr[3, 0], axarr[3, 1], points=points, angle = 4)
+show_detection(res, axarr[3, 2], axarr[3, 3], points=points, angle = 5)
+
+show_detection(res, axarr[4, 0], axarr[4, 1], points=points, angle = 6)
+show_detection(res, axarr[4, 2], axarr[4, 3], points=points, angle = 7)
 
 #show_model(model, axarr[2, 0], axarr[2, 1])
 #axarr[2, 0].set_title('Object Observation Model (Occu)')

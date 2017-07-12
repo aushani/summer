@@ -5,8 +5,12 @@
 namespace library {
 namespace sim_world {
 
-Shape::Shape(const std::vector<Eigen::Vector2d> &corners) :
-  corners_(corners) {
+Shape::Shape(const std::vector<Eigen::Vector2d> &corners, const std::string &name) :
+  corners_(corners), center_(0, 0), name_(name) {
+  for (const Eigen::Vector2d &c : corners_) {
+    center_ += c;
+  }
+  center_ /= corners_.size();
 }
 
 double Shape::GetHit(const Eigen::Vector2d &origin, double angle, Eigen::Vector2d *hit) const {
@@ -92,14 +96,11 @@ bool Shape::IsInside(double x, double y) {
 }
 
 Eigen::Vector2d Shape::GetCenter() const {
-  Eigen::Vector2d center(0, 0);
+  return center_;
+}
 
-  for (const Eigen::Vector2d &c : corners_) {
-    center += c;
-  }
-  center /= corners_.size();
-
-  return center;
+double Shape::GetAngle() const {
+  return angle_;
 }
 
 double Shape::GetMinX() const {
@@ -166,11 +167,19 @@ void Shape::Rotate(double angle_radians) {
   double s = sin(angle_radians);
   double c = cos(angle_radians);
   for (auto& corner : corners_) {
-    double x = corner(0)*c + corner(1)*s;
-    double y = corner(0)*s + corner(1)*c;
-    corner(0) = x;
-    corner(1) = y;
+    auto c_center = corner - center_;
+    double x = c_center(0)*c - c_center(1)*s;
+    double y = c_center(0)*s + c_center(1)*c;
+
+    corner(0) = x + center_(0);
+    corner(1) = y + center_(1);
   }
+
+  angle_ += angle_radians;
+}
+
+const std::string& Shape::GetName() const {
+  return name_;
 }
 
 Shape Shape::CreateBox(double c_x, double c_y, double width, double length) {
@@ -181,7 +190,7 @@ Shape Shape::CreateBox(double c_x, double c_y, double width, double length) {
   corners.push_back(Eigen::Vector2d(c_x - length/2.0, c_y - width/2.0));
   corners.push_back(Eigen::Vector2d(c_x - length/2.0, c_y + width/2.0));
 
-  return Shape(corners);
+  return Shape(corners, "BOX");
 }
 
 Shape Shape::CreateStar(double c_x, double c_y, double size) {
@@ -196,7 +205,7 @@ Shape Shape::CreateStar(double c_x, double c_y, double size) {
 
   }
 
-  return Shape(corners);
+  return Shape(corners, "STAR");
 }
 
 }

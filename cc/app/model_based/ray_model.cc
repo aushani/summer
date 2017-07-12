@@ -83,8 +83,8 @@ double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, do
     if (h.GetCountsTotal() < 1 || h_neg.GetCountsTotal() < 1)
       continue;
 
-    double p_ray_obj = h.GetProbability(dist_obs);
-    double p_ray_noobj = h_neg.GetProbability(dist_obs);
+    double p_ray_obj = h.GetLikelihood(dist_obs);
+    double p_ray_noobj = h_neg.GetLikelihood(dist_obs);
 
     // Occlusion doesn't tell us anything
     // assume p_ray_obj = p_ray_noobj when occluded

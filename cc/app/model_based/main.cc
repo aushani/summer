@@ -50,14 +50,11 @@ int main(int argc, char** argv) {
     sw::SimWorld *sim = data->GetSim();
     std::vector<ge::Point> *hits = data->GetHits();
 
-    auto locs = sim->GetObjectLocations();
+    auto shapes = sim->GetShapes();
 
-    for (auto p_center : locs) {
-      Eigen::Vector2d x_sensor_object;
-      x_sensor_object(0) = p_center.x;
-      x_sensor_object(1) = p_center.y;
-
-      double object_angle = 0.0;
+    for (auto &shape : shapes) {
+      Eigen::Vector2d x_sensor_object = shape.GetCenter();
+      double object_angle = shape.GetAngle();
 
       for (size_t i=0; i<hits->size(); i++) {
         Eigen::Vector2d x_hit;
@@ -95,8 +92,20 @@ int main(int argc, char** argv) {
   data_manager.Finish();
 
   sw::SimWorld sim(5);
-  //sim.AddShape(sw::Shape::CreateStar(0.0, 3.0, 2.0));
+  //auto star1 = sw::Shape::CreateStar(0.0, 3.0, 2.0);
+  //auto star2 = sw::Shape::CreateStar(0.0, -3.0, 2.0);
+  //star2.Rotate((2*M_PI/10));
+  //sim.AddShape(star1);
+  //sim.AddShape(star2);
   //sim.AddShape(sw::Shape::CreateBox(0.0, 3.0, 2.0, 2.0));
+  for (auto &s : sim.GetShapes()) {
+    auto c = s.GetCenter();
+    double x = c(0);
+    double y = c(1);
+    double angle = s.GetAngle();
+    double sym = 72.0;
+    printf("Shape at %5.3f, %5.3f with angle %5.3f (ie, %5.3f)\n", x, y, angle*180.0/M_PI, fmod(angle*180.0/M_PI, sym));
+  }
 
   std::vector<ge::Point> hits, origins;
   std::vector<ge::Point> points;
@@ -112,6 +121,11 @@ int main(int argc, char** argv) {
   t.Start();
   detection_map.ProcessObservations(hits);
   printf("Took %5.3f ms to detect\n", t.GetMs());
+
+  // Non max suppression
+  t.Start();
+  detection_map.ListMaxDetections();
+  printf("Took %5.3f ms to do non-max suppression\n", t.GetMs());
 
   // Write out data
   printf("Saving data...\n");
@@ -131,6 +145,10 @@ int main(int argc, char** argv) {
     float x = it->first.pos.x;
     float y = it->first.pos.y;
 
+    double angle = it->first.angle;
+    //if ( fabs(angle) > 0.1 )
+    //  continue;
+
     double score = it->second;
 
     double prob = 0.0;
@@ -140,7 +158,7 @@ int main(int argc, char** argv) {
       prob = 1.0;
     prob = 1/(1+exp(-score));
 
-    res_file << x << "," << y << "," << score << ", " << prob << std::endl;
+    res_file << x << "," << y << "," << angle << "," << score << ", " << prob << std::endl;
   }
   res_file.close();
 
@@ -169,7 +187,7 @@ int main(int argc, char** argv) {
   Eigen::Vector2d x_sensor_object;
   x_sensor_object(0) = 0.0;
   x_sensor_object(1) = 5.0;
-  double object_angle = 0.0;
+  double object_angle = (2*M_PI) / 20;
 
   printf("Simulating object at %5.3f, %5.3f\n", x_sensor_object(0), x_sensor_object(1));
 
