@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
 import os.path
 
 def show_model(model, ax_o, ax_f):
@@ -16,13 +17,14 @@ def show_model(model, ax_o, ax_f):
     ax.axis('equal')
     ax.axis((np.min(model[:, 0]), np.max(model[:, 0]), np.min(model[:, 1]), np.max(model[:, 1])))
 
-def show_detection(res, ax_score, ax_prob, points=None, angle=0):
+def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0):
   unique_xs = np.unique(res[:, 0])
   unique_ys = np.unique(res[:, 1])
   unique_angles = np.unique(res[:, 2])
 
+  angle_deg = unique_angles[angle] * 180 / np.pi
+
   grid_shape = (len(unique_xs), len(unique_ys), len(unique_angles))
-  print grid_shape
 
   x = np.reshape(res[:, 0], grid_shape)
   y = np.reshape(res[:, 1], grid_shape)
@@ -35,35 +37,40 @@ def show_detection(res, ax_score, ax_prob, points=None, angle=0):
   score_angle = score[:, :, angle]
   prob_angle = prob[:, :, angle]
 
-  im = ax_score.pcolor(x_angle, y_angle, score_angle)
-  ax_score.scatter(0, 0, c='g', marker='x')
-  plt.colorbar(im, ax=ax_score, label='Score')
+  if not ax_score is None:
+    im = ax_score.pcolor(x_angle, y_angle, score_angle)
+    ax_score.scatter(0, 0, c='g', marker='x')
+    plt.colorbar(im, ax=ax_score, label='Score')
 
-  im = ax_prob.pcolor(x_angle, y_angle, prob_angle)
-  ax_prob.scatter(0, 0, c='g', marker='x')
-  plt.colorbar(im, ax=ax_prob, label='Prob')
+    if not points is None:
+      ax_score.scatter(points[:, 0], points[:, 1], color='k', marker='.')
 
-  if not points is None:
-    ax_score.scatter(points[:, 0], points[:, 1], color='k', marker='.')
-    ax_prob.scatter(points[:, 0], points[:, 1], color='k', marker='.')
+    ax_score.axis('equal')
+    ax_score.axis((np.min(res[:, 0]), np.max(res[:, 0]), np.min(res[:, 1]), np.max(res[:, 1])))
 
-  ax_score.axis('equal')
-  ax_score.axis((np.min(res[:, 0]), np.max(res[:, 0]), np.min(res[:, 1]), np.max(res[:, 1])))
+    ax_score.set_title('Detection at %5.1f deg (log-odds)' % (angle_deg))
 
-  ax_prob.axis('equal')
-  ax_prob.axis((np.min(res[:, 0]), np.max(res[:, 0]), np.min(res[:, 1]), np.max(res[:, 1])))
+  if not ax_prob is None:
+    im = ax_prob.pcolor(x_angle, y_angle, prob_angle)
+    ax_prob.scatter(0, 0, c='g', marker='x')
+    plt.colorbar(im, ax=ax_prob, label='Prob')
 
-  ax_score.set_title('Detection (log-odds)')
-  ax_prob.set_title('Detection (Prob)')
+    if not points is None:
+      ax_prob.scatter(points[:, 0], points[:, 1], color='k', marker='.')
+
+    ax_prob.axis('equal')
+    ax_prob.axis((np.min(res[:, 0]), np.max(res[:, 0]), np.min(res[:, 1]), np.max(res[:, 1])))
+
+    ax_prob.set_title('Detection at %5.1f deg (Prob)' % (angle_deg))
 
   # Non maximal supression
   for i in range(grid_shape[0]):
     for j in range(grid_shape[1]):
       val = score[i, j, angle]
-      if val < 10:
+      if val < 100:
         continue
 
-      window_size = 5
+      window_size = 10
 
       i0 = i - window_size
       if i0 < 0:
@@ -94,17 +101,28 @@ def show_detection(res, ax_score, ax_prob, points=None, angle=0):
           break
 
       if is_max:
-        print 'max at %5.3f, %5.3f, %f = %f' % (x[i, j, angle], y[i, j, angle], unique_angles[angle], val)
-        ax_score.scatter(x[i, j, angle], y[i, j, angle], c='r', marker='x')
-        ax_prob.scatter(x[i, j, angle], y[i, j, angle], c='r', marker='x')
+        print 'max at %5.3f, %5.3f, %f = %f' % (x[i, j, angle], y[i, j, angle], unique_angles[angle] * 180/np.pi, val)
 
+        if ax_score:
+          ax_score.scatter(x[i, j, angle], y[i, j, angle], c='r', marker='x', s=50)
+        if ax_prob:
+          ax_prob.scatter(x[i, j, angle], y[i, j, angle], c='r', marker='x', s=50)
 
-f, axarr = plt.subplots(nrows = 5, ncols = 4)
+params = {'legend.fontsize': 'x-large',
+          'figure.figsize': (15, 5),
+         'axes.labelsize': '24',
+         'axes.titlesize':'24',
+         'xtick.labelsize':'x-large',
+         'ytick.labelsize':'x-large'}
 
-points = np.loadtxt('/home/aushani/summer/cc/data.csv', delimiter=',')
-gt = np.loadtxt('/home/aushani/summer/cc/ground_truth.csv', delimiter=',')
-res = np.loadtxt('/home/aushani/summer/cc/result.csv', delimiter=',')
-model = np.loadtxt('/home/aushani/summer/cc/model.csv', delimiter=',')
+pylab.rcParams.update(params)
+
+experiment = 4
+
+points = np.loadtxt('/home/aushani/summer/cc/data_%d.csv'         % (experiment), delimiter=',')
+gt     = np.loadtxt('/home/aushani/summer/cc/ground_truth_%d.csv' % (experiment), delimiter=',')
+res    = np.loadtxt('/home/aushani/summer/cc/result_%d.csv'       % (experiment), delimiter=',')
+model  = np.loadtxt('/home/aushani/summer/cc/model.csv'                         , delimiter=',')
 
 print res.shape
 
@@ -113,37 +131,33 @@ print 'Detections probs range from %f to %f' % (np.min(res[:, 4]), np.max(res[:,
 
 print 'Plotting...'
 
-axarr[0, 0].scatter(points[:, 0], points[:, 1], marker='.')
-axarr[0, 0].scatter(0, 0, c='r', marker='x')
-axarr[0, 0].axis((-20, 20, -20, 20))
-axarr[0, 0].axis('equal')
-axarr[0, 0].grid(True)
-axarr[0, 0].set_title('Data')
+f, axarr = plt.subplots(nrows = 1, ncols = 2)
 
-axarr[0, 1].scatter(gt[:, 0], gt[:, 1], c=gt[:, 2], marker='.')
-axarr[0, 1].scatter(0, 0, c='r', marker='x')
-axarr[0, 1].axis((-20, 20, -20, 20))
-axarr[0, 1].axis('equal')
-axarr[0, 1].grid(True)
-axarr[0, 1].set_title('Ground Truth')
+axarr[0].scatter(points[:, 0], points[:, 1], marker='.')
+axarr[0].scatter(0, 0, c='r', marker='x')
+axarr[0].axis((-20, 20, -20, 20))
+axarr[0].axis('equal')
+axarr[0].grid(True)
+axarr[0].set_title('LIDAR Data')
 
-axarr[0, 2].scatter(model[:, 0], model[:, 1], c=model[:, 2], marker='x', s=10)
-axarr[0, 2].axis('equal')
-axarr[0, 2].axis((-5, 5, 0, 6))
-axarr[0, 2].grid(True)
-axarr[0, 2].set_title('Synthetic scan from model')
+axarr[1].scatter(gt[:, 0], gt[:, 1], c=gt[:, 2], marker='.')
+axarr[1].scatter(0, 0, c='r', marker='x')
+axarr[1].axis((-20, 20, -20, 20))
+axarr[1].axis('equal')
+axarr[1].grid(True)
+axarr[1].set_title('Ground Truth')
 
-show_detection(res, axarr[1, 0], axarr[1, 1], points=points, angle = 0)
-show_detection(res, axarr[1, 2], axarr[1, 3], points=points, angle = 1)
+f, axarr = plt.subplots(nrows = 3, ncols = 3)
 
-show_detection(res, axarr[2, 0], axarr[2, 1], points=points, angle = 2)
-show_detection(res, axarr[2, 2], axarr[2, 3], points=points, angle = 3)
-
-show_detection(res, axarr[3, 0], axarr[3, 1], points=points, angle = 4)
-show_detection(res, axarr[3, 2], axarr[3, 3], points=points, angle = 5)
-
-show_detection(res, axarr[4, 0], axarr[4, 1], points=points, angle = 6)
-show_detection(res, axarr[4, 2], axarr[4, 3], points=points, angle = 7)
+show_detection(res, ax_score=None, ax_prob=axarr[0, 0], points=points, angle = 0)
+show_detection(res, ax_score=None, ax_prob=axarr[0, 1], points=points, angle = 1)
+show_detection(res, ax_score=None, ax_prob=axarr[0, 2], points=points, angle = 2)
+show_detection(res, ax_score=None, ax_prob=axarr[1, 0], points=points, angle = 3)
+show_detection(res, ax_score=None, ax_prob=axarr[1, 1], points=points, angle = 4)
+show_detection(res, ax_score=None, ax_prob=axarr[1, 2], points=points, angle = 5)
+show_detection(res, ax_score=None, ax_prob=axarr[2, 0], points=points, angle = 6)
+show_detection(res, ax_score=None, ax_prob=axarr[2, 1], points=points, angle = 7)
+f.delaxes(axarr[2, 2])
 
 #show_model(model, axarr[2, 0], axarr[2, 1])
 #axarr[2, 0].set_title('Object Observation Model (Occu)')
@@ -155,5 +169,13 @@ show_detection(res, axarr[4, 2], axarr[4, 3], points=points, angle = 7)
 
 #axarr[4, 0].scatter(occu[:, 0], occu[:, 1], c=occu[:, 2], s=1, marker='.')
 #axarr[4, 0].set_title('Occupancy Probability')
+
+f2, ax = plt.subplots(nrows = 1, ncols = 1)
+sc = ax.scatter(model[:, 0], model[:, 1], c=model[:, 2], marker='x', s=10)
+plt.colorbar(sc, label='Histogram Percentile')
+ax.axis('equal')
+ax.axis((-5, 5, 0, 6))
+ax.grid(True)
+ax.set_title('Synthetic scan from observation model')
 
 plt.show()

@@ -30,6 +30,20 @@ SimWorld::SimWorld(int n_shapes) :
     if (std::abs(x) < 3 && std::abs(y) < 3)
       continue;
 
+    // Check to see if this object's center is within 3m of any other object
+    bool too_close = false;
+    for (const auto &s : GetShapes()) {
+      const auto &c_s = s.GetCenter();
+
+      if (std::abs(c_s(0) - x) < 3 && std::abs(c_s(1) - y) < 3) {
+        too_close = true;
+        continue;
+      }
+    }
+
+    if (too_close)
+      continue;
+
     Shape obj = Shape::CreateStar(x, y, size);
     //Shape obj = Shape::CreateBox(0, 3, 2, 2);
     obj.Rotate(angle);
