@@ -1,0 +1,57 @@
+% perl_misc.sty
+%-----------------------------------------------------------------
+%    History:
+%    Date            Who         What
+%    -----------     -------     -----------------------------
+%    2006.06.03      rme         Created and written.
+%    2007.08.09      rme         Added \email
+%    2010.11.27      rme         Renamed to perl_misc.sty
+
+\ProvidesPackage{perl_misc}
+
+% label formatting
+%=====================================================
+% \figref
+\providecommand{\figref}[1]{\mbox{Fig.~\ref{#1}}}
+% \eqnref
+\providecommand{\eqnref}[1]{\eqref{#1}}
+% \tabref
+\providecommand{\tabref}[1]{\mbox{Table~\ref{#1}}}
+% \algref
+\providecommand{\algref}[1]{\mbox{Algorithm~\ref{#1}}}
+% \secref
+\providecommand{\secref}[1]{\mbox{\textsection\ref{#1}}}
+% \chapref
+\providecommand{\chapref}[1]{\mbox{Chapter~\ref{#1}}}
+% \email
+\providecommand{\email}[1]{\tt{#1}}
+% \blank
+\providecommand{\blank}[1][]{
+  \ifempty{#1}{\hspace{-5pt}\underline{\hspace{2.5cm}}\hspace{-5pt}}   
+	      {\hspace{-5pt}\underline{\hspace{#1}}\hspace{-5pt}}
+}
+
+% text line
+\providecommand{\tline}[1]{
+  \begin{tabular*}{#1}{l}
+    \\ \hline
+  \end{tabular*}
+}
+
+% symbol footnote: syntax \symbolfootnote[1]{text}
+% 1 - *
+% 2 - dagger
+% 3 - double dagger
+% 4 - ...9 see page 175 of latex manual
+\long\def\symbolfootnote[#1]#2{\begingroup%
+\def\thefootnote{\fnsymbol{footnote}}\footnote[#1]{#2}\endgroup}
+
+% accented words
+%=====================================================
+\def\naive{{na\"\i ve} }%
+\def\Naive{{Na\"\i ve} }%
+\def\naively{{na\"\i vely} }%
+\def\Naively{{Na\"\i vely} }%
+
+
+\def\citeapos#1{\citeauthor{#1}'s (\citeyear{#1})} 

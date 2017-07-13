@@ -1,0 +1,34 @@
+\section{Problem Setup}
+
+Consider a set of LIDAR observations $\mathbf{Z} = \{ z_i \}_{i=1}^n$, where
+each $z_i$ represents a ray at angle $\theta_i$ with range $r_i$. We
+want to evaluate
+%
+\begin{align}
+  p( obj | \mathbf{Z} )
+  \text{,}
+\end{align}
+%
+where $obj$ represents an object of a some class that exists at some position $(x,
+y)$ and at some angle $\theta_{\text{object}}$. For this experiment, we will use
+stars of variable size as our object.
+
+Using Bayes' rule and assuming conditionally independent observations given the
+object, we have:
+%
+\begin{align}
+  p( obj | \mathbf{Z} ) &= \frac{p(\mathbf{Z} | obj) p(obj)}{p(\mathbf{Z})} \\
+    &= \frac{p(obj) \prod_{i=1}^{n} { p( z_i | obj) }} {p(\mathbf{Z})}
+  \text{.}
+\end{align}
+%
+For now, we assume an uninformative prior $p(obj) = p(\lnot obj) = 0.5$. Taking
+the log probability, we have:
+%
+\begin{align}
+  \log p( obj | \mathbf{Z} ) &= \log{\eta} + \log\sum_{i=1}^{n} { \log p( z_i | obj) }
+  \text{,}
+  \label{eq:obj_model}
+\end{align}
+%
+where $\eta = \frac{p(obj)}{p(\mathbf{Z})}$.

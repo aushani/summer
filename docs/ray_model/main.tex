@@ -1,0 +1,79 @@
+\documentclass[conference,10pt,letterpaper,twoside]{ieeeconf}
+
+\IEEEoverridecommandlockouts
+
+% to use ieeeconf with natbib
+\makeatletter
+\let\NAT@parse\undefined
+\makeatother
+
+\usepackage[numbers,sort,compress]{natbib}
+
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{multirow}
+\usepackage{balance}
+
+\usepackage{amsmath,amssymb} % define this before the line numbering.
+\usepackage{mathtools}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+
+\usepackage{caption}
+%\usepackage[skip=0pt]{subcaption}
+\usepackage{subcaption}
+\captionsetup{
+   labelfont = small,%footnotesize,
+   textfont = small,%footnotesize,
+   %skip = 1ex,  % skip the space between float and caption
+   %belowskip=-10pt,
+}
+
+% perls packages
+\usepackage{perl_acronyms}
+\usepackage{perl_math}
+\usepackage{perl_SIunits}
+\usepackage{perl_misc}
+
+
+\definecolor{jgreen}{RGB}{0,155,0}
+\definecolor{ared}{RGB}{155,0,0}
+\newcommand{\jmw}[1]{{\color{jgreen}[}jmw:\ {\color{jgreen}#1]}}
+\newcommand{\aku}[1]{{\color{ared}[}aku:\ {\color{ared}#1]}}
+
+
+\title{Object Detection using a Probabilistic Ray-Based Observation Model}
+
+\author{Arash~K.~Ushani}
+
+\begin{document}
+
+\maketitle
+
+\input{problem.tex}
+\input{observation_model.tex}
+\input{detection.tex}
+\input{results.tex}
+
+%\input{abstract.tex}
+%\acresetall
+
+%\IEEEpeerreviewmaketitle
+
+%\acused{GPU}
+
+%\input{intro.tex}
+%\input{rw.tex}
+%\input{problem.tex}
+%\input{method.tex}
+%\input{results.tex}
+%\input{discussion.tex}
+%\input{conclusion.tex}
+
+%\footnotesize
+%\balance
+%\bibliographystyle{IEEEtranN}
+%\bibliography{strings-short,ieee-abrv,IEEE,references,library}
+
+% that's all folks
+\end{document}

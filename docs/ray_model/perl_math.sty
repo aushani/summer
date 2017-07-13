@@ -1,0 +1,225 @@
+% perl_math.sty
+%-----------------------------------------------------------------
+%    History:
+%    Date            Who         What
+%    -----------     -------     -----------------------------
+%    2002            rme         Created and written.
+%    10-31-2003      rme         Rewrote array definitions.
+%    11-05-2003      rme         Removed array definitions, use
+%                                amsmath \begin{bmatrix} environment
+%    11-05-2003      rme         Added \leftexp
+%    08-18-2004      rme         Added \normalcov, \normalinfo, \pdf
+%    09-04-2004      rme         Added \symbolfootnote
+%    02-15-2005      rme         Added \figref \tabref \secref
+%    02-16-2005      rme         Added SIunits
+%    03-09-2005      rme         Added ifcat test found on web
+%    11-08-2005      rme         Changed SIunits to load with amssymb option
+%    05-30-2006      rme         Renamed to my_math.sty and split
+%                                SIunits section into my_SIunits.sty.
+%    11-27-2010      rme         Renamed to perl_math.sty
+
+\ProvidesPackage{perl_math}
+\usepackage{ifthen}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+
+\newcommand{\ifempty}[3]% Macro tests when calling param is empty
+  {\ifcat_#1_ %
+   #2 \else             % Action when calling parameter empty
+   #3 \fi}%             % Action when calling parameter not empty 
+
+% normal cov: syntax \normalcov[optional]{u}{P}
+\providecommand{\normalcov}[3][]{
+  \ifempty{#1}{\ensuremath{\mathcal{N}\bigl({#2},{#3}\bigr)}}      % N(u,P)
+	      {\ensuremath{\mathcal{N}\bigl({#1};{#2},{#3}\bigr)}} % N(x;u,P)
+}
+
+% normal info: syntax \normalinfo[optional]{u}{P}
+\providecommand{\normalinfo}[3][]{
+  \ifempty{#1}{\ensuremath{\mathcal{N}^{-1}\bigl({#2},{#3}\bigr)}}     % N^-1(u,P)
+	      {\ensuremath{\mathcal{N}^{-1}\bigl({#1};{#2},{#3}\bigr)}}% N^-1(x;u,P)
+}
+
+% pdf
+\providecommand{\pdf}[2][]{
+  \ifempty{#1}{\ensuremath{p\bigl({#2}\bigr)}}               % p(x)
+	      {\ensuremath{p\bigl({#1}\bigl\vert{#2}\bigr)}} % p(x|y)
+}
+% expectation
+\providecommand{\E}[1]{\ensuremath{\mathsf{E}\bigl[#1\bigr]}}
+
+% transforms
+\providecommand{\Fourier}{\ensuremath{\mathcal{F}}}
+\providecommand{\Laplace}{\ensuremath{\mathcal{L}}}
+\providecommand{\Zxform}{\ensuremath{\mathcal{Z}}}
+
+
+% number sets
+\providecommand{\natset}{\ensuremath{\mathbb{N}}} % is the set of natural numbers
+\providecommand{\intset}{\ensuremath{\mathbb{Z}}} % is the set of integers
+\providecommand{\ratset}{\ensuremath{\mathbb{Q}}} % is the set of rational numbers
+\providecommand{\realset}{\ensuremath{\mathbb{R}}} % is the set of real numbers
+\providecommand{\imagset}{\ensuremath{\mathbb{I}}} % is the set of imaginary numbers
+
+
+
+% unit direction vectors
+\providecommand{\ihat}{\ensuremath{\hat{i}}} % i
+\providecommand{\jhat}{\ensuremath{\hat{j}}} % j
+\providecommand{\khat}{\ensuremath{\hat{k}}} % k
+% grad
+\providecommand{\grad}{\ensuremath{\vec{\triangledown}}}
+% volume
+\providecommand{\vol}{\ensuremath{\text{\sout{$\mathsf{V}$}}}}
+
+% bold vector
+\providecommand{\bvec}[1]{\ensuremath{\boldsymbol{\mathrm{#1}}}}
+% homogenous vector
+\providecommand{\hvec}[1]{\ensuremath{\underline{\boldsymbol{\mathrm{#1}}}}}
+% mean vector
+\providecommand{\mvec}[1]{\ensuremath{\overline{\boldsymbol{\mathrm{#1}}}}}
+% matrix
+\providecommand{\mat}[1]{\ensuremath{\mathrm{#1}}}
+% skew-symmetric matrix
+\providecommand{\skewsym}[1]{\ensuremath{[{#1}]_{\times}}}
+% identity matrix
+\providecommand{\eye}[1]{\ensuremath{\mat{I}_{#1\times#1}}}
+% zeros matrix
+\providecommand{\zeros}[2][]{%
+  \ifempty{#1}{\ensuremath{0_{#2\times#2}}}  %0_{nxn}
+	      {\ensuremath{0_{#1\times#2}}}  %0_{mxn}
+}
+% absolute
+\providecommand{\abs}[1]{\ensuremath{\lvert{#1}\rvert}}
+% norm
+\providecommand{\norm}[1]{\ensuremath{\left\lVert{#1}\right\rVert}}
+% left sub/sup script
+\providecommand{\leftexp}[2]{\ensuremath{{\vphantom{#2}}{#1}{#2}}}
+\providecommand{\cov}[1]{\ensuremath{\operatorname{cov}({#1})}}
+\providecommand{\fracslash}[2]{\left.#1\middle/#2\right.}
+
+
+% derivative
+\providecommand{\deriv}[2]{\ensuremath{\frac{d#1}{d#2}}}
+% partial derivative
+\providecommand{\pderiv}[2]{\ensuremath{\frac{\partial#1}{\partial#2}}}
+% partial derivative
+\providecommand{\ppderiv}[3][]{%
+  \ifempty{#1}{\ensuremath{\frac{\partial^2#2}{\partial#3^2}}}
+              {\ensuremath{\frac{\partial^2#1}{\partial#2\partial#3}}}
+}
+% material derivative
+\providecommand{\Deriv}[2]{\ensuremath{\frac{D#1}{D#2}}}
+% differential
+\providecommand{\dt}[1][]{
+  \ifempty{#1}{\ensuremath{\mathrm{dt}}}   %dt
+	      {\ensuremath{\mathrm{d}#1}}  %d#1
+}
+
+
+% ROTATION MATRICES
+% parenthesis
+%\providecommand{\paren}[1]{\ensuremath{\negthinspace\left({#1}\right)}}
+\providecommand{\paren}[1]{\ensuremath{#1}}
+
+% rotx
+\providecommand{\rotx}[1]{
+  \ensuremath{
+    \begin{bmatrix}
+      1 & 0                           & 0 \\
+      0 & \hphantom{-}\cos\paren{#1}  & \sin\paren{#1} \\
+      0 & -\sin\paren{#1}             & \cos\paren{#1}
+    \end{bmatrix}
+  }
+}
+% drotx
+\providecommand{\drotx}[1]{
+  \ensuremath{
+    \begin{bmatrix}
+      0 & 0                & 0 \\
+      0 & -\sin\paren{#1}  & \hphantom{-}\cos\paren{#1} \\
+      0 & -\cos\paren{#1}  & -\sin\paren{#1}
+    \end{bmatrix}
+  }
+}
+
+% roty
+\providecommand{\roty}[1]{
+  \ensuremath{
+    \begin{bmatrix}
+      \cos\paren{#1} & 0 & -\sin\paren{#1} \\
+      0              & 1 & 0               \\
+      \sin\paren{#1} & 0 & \hphantom{-}\cos\paren{#1}
+    \end{bmatrix}
+  }
+}
+% droty
+\providecommand{\droty}[1]{
+  \ensuremath{
+    \begin{bmatrix}
+      -\sin\paren{#1}            & 0 & -\cos\paren{#1} \\
+      0                          & 0 & 0               \\
+      \hphantom{-}\cos\paren{#1} & 0 & -\sin\paren{#1}
+    \end{bmatrix}
+  }
+}
+
+% rotz
+\providecommand{\rotz}[1]{
+  \ensuremath{
+    \begin{bmatrix}
+      \hphantom{-}\cos\paren{#1}  & \sin\paren{#1} & 0 \\
+      -\sin\paren{#1}             & \cos\paren{#1} & 0 \\
+      0                           & 0              & 1
+    \end{bmatrix}
+  }
+}
+% drotz
+\providecommand{\drotz}[1]{
+  \ensuremath{
+    \begin{bmatrix}
+      -\sin\paren{#1}  & \hphantom{-}\cos\paren{#1} & 0 \\
+      -\cos\paren{#1}  & -\sin\paren{#1}            & 0 \\
+      0                & 0                          & 0
+    \end{bmatrix}
+  }
+}
+
+% rotxyz
+\providecommand{\rotxyz}[3]{
+  \ensuremath{
+    \begin{bmatrix}
+      % row 1
+      \cos\paren{#3}\cos\paren{#2} & 
+      -\sin\paren{#3}\cos\paren{#1}+\cos\paren{#3}\sin\paren{#2}\sin\paren{#1} &
+      \hphantom{-}\sin\paren{#3}\sin\paren{#1}+\cos\paren{#3}\sin\paren{#2}\cos\paren{#1} \\
+      % row 2
+      \sin\paren{#3}\cos\paren{#2} &
+      \hphantom{-}\cos\paren{#3}\cos\paren{#1}+\sin\paren{#3}\sin\paren{#2}\sin\paren{#1} &
+      -\cos\paren{#3}\sin\paren{#1}+\sin\paren{#3}\sin\paren{#2}\cos\paren{#1} \\
+      % row 3
+      -\sin\paren{#2} &
+      \cos\paren{#2}\sin\paren{#1} &
+      \cos\paren{#2}\cos\paren{#1} 
+    \end{bmatrix}
+  }
+}
+
+% math operators
+%=====================================================
+\DeclareMathOperator{\arccot}{arccot}  % arccot
+\DeclareMathOperator{\acot}{cot^{-1}}  % acot
+\DeclareMathOperator{\atan}{tan^{-1}}  % atan
+\DeclareMathOperator{\atantwo}{atan2}  % atan2
+\DeclareMathOperator{\asin}{sin^{-1}}  % asin
+\DeclareMathOperator{\acos}{cos^{-1}}  % acos
+\DeclareMathOperator{\sinc}{sinc}      % sinc
+\DeclareMathOperator{\cross}{\times}   % cross
+\DeclareMathOperator{\diag}{diag}      % diag
+\DeclareMathOperator{\rank}{rank}      % rank
+
+%\DeclareMathOperator{\argmin}{argmin}  % argmin
+%\DeclareMathOperator{\argmax}{argmax}  % argmax
+\DeclareMathOperator*{\argmin}{\arg\!\min}  % argmin
+\DeclareMathOperator*{\argmax}{\arg\!\max}  % argmax
