@@ -68,18 +68,22 @@ double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, do
     double phi, dist_ray, dist_obs;
     ConvertObservation(x_sensor_object, object_angle, x_hit, &phi, &dist_ray, &dist_obs);
 
+    // Check for projected observations behind us
     double range = x_hit.norm();
-    if (dist_obs > range)
+    if (dist_obs > range) {
       continue;
+    }
 
     int idx = GetHistogramIndex(phi, dist_ray);
-    if (idx < 0)
+    if (idx < 0) {
       continue;
+    }
 
     Histogram &h = histograms_[idx];
     Histogram &h_neg = negative_histograms_[idx];
-    if (h.GetCountsTotal() < 1 || h_neg.GetCountsTotal() < 1)
+    if (h.GetCountsTotal() < 1 || h_neg.GetCountsTotal() < 1) {
       continue;
+    }
 
     double p_obs_obj = h.GetLikelihood(dist_obs);
     double p_obs_noobj = h_neg.GetLikelihood(dist_obs);

@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
   double upper_bound = 8;
   std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
   std::uniform_real_distribution<double> rand_size(1.0, 2.0);
+  std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
@@ -75,7 +76,7 @@ int main(int argc, char** argv) {
       Eigen::Vector2d x_sensor_object;
       x_sensor_object << x, y;
 
-      double object_angle = 0.0;
+      double object_angle = rand_angle(re);
 
       for (size_t i=0; i<hits->size(); i++) {
         Eigen::Vector2d x_hit;
