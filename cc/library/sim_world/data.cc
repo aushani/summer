@@ -9,7 +9,7 @@ namespace library {
 namespace sim_world {
 
 Data::Data(bool gen_random, bool gen_occluded) :
- sim_(new SimWorld(5)),
+ sim_(new SimWorld(1)),
  points_(new std::vector<ge::Point>()),
  labels_(new std::vector<float>()),
  hits_(new std::vector<ge::Point>()),

@@ -151,10 +151,60 @@ double RayModel::GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double
 
   double dist_obs = h.GetPercentile(percentile);
   //printf("%5.3f%% dist obs: %5.3f\n", percentile*100.0f, dist_obs);
-  if (dist_obs >= h.GetMax()) {
-    //printf("phi %5.3f dist line %5.3f at the end\n", phi*180.0/M_PI, dist_ray);
+  //if (dist_obs >= h.GetMax()) {
+  //  //printf("phi %5.3f dist line %5.3f at the end\n", phi*180.0/M_PI, dist_ray);
+  //  return 100.0;
+  //}
+
+  double a_obj = -b;
+  double b_obj = a;
+  double c_obj = -(a_obj * x_sensor_object(0) + b_obj * x_sensor_object(1));
+  double dist_sensor = a_obj*0 * b_obj*0 + c_obj;
+
+  double range = dist_obs - dist_sensor;
+  if (range < 0) {
+    //printf("phi %5.3f dist line %5.3f too close\n", phi*180.0/M_PI, dist_ray);
+    range = 0;
+  }
+
+  //printf("Dist sensor: %5.3f\n", dist_sensor);
+  //printf("Range: %5.3f\n", range);
+
+  return range;
+}
+
+double RayModel::GetExpectedRangeNoObject(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double percentile) {
+  //printf("\n");
+
+  // Compute relative angle with object
+  double phi = sensor_angle - object_angle;
+
+  // Compute ray's distance from object center
+  double a = sin(sensor_angle);
+  double b = -cos(sensor_angle);
+  double dist_ray = a*x_sensor_object(0) + b*x_sensor_object(1);
+  //printf("Angle: %5.3f, dist line: %5.3f\n", angle*180.0/M_PI, dist_ray);
+  //printf("Line is: %5.3f x + %5.3f y + 0 = 0\n", a, b);
+
+  int idx = GetHistogramIndex(phi, dist_ray);
+  if (idx < 0) {
+    //printf("phi %5.3f dist line %5.3f out of range\n", phi*180.0/M_PI, dist_ray);
     return 100.0;
   }
+
+  Histogram &h = negative_histograms_[idx];
+  //printf("Histogram %d count: %d\n", idx, h.GetCountsTotal());
+  if (h.GetCountsTotal() == 0) {
+    //printf("phi %5.3f dist line %5.3f has no measurements\n", phi*180.0/M_PI, dist_ray);
+    return 0.0;
+  }
+
+  double dist_obs = h.GetPercentile(percentile);
+  //printf("%5.3f%% dist obs: %5.3f\n", percentile*100.0f, dist_obs);
+  //if (dist_obs >= h.GetMax()) {
+  //  //printf("phi %5.3f dist line %5.3f at the end\n", phi*180.0/M_PI, dist_ray);
+  //  return 100.0;
+  //}
 
   double a_obj = -b;
   double b_obj = a;

@@ -18,9 +18,9 @@ def show_model(model, ax_o, ax_f):
     ax.axis((np.min(model[:, 0]), np.max(model[:, 0]), np.min(model[:, 1]), np.max(model[:, 1])))
 
 def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0):
-  unique_xs = np.unique(res[:, 0])
-  unique_ys = np.unique(res[:, 1])
-  unique_angles = np.unique(res[:, 2])
+  unique_xs = np.unique(np.round(res[:, 0], decimals=2))
+  unique_ys = np.unique(np.round(res[:, 1], decimals=2))
+  unique_angles = np.unique(np.round(res[:, 2], decimals=2))
 
   angle_deg = unique_angles[angle] * 180 / np.pi
 
@@ -30,6 +30,7 @@ def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0):
   y = np.reshape(res[:, 1], grid_shape)
 
   score = np.reshape(res[:, 3], grid_shape)
+  score = np.clip(score, -10, 10)
   prob = np.reshape(res[:, 4], grid_shape)
 
   x_angle = x[:, :, angle]
@@ -117,12 +118,13 @@ params = {'legend.fontsize': 'x-large',
 
 pylab.rcParams.update(params)
 
-experiment = 4
+experiment = 3
 
 points = np.loadtxt('/home/aushani/summer/cc/data_%d.csv'         % (experiment), delimiter=',')
 gt     = np.loadtxt('/home/aushani/summer/cc/ground_truth_%d.csv' % (experiment), delimiter=',')
 res    = np.loadtxt('/home/aushani/summer/cc/result_%d.csv'       % (experiment), delimiter=',')
 model  = np.loadtxt('/home/aushani/summer/cc/model.csv'                         , delimiter=',')
+noobj  = np.loadtxt('/home/aushani/summer/cc/noobj.csv'                         , delimiter=',')
 
 print res.shape
 
@@ -147,17 +149,20 @@ axarr[1].axis('equal')
 axarr[1].grid(True)
 axarr[1].set_title('Ground Truth')
 
-f, axarr = plt.subplots(nrows = 3, ncols = 3)
+f_score, axarr_score = plt.subplots(nrows = 3, ncols = 3)
+f_prob, axarr_prob = plt.subplots(nrows = 3, ncols = 3)
 
-show_detection(res, ax_score=None, ax_prob=axarr[0, 0], points=points, angle = 0)
-show_detection(res, ax_score=None, ax_prob=axarr[0, 1], points=points, angle = 1)
-show_detection(res, ax_score=None, ax_prob=axarr[0, 2], points=points, angle = 2)
-show_detection(res, ax_score=None, ax_prob=axarr[1, 0], points=points, angle = 3)
-show_detection(res, ax_score=None, ax_prob=axarr[1, 1], points=points, angle = 4)
-show_detection(res, ax_score=None, ax_prob=axarr[1, 2], points=points, angle = 5)
-show_detection(res, ax_score=None, ax_prob=axarr[2, 0], points=points, angle = 6)
-show_detection(res, ax_score=None, ax_prob=axarr[2, 1], points=points, angle = 7)
-f.delaxes(axarr[2, 2])
+show_detection(res, ax_score=axarr_score[0, 0], ax_prob=axarr_prob[0, 0], points=points, angle = 0)
+show_detection(res, ax_score=axarr_score[0, 1], ax_prob=axarr_prob[0, 1], points=points, angle = 1)
+show_detection(res, ax_score=axarr_score[0, 2], ax_prob=axarr_prob[0, 2], points=points, angle = 2)
+show_detection(res, ax_score=axarr_score[1, 0], ax_prob=axarr_prob[1, 0], points=points, angle = 3)
+show_detection(res, ax_score=axarr_score[1, 1], ax_prob=axarr_prob[1, 1], points=points, angle = 4)
+show_detection(res, ax_score=axarr_score[1, 2], ax_prob=axarr_prob[1, 2], points=points, angle = 5)
+show_detection(res, ax_score=axarr_score[2, 0], ax_prob=axarr_prob[2, 0], points=points, angle = 6)
+show_detection(res, ax_score=axarr_score[2, 1], ax_prob=axarr_prob[2, 1], points=points, angle = 7)
+
+f_score.delaxes(axarr_score[2, 2])
+f_prob.delaxes(axarr_prob[2, 2])
 
 #show_model(model, axarr[2, 0], axarr[2, 1])
 #axarr[2, 0].set_title('Object Observation Model (Occu)')
@@ -174,8 +179,16 @@ f2, ax = plt.subplots(nrows = 1, ncols = 1)
 sc = ax.scatter(model[:, 0], model[:, 1], c=model[:, 2], marker='x', s=10)
 plt.colorbar(sc, label='Histogram Percentile')
 ax.axis('equal')
-ax.axis((-5, 5, 0, 6))
+#ax.axis((-5, 5, 0, 6))
 ax.grid(True)
 ax.set_title('Synthetic scan from observation model')
+
+f3, ax = plt.subplots(nrows = 1, ncols = 1)
+sc = ax.scatter(noobj[:, 0], noobj[:, 1], c=noobj[:, 2], marker='x', s=10)
+plt.colorbar(sc, label='Histogram Percentile')
+ax.axis('equal')
+#ax.axis((-5, 5, 0, 6))
+ax.grid(True)
+ax.set_title('Synthetic scan from observation model for no object')
 
 plt.show()

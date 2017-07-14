@@ -64,26 +64,18 @@ int main(int argc, char** argv) {
 
         model.MarkObservationWorldFrame(x_sensor_object, object_angle, x_hit);
       }
-    }
 
-    // Negative mining
-    for (int neg_ex = 0; neg_ex < 5; neg_ex ++) {
-      double x = unif(re);
-      double y = unif(re);
-      if (sim->IsOccupied(x, y))
-        continue;
-
-      Eigen::Vector2d x_sensor_object;
-      x_sensor_object << x, y;
-
-      double object_angle = rand_angle(re);
+      // Negative mining
+      Eigen::Vector2d x_sensor_noobj = x_sensor_object;
+      x_sensor_noobj(0) += 6;
+      x_sensor_noobj(1) += 6;
 
       for (size_t i=0; i<hits->size(); i++) {
         Eigen::Vector2d x_hit;
         x_hit(0) = hits->at(i).x;
         x_hit(1) = hits->at(i).y;
 
-        model.MarkNegativeObservationWorldFrame(x_sensor_object, object_angle, x_hit);
+        model.MarkNegativeObservationWorldFrame(x_sensor_noobj, object_angle, x_hit);
       }
     }
 
@@ -109,7 +101,7 @@ int main(int argc, char** argv) {
     std::vector<ge::Point> points;
     std::vector<float> labels;
 
-    DetectionMap detection_map(20.0, 0.3, model);
+    DetectionMap detection_map(20.0, 0.15, model);
 
     t.Start();
     sim.GenerateSimData(&hits, &origins);
@@ -204,7 +196,7 @@ int main(int argc, char** argv) {
   //}
 
   for (double sensor_angle = -M_PI; sensor_angle < M_PI; sensor_angle += 0.01) {
-    for (double percentile = 0.2; percentile <= 0.8; percentile+=0.2) {
+    for (double percentile = 0.01; percentile <= 0.99; percentile+=0.01) {
       double range = model.GetExpectedRange(x_sensor_object, object_angle, sensor_angle, percentile);
       double x = cos(sensor_angle)*range;
       double y = sin(sensor_angle)*range;
@@ -212,6 +204,31 @@ int main(int argc, char** argv) {
     }
   }
   model_file.close();
+
+  std::ofstream noobj_file;
+  noobj_file.open("noobj.csv");
+
+  printf("Simulating no object at %5.3f, %5.3f\n", x_sensor_object(0), x_sensor_object(1));
+
+  //double exp_range = noobj.GetExpectedRange(x_sensor_object, object_angle, M_PI/2, 0.50);
+  //printf("Expected range = %5.3f\n", exp_range);
+
+  //Eigen::Vector2d x_hit;
+
+  //for (double y = 1.0; y < 10.0; y+=0.25) {
+  //  x_hit << 0.0, y;
+  //  printf("Prob hit at %5.3f, %5.3f = %5.3f\n", x_hit(0), x_hit(1), noobj.GetProbability(x_sensor_object, object_angle, x_hit));
+  //}
+
+  for (double sensor_angle = -M_PI; sensor_angle < M_PI; sensor_angle += 0.01) {
+    for (double percentile = 0.01; percentile <= 0.99; percentile+=0.01) {
+      double range = model.GetExpectedRangeNoObject(x_sensor_object, object_angle, sensor_angle, percentile);
+      double x = cos(sensor_angle)*range;
+      double y = sin(sensor_angle)*range;
+      noobj_file << x << "," << y << "," << percentile << std::endl;
+    }
+  }
+  noobj_file.close();
 
   printf("Done\n");
 

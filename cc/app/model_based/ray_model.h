@@ -21,6 +21,8 @@ class RayModel {
   double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits);
 
   double GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double percentile);
+  double GetExpectedRangeNoObject(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double percentile);
+
   double GetProbability(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit);
 
   double GetSize() const;
