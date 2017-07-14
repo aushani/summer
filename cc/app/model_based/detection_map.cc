@@ -94,7 +94,7 @@ void DetectionMap::ListMaxDetections() {
 
         ObjectState state(x, y, angle);
         double val = scores_[state];
-        if (val < 1)
+        if (val < 100)
           continue;
 
         int window_size = 5;
@@ -115,7 +115,7 @@ void DetectionMap::ListMaxDetections() {
         }
 
         if (is_max) {
-          printf("Max at %5.3f, %5.3f, angle %5.3f ==> %5.3f\n", x, y, angle*180.0/M_PI, val);
+          printf("\tMax at %5.3f, %5.3f, angle %5.3f ==> %5.3f\n", x, y, angle*180.0/M_PI, val);
         }
       }
     }

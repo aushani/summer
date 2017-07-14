@@ -70,7 +70,7 @@ def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0):
       if val < 100:
         continue
 
-      window_size = 10
+      window_size = 5
 
       i0 = i - window_size
       if i0 < 0:
