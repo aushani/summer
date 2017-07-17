@@ -64,11 +64,23 @@ int main(int argc, char** argv) {
 
         model.MarkObservationWorldFrame(x_sensor_object, object_angle, x_hit);
       }
+    }
 
-      // Negative mining
-      Eigen::Vector2d x_sensor_noobj = x_sensor_object;
-      x_sensor_noobj(0) += 6;
-      x_sensor_noobj(1) += 6;
+    // Negative mining
+    for (int neg=0; neg<5; neg++) {
+      Eigen::Vector2d x_sensor_noobj;
+      x_sensor_noobj(0) = unif(re);
+      x_sensor_noobj(1) = unif(re);
+
+      double object_angle = rand_angle(re);
+
+      for (auto &shape : shapes) {
+        auto center = shape.GetCenter();
+
+        if ((x_sensor_noobj - center).norm() < 6) {
+          continue;
+        }
+      }
 
       for (size_t i=0; i<hits->size(); i++) {
         Eigen::Vector2d x_hit;
@@ -94,7 +106,8 @@ int main(int argc, char** argv) {
       double y = c(1);
       double angle = s.GetAngle();
       double sym = 72.0;
-      printf("Shape at %5.3f, %5.3f with angle %5.3f (ie, %5.3f)\n", x, y, angle*180.0/M_PI, fmod(angle*180.0/M_PI, sym));
+      printf("Shape %s at %5.3f, %5.3f with angle %5.3f (ie, %5.3f)\n",
+          s.GetName().c_str(), x, y, angle*180.0/M_PI, fmod(angle*180.0/M_PI, sym));
     }
 
     std::vector<ge::Point> hits, origins;

@@ -86,7 +86,7 @@ double DetectionMap::Lookup(const ge::Point &p, double angle) {
   return 1/(1+exp(-score));
 }
 
-void DetectionMap::ListMaxDetections() {
+std::vector<ObjectState> DetectionMap::GetMaxDetections(double thresh_score) {
   for (double x = -size_; x <= size_; x += res_) {
     for (double y = -size_; y <= size_; y += res_) {
       for (int angle_step = 0; angle_step < 8; angle_step++) {

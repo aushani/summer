@@ -32,7 +32,7 @@ class DetectionMap {
 
   void ProcessObservations(const std::vector<ge::Point> &hits);
 
-  void ListMaxDetections();
+  std::vector<ObjectState> GetMaxDetections(double thresh_score);
 
   double Lookup(const ge::Point &p, double angle);
 

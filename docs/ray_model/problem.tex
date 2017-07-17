@@ -26,7 +26,7 @@ For now, we assume an uninformative prior $p(obj) = p(\lnot obj) = 0.5$. Taking
 the log probability, we have:
 %
 \begin{align}
-  \log p( obj | \mathbf{Z} ) &= \log{\eta} + \log\sum_{i=1}^{n} { \log p( z_i | obj) }
+  \log p( obj | \mathbf{Z} ) &= \log{\eta} + \sum_{i=1}^{n} { \log p( z_i | obj) }
   \text{,}
   \label{eq:obj_model}
 \end{align}
