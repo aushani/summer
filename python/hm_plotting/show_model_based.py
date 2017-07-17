@@ -30,12 +30,11 @@ def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0):
   y = np.reshape(res[:, 1], grid_shape)
 
   score = np.reshape(res[:, 3], grid_shape)
-  score = np.clip(score, -10, 10)
   prob = np.reshape(res[:, 4], grid_shape)
 
   x_angle = x[:, :, angle]
   y_angle = y[:, :, angle]
-  score_angle = score[:, :, angle]
+  score_angle = np.clip(score[:, :, angle], -10, 10)
   prob_angle = prob[:, :, angle]
 
   if not ax_score is None:
