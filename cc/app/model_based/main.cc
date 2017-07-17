@@ -98,7 +98,13 @@ int main(int argc, char** argv) {
 
   char fn[100];
 
-  for (int experiment = 0; experiment < 5; experiment++) {
+  int n_experiments = 100;
+
+  std::vector<std::pair<double, bool>> results;
+
+  for (int experiment = 0; experiment < n_experiments; experiment++) {
+    printf("Experiment %d / %d\n", experiment, n_experiments);
+
     sw::SimWorld sim(5);
     for (auto &s : sim.GetShapes()) {
       auto c = s.GetCenter();
@@ -106,7 +112,7 @@ int main(int argc, char** argv) {
       double y = c(1);
       double angle = s.GetAngle();
       double sym = 72.0;
-      printf("Shape %s at %5.3f, %5.3f with angle %5.3f (ie, %5.3f)\n",
+      printf("\tShape %s at %5.3f, %5.3f with angle %5.3f (ie, %5.3f)\n",
           s.GetName().c_str(), x, y, angle*180.0/M_PI, fmod(angle*180.0/M_PI, sym));
     }
 
@@ -127,13 +133,75 @@ int main(int argc, char** argv) {
 
     // Non max suppression
     t.Start();
-    detection_map.ListMaxDetections();
+    auto detections = detection_map.GetMaxDetections(10);
     printf("Took %5.3f ms to do non-max suppression\n", t.GetMs());
+
+    for (auto it = detections.begin(); it != detections.end(); it++) {
+      const ObjectState &os = it->first;
+      printf("\tDetected max at %5.3f, %5.3f at %5.3f deg (val = %7.3f)\n",
+          os.pos.x, os.pos.y, os.angle, it->second);
+    }
+
+    // Evaluate detections
+    std::vector<sw::Shape> shapes(sim.GetShapes());
+
+    int count_good = 0;
+    int count_total = detections.size();
+
+    while (!detections.empty()) {
+      if (shapes.empty()) {
+        for (auto it = detections.begin(); it != detections.end(); it++) {
+          results.push_back(std::pair<double, bool>(it->second, false));
+        }
+        break;
+      }
+
+      // Find max detection
+      ObjectState os = detections.begin()->first;
+      double score = detections.begin()->second;
+      for (auto it = detections.begin(); it != detections.end(); it++) {
+        if (it->second > score) {
+          os = it->first;
+          score = it->second;
+        }
+      }
+
+      detections.erase(os);
+
+      // Is it valid or not?
+      bool valid = false;
+      for (auto shape = shapes.begin(); shape != shapes.end(); shape++) {
+        if (!shape->IsInside(os.pos.x, os.pos.y))
+          continue;
+
+        double object_angle = shape->GetAngle();
+        double sym = 72.0;
+        object_angle = fmod(object_angle*180.0/M_PI, sym);
+
+        double detection_angle = os.angle;
+        detection_angle = fmod(detection_angle*180.0/M_PI, sym);
+
+        double diff = object_angle - detection_angle;
+        while (diff < -180.0) diff += 360.0;
+        while (diff > 180.0) diff -= 360.0;
+
+        if (diff < 9) {
+          valid = true;
+          shapes.erase(shape);
+          count_good++;
+          break;
+        }
+      }
+
+      results.push_back(std::pair<double, bool>(score, valid));
+    }
+
+    printf("%d / %d detections good\n", count_good, count_total);
 
     // Write out data
     printf("Saving data...\n");
     std::ofstream data_file;
-    sprintf(fn, "data_%d.csv", experiment);
+    sprintf(fn, "data_%03d.csv", experiment);
     data_file.open(fn);
     for (size_t i=0; i<hits.size(); i++) {
       data_file << hits[i].x << "," << hits[i].y << std::endl;
@@ -142,7 +210,7 @@ int main(int argc, char** argv) {
 
     // Write out result
     std::ofstream res_file;
-    sprintf(fn, "result_%d.csv", experiment);
+    sprintf(fn, "result_%03d.csv", experiment);
     res_file.open(fn);
 
     auto map = detection_map.GetScores();
@@ -170,7 +238,7 @@ int main(int argc, char** argv) {
     // Write out ground truth
     printf("Saving ground truth...\n");
     std::ofstream gt_file;
-    sprintf(fn, "ground_truth_%d.csv", experiment);
+    sprintf(fn, "ground_truth_%03d.csv", experiment);
     gt_file.open(fn);
 
     std::vector<ge::Point> query_points;
@@ -186,6 +254,14 @@ int main(int argc, char** argv) {
     }
     gt_file.close();
   }
+
+  // Save scores and good/bad results
+  std::ofstream pr_file;
+  pr_file.open("pr_scores.csv");
+  for (auto &res : results) {
+    pr_file << res.first << ", " << res.second << std::endl;
+  }
+  pr_file.close();
 
   // Model...
   std::ofstream model_file;

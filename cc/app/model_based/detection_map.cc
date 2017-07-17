@@ -86,40 +86,88 @@ double DetectionMap::Lookup(const ge::Point &p, double angle) {
   return 1/(1+exp(-score));
 }
 
-std::vector<ObjectState> DetectionMap::GetMaxDetections(double thresh_score) {
-  for (double x = -size_; x <= size_; x += res_) {
-    for (double y = -size_; y <= size_; y += res_) {
+bool DetectionMap::IsMaxDetection(const ObjectState &state) {
+  double val = scores_[state];
+
+  int window_size = 5;
+
+  double x = state.pos.x;
+  double y = state.pos.y;
+
+  for (double xm = fmax(-size_, x - window_size*res_); xm <= fmin(size_, x + window_size*res_); xm += res_) {
+    for (double ym = fmax(-size_, y - window_size*res_); ym <= fmin(size_, y + window_size*res_); ym += res_) {
       for (int angle_step = 0; angle_step < 8; angle_step++) {
-        double angle = angle_step * (2*M_PI/5) / 8;
+        double am = angle_step * (2*M_PI/5) / 8;
 
-        ObjectState state(x, y, angle);
-        double val = scores_[state];
-        if (val < 100)
-          continue;
+        ObjectState sm(xm, ym, am);
 
-        int window_size = 5;
-        bool is_max = true;
-
-        for (double xm = fmax(-size_, x - window_size*res_); xm <= fmin(size_, x + window_size*res_) && is_max; xm += res_) {
-          for (double ym = fmax(-size_, y - window_size*res_); ym <= fmin(size_, y + window_size*res_) && is_max; ym += res_) {
-            for (int angle_step = 0; angle_step < 8 && is_max; angle_step++) {
-              double am = angle_step * (2*M_PI/5) / 8;
-
-              ObjectState sm(xm, ym, am);
-
-              if (scores_[sm] > val) {
-                is_max = false;
-              }
-            }
-          }
+        if (scores_.count(sm) == 0) {
+          printf("state not in map!\n");
         }
 
-        if (is_max) {
-          printf("\tMax at %5.3f, %5.3f, angle %5.3f ==> %5.3f\n", x, y, angle*180.0/M_PI, val);
+        if (scores_[sm] > val) {
+          return false;
         }
       }
     }
   }
+
+  return true;
+}
+
+void DetectionMap::GetMaxDetectionsWorker(std::deque<ObjectState> *states, std::map<ObjectState, double> *result, std::mutex *mutex) {
+  bool done = false;
+
+  std::map<ObjectState, double> thread_result;
+
+  while (!done) {
+    mutex->lock();
+    if (states->empty()) {
+      done = true;
+      mutex->unlock();
+    } else {
+      ObjectState state = states->front();
+      states->pop_front();
+      mutex->unlock();
+
+      if (IsMaxDetection(state)) {
+        thread_result[state] = scores_[state];
+      }
+    }
+  }
+
+  if (thread_result.size() > 0) {
+    mutex->lock();
+    for (auto it = thread_result.begin(); it != thread_result.end(); it++) {
+      (*result)[it->first] = it->second;
+    }
+    mutex->unlock();
+  }
+}
+
+std::map<ObjectState, double> DetectionMap::GetMaxDetections(double thresh_score) {
+  std::map<ObjectState, double> result;
+
+  std::deque<ObjectState> states;
+  std::mutex mutex;
+
+  for (auto it = scores_.begin(); it != scores_.end(); it++) {
+    if (it->second > thresh_score) {
+      states.push_back(it->first);
+    }
+  }
+
+  int num_threads = 4;
+  std::vector<std::thread> threads;
+  for (int i=0; i<num_threads; i++) {
+    threads.push_back(std::thread(&DetectionMap::GetMaxDetectionsWorker, this, &states, &result, &mutex));
+  }
+
+  for (auto &thread : threads) {
+    thread.join();
+  }
+
+  return result;
 }
 
 const std::map<ObjectState, double>& DetectionMap::GetScores() const {

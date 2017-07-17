@@ -35,18 +35,18 @@ SimWorld::SimWorld(int n_shapes) :
       continue;
 
     // Check to see if this object's center is within 3m of any other object
-    bool too_close = false;
-    for (const auto &s : GetShapes()) {
-      const auto &c_s = s.GetCenter();
+    //bool too_close = false;
+    //for (const auto &s : GetShapes()) {
+    //  const auto &c_s = s.GetCenter();
 
-      if (std::abs(c_s(0) - x) < 6 && std::abs(c_s(1) - y) < 6) {
-        too_close = true;
-        continue;
-      }
-    }
+    //  if (std::abs(c_s(0) - x) < 6 && std::abs(c_s(1) - y) < 6) {
+    //    too_close = true;
+    //    continue;
+    //  }
+    //}
 
-    if (too_close)
-      continue;
+    //if (too_close)
+    //  continue;
 
     Shape obj = Shape::CreateStar(x, y, size);
     //Shape obj = Shape::CreateBox(0, 3, 2, 2);
@@ -82,7 +82,7 @@ double SimWorld::GetHit(const Eigen::Vector2d &ray, Eigen::Vector2d *hit) {
 void SimWorld::GenerateSimData(std::vector<ge::Point> *hits, std::vector<ge::Point> *origins) {
   Eigen::Vector2d hit;
 
-  for (double angle = -0; angle < M_PI; angle += 0.01) {
+  for (double angle = -M_PI; angle < M_PI; angle += 0.01) {
     Eigen::Vector2d ray(cos(angle), sin(angle));
     double distance = GetHit(ray, &hit);
 
@@ -100,7 +100,7 @@ void SimWorld::GenerateSimData(std::vector<ge::Point> *points, std::vector<float
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
-  for (double angle = -0; angle < M_PI; angle += 0.01) {
+  for (double angle = -M_PI; angle < M_PI; angle += 0.01) {
     Eigen::Vector2d ray(cos(angle), sin(angle));
     double distance = GetHit(ray, &hit);
 

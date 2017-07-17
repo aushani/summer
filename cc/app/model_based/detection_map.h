@@ -18,11 +18,16 @@ struct ObjectState {
     pos(x, y), angle(a) { }
 
   bool operator<(const ObjectState &os) const {
-    if (pos.x != os.pos.x)
+    if (std::abs(pos.x - os.pos.x) > 0.001)
       return pos.x < os.pos.x;
-    if (pos.y != os.pos.y)
+
+    if (std::abs(pos.y - os.pos.y) > 0.001)
       return pos.y < os.pos.y;
-    return angle < os.angle;
+
+    if (std::abs(angle - os.angle) > 0.001)
+      return angle < os.angle;
+
+    return false;
   }
 };
 
@@ -32,7 +37,7 @@ class DetectionMap {
 
   void ProcessObservations(const std::vector<ge::Point> &hits);
 
-  std::vector<ObjectState> GetMaxDetections(double thresh_score);
+  std::map<ObjectState, double> GetMaxDetections(double thresh_score);
 
   double Lookup(const ge::Point &p, double angle);
 
@@ -47,4 +52,7 @@ class DetectionMap {
 
   void ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state);
   void ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, std::deque<ObjectState> *states, std::mutex *mutex);
+
+  void GetMaxDetectionsWorker(std::deque<ObjectState> *states, std::map<ObjectState, double> *result, std::mutex *mutex);
+  bool IsMaxDetection(const ObjectState &state);
 };
