@@ -28,6 +28,7 @@ ModelBank LearnModelBank(int n_trials) {
   t.Start();
 
   ModelBank model_bank;
+  model_bank.AddRayModel("BOX", 3.0);
   model_bank.AddRayModel("STAR", 3.0);
   model_bank.AddRayModel("FREE", 3.0);
 

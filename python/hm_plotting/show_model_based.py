@@ -115,6 +115,15 @@ params = {'legend.fontsize': 'x-large',
          'xtick.labelsize':'x-large',
          'ytick.labelsize':'x-large'}
 
+def show_model(model):
+  f, ax = plt.subplots(nrows = 1, ncols = 1)
+  sc = ax.scatter(model[:, 0], model[:, 1], c=model[:, 2], marker='x', s=10)
+  plt.colorbar(sc, label='Histogram Percentile')
+  ax.axis('equal')
+  ax.axis((-5, 5, 0, 8))
+  ax.grid(True)
+  ax.set_title('Synthetic scan from observation model')
+
 pylab.rcParams.update(params)
 
 experiment = 2
@@ -122,8 +131,10 @@ experiment = 2
 points = np.loadtxt('/home/aushani/summer/cc/data_%03d.csv'         % (experiment), delimiter=',')
 gt     = np.loadtxt('/home/aushani/summer/cc/ground_truth_%03d.csv' % (experiment), delimiter=',')
 res    = np.loadtxt('/home/aushani/summer/cc/result_%03d.csv'       % (experiment), delimiter=',')
-model  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
-noobj  = np.loadtxt('/home/aushani/summer/cc/FREE.csv'                         , delimiter=',')
+
+box  = np.loadtxt('/home/aushani/summer/cc/BOX.csv'                         , delimiter=',')
+star  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
+free  = np.loadtxt('/home/aushani/summer/cc/FREE.csv'                         , delimiter=',')
 
 print res.shape
 
@@ -174,20 +185,8 @@ f_prob.delaxes(axarr_prob[2, 2])
 #axarr[4, 0].scatter(occu[:, 0], occu[:, 1], c=occu[:, 2], s=1, marker='.')
 #axarr[4, 0].set_title('Occupancy Probability')
 
-f2, ax = plt.subplots(nrows = 1, ncols = 1)
-sc = ax.scatter(model[:, 0], model[:, 1], c=model[:, 2], marker='x', s=10)
-plt.colorbar(sc, label='Histogram Percentile')
-ax.axis('equal')
-ax.axis((-5, 5, 0, 8))
-ax.grid(True)
-ax.set_title('Synthetic scan from observation model')
-
-f3, ax = plt.subplots(nrows = 1, ncols = 1)
-sc = ax.scatter(noobj[:, 0], noobj[:, 1], c=noobj[:, 2], marker='x', s=10)
-plt.colorbar(sc, label='Histogram Percentile')
-ax.axis('equal')
-ax.axis((-5, 5, 0, 8))
-ax.grid(True)
-ax.set_title('Synthetic scan from observation model for no object')
+show_model(box)
+show_model(star)
+show_model(free)
 
 plt.show()

@@ -6,16 +6,28 @@
 
 DetectionMap::DetectionMap(double size, double res, const ModelBank &model_bank) :
  size_(size), res_(res), model_bank_(model_bank) {
+  auto classes = GetClasses();
+
   for (double x = -size; x <= size; x += res) {
     for (double y = -size; y <= size; y += res) {
-      for (int angle_step = 0; angle_step < 8; angle_step++) {
-        double angle = angle_step * (2*M_PI/5) / 8;
-        ObjectState s(x, y, angle);
-
-        scores_[s] = 0.0;
+      for (double angle = 0; angle < 2*M_PI; angle += angle_res_) {
+        for (std::string classname : classes) {
+          ObjectState s(x, y, angle, classname);
+          scores_.insert( std::pair<ObjectState, double>(s, 0.0) );
+        }
       }
     }
   }
+}
+
+std::vector<std::string> DetectionMap::GetClasses() const {
+  std::vector<std::string> classes;
+  auto models = model_bank_.GetModels();
+  for (auto it = models.begin(); it != models.end(); it++) {
+    classes.push_back(it->first);
+  }
+
+  return classes;
 }
 
 void DetectionMap::ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) {
@@ -27,10 +39,9 @@ void DetectionMap::ProcessObservationsForState(const std::vector<Eigen::Vector2d
 
   auto update = model_bank_.EvaluateObservations(x_sensor_object, object_angle, x_hits);
 
-  // TODO
-  double score = update["STAR"] - update["FREE"];
-
-  scores_[state] += score;
+  for (auto it = update.begin(); it != update.end(); it++) {
+    scores_[state] += it->second;
+  }
 }
 
 void DetectionMap::ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, std::deque<ObjectState> *states, std::mutex *mutex) {
@@ -78,18 +89,6 @@ void DetectionMap::ProcessObservations(const std::vector<ge::Point> &hits) {
   printf("Done\n");
 }
 
-double DetectionMap::Lookup(const ge::Point &p, double angle) {
-  ObjectState s(p.x, p.y, angle);
-
-  double score = scores_[s];
-
-  if (score < -100)
-    return 0.0f;
-  if (score > 100)
-    return 1.0f;
-  return 1/(1+exp(-score));
-}
-
 bool DetectionMap::IsMaxDetection(const ObjectState &state) {
   double val = scores_[state];
 
@@ -100,17 +99,19 @@ bool DetectionMap::IsMaxDetection(const ObjectState &state) {
 
   for (double xm = fmax(-size_, x - window_size*res_); xm <= fmin(size_, x + window_size*res_); xm += res_) {
     for (double ym = fmax(-size_, y - window_size*res_); ym <= fmin(size_, y + window_size*res_); ym += res_) {
-      for (int angle_step = 0; angle_step < 8; angle_step++) {
-        double am = angle_step * (2*M_PI/5) / 8;
+      for (double angle = 0; angle < 2*M_PI; angle += angle_res_) {
+        for (std::string c : GetClasses()) {
+          ObjectState sm(xm, ym, angle, c);
 
-        ObjectState sm(xm, ym, am);
+          auto it = scores_.find(sm);
 
-        if (scores_.count(sm) == 0) {
-          printf("state not in map!\n");
-        }
+          if (it == scores_.end()) {
+            printf("state not in map!\n");
+          }
 
-        if (scores_[sm] > val) {
-          return false;
+          if (it->second > val) {
+            return false;
+          }
         }
       }
     }

@@ -12,49 +12,48 @@ SimWorld::SimWorld(size_t n_shapes) :
   bounding_box_(Shape::CreateBox(0, 0, 50, 50)),
   origin_(0.0, 0.0) {
 
-  double lower_bound = -8;
-  double upper_bound = 8;
-  std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
+  std::uniform_real_distribution<double> pos(-8.0, 8.0);
+  std::uniform_real_distribution<double> width(2.0, 4.0);
+  std::uniform_real_distribution<double> length(4.0, 8.0);
   std::uniform_real_distribution<double> rand_size(1.0, 2.0);
   std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
+  std::uniform_real_distribution<double> rand_shape(0.0, 1.0);
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-  std::default_random_engine re(seed);
+  std::default_random_engine rand_engine(seed);
 
-  // Make boxes in the world
+  // Make shapes in the world
   int attempts = 0;
   while (shapes_.size() < n_shapes) {
     if (attempts++ > 1000)
       break;
 
-    double x = unif(re);
-    double y = unif(re);
-    double size = rand_size(re);
-    double angle = rand_angle(re);
+    double x = pos(rand_engine);
+    double y = pos(rand_engine);
+    double angle = rand_angle(rand_engine);
 
+    bool make_box = rand_shape(rand_engine) < 0.5;
+    bool make_star = !make_box;
+
+    // Not too close to origin
     if (std::abs(x) < 3 && std::abs(y) < 3)
       continue;
 
-    // Check to see if this object's center is within 3m of any other object
-    //bool too_close = false;
-    //for (const auto &s : GetShapes()) {
-    //  const auto &c_s = s.GetCenter();
+    if (make_box) {
+      Shape obj = Shape::CreateBox(x, y, width(rand_engine), length(rand_engine));
+      obj.Rotate(angle);
 
-    //  if (std::abs(c_s(0) - x) < 6 && std::abs(c_s(1) - y) < 6) {
-    //    too_close = true;
-    //    continue;
-    //  }
-    //}
+      // Check for origin inside
+      if (!obj.IsInside(0, 0))
+        shapes_.push_back(obj);
+    } else if (make_star) {
+      double size = rand_size(rand_engine);
 
-    //if (too_close)
-    //  continue;
+      Shape obj = Shape::CreateStar(x, y, size);
 
-    Shape obj = Shape::CreateStar(x, y, size);
-    //Shape obj = Shape::CreateBox(0, 3, 2, 2);
-    obj.Rotate(angle);
-
-    // Check for origin inside
-    if (!obj.IsInside(0, 0))
-      shapes_.push_back(obj);
+      // Check for origin inside
+      if (!obj.IsInside(0, 0))
+        shapes_.push_back(obj);
+    }
   }
 
 }

@@ -14,9 +14,10 @@ namespace ge = library::geometry;
 struct ObjectState {
   ge::Point pos = ge::Point(0, 0);
   double angle = 0;
+  std::string classname;
 
-  ObjectState(double x, double y, double a) :
-    pos(x, y), angle(a) { }
+  ObjectState(double x, double y, double a, const std::string &cn) :
+    pos(x, y), angle(a), classname(cn) { }
 
   bool operator<(const ObjectState &os) const {
     if (std::abs(pos.x - os.pos.x) > 0.001)
@@ -36,17 +37,18 @@ class DetectionMap {
  public:
   DetectionMap(double size, double res, const ModelBank &model_bank);
 
+  std::vector<std::string> GetClasses() const;
+
   void ProcessObservations(const std::vector<ge::Point> &hits);
 
   std::map<ObjectState, double> GetMaxDetections(double thresh_score);
-
-  double Lookup(const ge::Point &p, double angle);
 
   const std::map<ObjectState, double>& GetScores() const;
 
  private:
   double size_;
   double res_;
+  double angle_res_ = M_PI/2.0;
   std::map<ObjectState, double> scores_;
 
   ModelBank model_bank_;
