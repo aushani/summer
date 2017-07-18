@@ -66,7 +66,7 @@ double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, 
   return best_distance;
 }
 
-bool Shape::IsInside(double x, double y) {
+bool Shape::IsInside(double x, double y) const {
 
   // TODO Really should check being colinear
   // And handle literal corner cases better

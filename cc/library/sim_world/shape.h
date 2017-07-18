@@ -14,7 +14,7 @@ class Shape {
   double GetHit(const Eigen::Vector2d &origin, double angle, Eigen::Vector2d *hit) const;
   double GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, Eigen::Vector2d *hit) const;
 
-  bool IsInside(double x, double y);
+  bool IsInside(double x, double y) const;
 
   Eigen::Vector2d GetCenter() const;
   double GetAngle() const;

@@ -7,6 +7,7 @@
 #include "library/geometry/point.h"
 
 #include "ray_model.h"
+#include "model_bank.h"
 
 namespace ge = library::geometry;
 
@@ -33,7 +34,7 @@ struct ObjectState {
 
 class DetectionMap {
  public:
-  DetectionMap(double size, double res, const RayModel &model);
+  DetectionMap(double size, double res, const ModelBank &model_bank);
 
   void ProcessObservations(const std::vector<ge::Point> &hits);
 
@@ -48,7 +49,7 @@ class DetectionMap {
   double res_;
   std::map<ObjectState, double> scores_;
 
-  RayModel model_;
+  ModelBank model_bank_;
 
   void ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state);
   void ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, std::deque<ObjectState> *states, std::mutex *mutex);

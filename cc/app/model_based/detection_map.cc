@@ -4,8 +4,8 @@
 
 #include <Eigen/Core>
 
-DetectionMap::DetectionMap(double size, double res, const RayModel &model) :
- size_(size), res_(res), model_(model) {
+DetectionMap::DetectionMap(double size, double res, const ModelBank &model_bank) :
+ size_(size), res_(res), model_bank_(model_bank) {
   for (double x = -size; x <= size; x += res) {
     for (double y = -size; y <= size; y += res) {
       for (int angle_step = 0; angle_step < 8; angle_step++) {
@@ -24,9 +24,13 @@ void DetectionMap::ProcessObservationsForState(const std::vector<Eigen::Vector2d
   x_sensor_object(1) = state.pos.y;
 
   double object_angle = state.angle;
-  double update = model_.EvaluateObservations(x_sensor_object, object_angle, x_hits);
 
-  scores_[state] += update;
+  auto update = model_bank_.EvaluateObservations(x_sensor_object, object_angle, x_hits);
+
+  // TODO
+  double score = update["STAR"] - update["FREE"];
+
+  scores_[state] += score;
 }
 
 void DetectionMap::ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, std::deque<ObjectState> *states, std::mutex *mutex) {

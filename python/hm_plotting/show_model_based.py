@@ -117,13 +117,13 @@ params = {'legend.fontsize': 'x-large',
 
 pylab.rcParams.update(params)
 
-experiment = 98
+experiment = 2
 
 points = np.loadtxt('/home/aushani/summer/cc/data_%03d.csv'         % (experiment), delimiter=',')
 gt     = np.loadtxt('/home/aushani/summer/cc/ground_truth_%03d.csv' % (experiment), delimiter=',')
 res    = np.loadtxt('/home/aushani/summer/cc/result_%03d.csv'       % (experiment), delimiter=',')
-model  = np.loadtxt('/home/aushani/summer/cc/model.csv'                         , delimiter=',')
-noobj  = np.loadtxt('/home/aushani/summer/cc/noobj.csv'                         , delimiter=',')
+model  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
+noobj  = np.loadtxt('/home/aushani/summer/cc/FREE.csv'                         , delimiter=',')
 
 print res.shape
 

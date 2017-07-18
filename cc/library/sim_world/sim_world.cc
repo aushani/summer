@@ -8,7 +8,7 @@ namespace ge = library::geometry;
 namespace library {
 namespace sim_world {
 
-SimWorld::SimWorld(int n_shapes) :
+SimWorld::SimWorld(size_t n_shapes) :
   bounding_box_(Shape::CreateBox(0, 0, 50, 50)),
   origin_(0.0, 0.0) {
 
@@ -63,7 +63,7 @@ void SimWorld::AddShape(const Shape &obj) {
   shapes_.push_back(obj);
 }
 
-double SimWorld::GetHit(const Eigen::Vector2d &ray, Eigen::Vector2d *hit) {
+double SimWorld::GetHit(const Eigen::Vector2d &ray, Eigen::Vector2d *hit) const {
   Eigen::Vector2d ray_hat = ray.normalized();
   double best_distance = bounding_box_.GetHit(origin_, ray_hat, hit);
 
@@ -79,7 +79,7 @@ double SimWorld::GetHit(const Eigen::Vector2d &ray, Eigen::Vector2d *hit) {
   return best_distance;
 }
 
-void SimWorld::GenerateSimData(std::vector<ge::Point> *hits, std::vector<ge::Point> *origins) {
+void SimWorld::GenerateSimData(std::vector<ge::Point> *hits, std::vector<ge::Point> *origins) const {
   Eigen::Vector2d hit;
 
   for (double angle = -M_PI; angle < M_PI; angle += 0.01) {
@@ -93,7 +93,7 @@ void SimWorld::GenerateSimData(std::vector<ge::Point> *hits, std::vector<ge::Poi
   }
 }
 
-void SimWorld::GenerateSimData(std::vector<ge::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateSimData(std::vector<ge::Point> *points, std::vector<float> *labels) const {
   Eigen::Vector2d hit;
 
   std::uniform_real_distribution<double> unif(0.0, 1.0);
@@ -119,7 +119,7 @@ void SimWorld::GenerateSimData(std::vector<ge::Point> *points, std::vector<float
   }
 }
 
-void SimWorld::GenerateGrid(double size, std::vector<ge::Point> *points, std::vector<float> *labels, double res) {
+void SimWorld::GenerateGrid(double size, std::vector<ge::Point> *points, std::vector<float> *labels, double res) const {
   // Find extent of sim
   //double x_min = GetMinX();
   //double x_max = GetMaxX();
@@ -143,7 +143,7 @@ void SimWorld::GenerateGrid(double size, std::vector<ge::Point> *points, std::ve
   }
 }
 
-void SimWorld::GenerateSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels, bool visible, bool occluded) {
+void SimWorld::GenerateSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels, bool visible, bool occluded) const {
   // Find extent of sim
   double x_min = GetMinX();
   double x_max = GetMaxX();
@@ -189,26 +189,26 @@ void SimWorld::GenerateSamples(size_t trials, std::vector<ge::Point> *points, st
   }
 }
 
-void SimWorld::GenerateAllSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateAllSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels) const {
   bool visible = true;
   bool occluded = true;
   GenerateSamples(trials, points, labels, visible, occluded);
 }
 
-void SimWorld::GenerateVisibleSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateVisibleSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels) const {
   bool visible = true;
   bool occluded = false;
   GenerateSamples(trials, points, labels, visible, occluded);
 }
 
-void SimWorld::GenerateOccludedSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels) {
+void SimWorld::GenerateOccludedSamples(size_t trials, std::vector<ge::Point> *points, std::vector<float> *labels) const {
   bool visible = false;
   bool occluded = true;
   GenerateSamples(trials, points, labels, visible, occluded);
 }
 
-bool SimWorld::IsOccupied(float x, float y) {
-  for (Shape &b : shapes_) {
+bool SimWorld::IsOccupied(float x, float y) const {
+  for (const Shape &b : shapes_) {
     if (b.IsInside(x, y))
       return true;
   }
@@ -272,11 +272,11 @@ double SimWorld::GetMaxY() const {
   //return y_max;
 }
 
-const std::vector<Shape>& SimWorld::GetShapes() {
+const std::vector<Shape>& SimWorld::GetShapes() const {
   return shapes_;
 }
 
-bool SimWorld::IsVisible(float x, float y) {
+bool SimWorld::IsVisible(float x, float y) const {
   Eigen::Vector2d point(x, y);
   Eigen::Vector2d ray = (point - origin_);
 
@@ -286,11 +286,11 @@ bool SimWorld::IsVisible(float x, float y) {
   return distance >= ray.norm();
 }
 
-bool SimWorld::IsOccluded(float x, float y) {
+bool SimWorld::IsOccluded(float x, float y) const {
   return !IsVisible(x, y);
 }
 
-std::vector<ge::Point> SimWorld::GetObjectLocations() {
+std::vector<ge::Point> SimWorld::GetObjectLocations() const {
   std::vector<ge::Point> locs;
 
   for(auto shape : shapes_) {
