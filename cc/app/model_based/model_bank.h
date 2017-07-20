@@ -7,21 +7,36 @@
 #include <Eigen/Core>
 
 #include "ray_model.h"
+#include "histogram.h"
 
 class ModelBank {
  public:
   ModelBank();
 
-  void AddRayModel(const std::string &name, double size);
+  void AddRayModel(const std::string &name, double size, double p_obj);
 
   void MarkObservation(const std::string &name, const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit);
 
   const std::map<std::string, RayModel>& GetModels() const;
+  const RayModel& GetModel(const std::string &name) const;
 
   std::map<std::string, double> EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const;
+  double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const std::string &classname) const;
+
+  void BuildObservationModel();
+  const RayModel& GetObservationModel() const;
+
+
+  double GetProbObj(const std::string &name) const;
 
  private:
-  std::map<std::string, RayModel> models_;
+  const double kMaxRange_ = 50.0;
 
+  // These are the object models
+  std::map<std::string, RayModel> obj_models_;
 
+  // Observation model
+  RayModel obs_model_;
+
+  std::map<std::string, double> p_objs_;
 };

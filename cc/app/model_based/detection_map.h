@@ -29,7 +29,7 @@ struct ObjectState {
     if (std::abs(angle - os.angle) > 0.001)
       return angle < os.angle;
 
-    return false;
+    return classname < os.classname;
   }
 };
 
@@ -41,6 +41,8 @@ class DetectionMap {
 
   void ProcessObservations(const std::vector<ge::Point> &hits);
 
+  double EvaluateObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) const;
+
   std::map<ObjectState, double> GetMaxDetections(double thresh_score);
 
   const std::map<ObjectState, double>& GetScores() const;
@@ -48,7 +50,7 @@ class DetectionMap {
  private:
   double size_;
   double res_;
-  double angle_res_ = M_PI/2.0;
+  double angle_res_ = (2.0*M_PI)/1.0;
   std::map<ObjectState, double> scores_;
 
   ModelBank model_bank_;

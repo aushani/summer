@@ -3,9 +3,9 @@
 #include <math.h>
 
 Histogram::Histogram(double min, double max, double res) :
- min_(min), max_(max), res_(res), counts_total_(0) {
+ min_(min), max_(max), res_(res), counts_total_(0.0f) {
   int dim = ceil((max - min)/res);
-  counts_ = std::vector<int>(dim + 3, 0); // Add 2 so we keep track of values out of range as well, plus 1 for rounding
+  counts_ = std::vector<double>(dim + 3, 0.0f); // Add 2 so we keep track of values out of range as well, plus 1 for rounding
 }
 
 bool Histogram::InRange(double val) const {
@@ -20,33 +20,44 @@ double Histogram::GetMax() const {
   return max_;
 }
 
-void Histogram::Mark(double val) {
-  size_t idx = GetIndex(val);
-  counts_[idx]++;
-  counts_total_++;
-
-  if (counts_total_ == 1 || val < observed_min_)
-    observed_min_ = val;
-
-  if (counts_total_ == 1 || val > observed_max_)
-    observed_max_ = val;
+double Histogram::GetRes() const {
+  return res_;
 }
 
-int Histogram::GetCount(double val) const {
+void Histogram::Mark(double val, double weight) {
+  if (counts_total_ == 0.0 || val < observed_min_)
+    observed_min_ = val;
+
+  if (counts_total_ == 0.0 || val > observed_max_)
+    observed_max_ = val;
+
+  size_t idx = GetIndex(val);
+  counts_[idx] += weight;
+  counts_total_+= weight;
+}
+
+void Histogram::Clear() {
+  for (size_t i = 0; i<counts_.size(); i++) {
+    counts_[i] = 0.0f;
+  }
+  counts_total_ = 0.0f;
+}
+
+double Histogram::GetCount(double val) const {
   size_t idx = GetIndex(val);
   return counts_[idx];
 }
 
-int Histogram::GetCountsTotal() const {
+double Histogram::GetCountsTotal() const {
   return counts_total_;
 }
 
 double Histogram::GetProbability(double val) const {
-  if (counts_total_ == 0)
-    return 0;
+  if (counts_total_ == 0.0f)
+    return 0.0f;
 
-  int count = GetCount(val);
-  return (count + 0.0f)/counts_total_;
+  double count = GetCount(val);
+  return count/counts_total_;
 }
 
 double Histogram::GetLikelihood(double val) const {
@@ -66,11 +77,11 @@ double Histogram::GetCumulativeProbability(double val) const {
   for (size_t i=0; i<=GetIndex(val); i++) {
     count += counts_[i];
   }
-  return (count + 0.0f)/counts_total_;
+  return count/counts_total_;
 }
 
 double Histogram::GetPercentile(double percentile) const {
-  int count = 0;
+  double count = 0;
   size_t bin_idx = 0;
   for (; bin_idx<=counts_.size(); bin_idx++) {
     count += counts_[bin_idx];

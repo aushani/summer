@@ -22,32 +22,40 @@ namespace ge = library::geometry;
 namespace sw = library::sim_world;
 
 ModelBank LearnModelBank(int n_trials) {
-  sw::DataManager data_manager(64, false, false);
+  sw::DataManager data_manager(16, false, false);
 
   library::timer::Timer t;
   t.Start();
 
   ModelBank model_bank;
-  model_bank.AddRayModel("BOX", 3.0);
-  model_bank.AddRayModel("STAR", 3.0);
-  model_bank.AddRayModel("FREE", 3.0);
+  model_bank.AddRayModel("BOX", 3.0, 0.01);
+  //model_bank.AddRayModel("STAR", 3.0);
+  model_bank.AddRayModel("NOOBJ", 3.0, 0.99);
 
+  // Resolution we car about for the model
+  double pos_res = 0.3;
+  double angle_res = 10.0 * M_PI/180.0;
+
+  // Sampling positions
   double lower_bound = -8;
   double upper_bound = 8;
   std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
-  std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
+  //std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
+  std::uniform_real_distribution<double> rand_angle(-0.01, 0.01);
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
   int step = fmax(n_trials/100, 100);
+
+  int n_samples = 1000;
 
   for (int trial = 0; trial < n_trials; trial++) {
     if (trial % step == 0) {
       printf("\tTrial %d / %d\n", trial, n_trials);
     }
 
+    // Get sim data
     sw::Data *data = data_manager.GetData();
-
     sw::SimWorld *sim = data->GetSim();
     std::vector<ge::Point> *hits = data->GetHits();
 
@@ -67,7 +75,7 @@ ModelBank LearnModelBank(int n_trials) {
     }
 
     // Negative mining
-    for (int neg=0; neg<5; neg++) {
+    for (int neg=0; neg<100; neg++) {
       Eigen::Vector2d x_sensor_noobj;
       x_sensor_noobj(0) = unif(re);
       x_sensor_noobj(1) = unif(re);
@@ -77,7 +85,7 @@ ModelBank LearnModelBank(int n_trials) {
       for (auto &shape : shapes) {
         auto center = shape.GetCenter();
 
-        if ((x_sensor_noobj - center).norm() < 6) {
+        if ((x_sensor_noobj - center).norm() < pos_res) {
           continue;
         }
       }
@@ -87,7 +95,7 @@ ModelBank LearnModelBank(int n_trials) {
         x_hit(0) = hits->at(i).x;
         x_hit(1) = hits->at(i).y;
 
-        model_bank.MarkObservation("FREE", x_sensor_noobj, object_angle, x_hit);
+        model_bank.MarkObservation("NOOBJ", x_sensor_noobj, object_angle, x_hit);
       }
     }
 
@@ -96,11 +104,15 @@ ModelBank LearnModelBank(int n_trials) {
   data_manager.Finish();
   printf("Took %5.3f ms to build model\n", t.GetMs());
 
+  t.Start();
+  model_bank.BuildObservationModel();
+  printf("Built observation model in %5.3f ms\n", t.GetMs());
+
   return model_bank;
 }
 
 DetectionMap BuildMap(const std::vector<ge::Point> &hits, const ModelBank model_bank) {
-  DetectionMap detection_map(20.0, 0.15, model_bank);
+  DetectionMap detection_map(20.0, 0.3, model_bank);
 
   library::timer::Timer t;
 
@@ -111,7 +123,8 @@ DetectionMap BuildMap(const std::vector<ge::Point> &hits, const ModelBank model_
   return detection_map;
 }
 
-void GenerateSynethicScans(const ModelBank &model_bank) {
+
+void GenerateSyntheticScans(const ModelBank &model_bank) {
   auto models = model_bank.GetModels();
   for (auto it = models.begin(); it != models.end(); it++) {
     printf("Generating synethic scan for %s\n", it->first.c_str());
@@ -134,6 +147,29 @@ void GenerateSynethicScans(const ModelBank &model_bank) {
     }
     model_file.close();
   }
+
+  printf("Generating synethic scan for observation model\n");
+
+  std::ofstream model_file;
+  model_file.open("obs_model.csv");
+
+  Eigen::Vector2d x_sensor_object;
+  x_sensor_object(0) = 0.0;
+  x_sensor_object(1) = 5.0;
+  double object_angle = (2*M_PI) / 20;
+
+  const RayModel& obs_model = model_bank.GetObservationModel();
+  printf("obs model has size %5.3f\n", obs_model.GetSize());
+
+  for (double sensor_angle = -M_PI; sensor_angle < M_PI; sensor_angle += 0.01) {
+    for (double percentile = 0.01; percentile <= 0.99; percentile+=0.01) {
+      double range = obs_model.GetExpectedRange(x_sensor_object, object_angle, sensor_angle, percentile);
+      double x = cos(sensor_angle)*range;
+      double y = sin(sensor_angle)*range;
+      model_file << x << "," << y << "," << percentile << std::endl;
+    }
+  }
+  model_file.close();
 }
 
 int main(int argc, char** argv) {
@@ -149,98 +185,66 @@ int main(int argc, char** argv) {
 
   ModelBank model_bank = LearnModelBank(n_trials);
 
-  GenerateSynethicScans(model_bank);
+  GenerateSyntheticScans(model_bank);
 
   char fn[100];
-
-  std::vector<std::pair<double, bool>> results;
 
   for (int experiment = 0; experiment < n_exp; experiment++) {
     printf("Experiment %d / %d\n", experiment, n_exp);
 
-    sw::SimWorld sim(5);
+    sw::SimWorld sim(1);
     for (auto &s : sim.GetShapes()) {
       auto c = s.GetCenter();
-      double x = c(0);
-      double y = c(1);
-      double angle = s.GetAngle();
-      double sym = 72.0;
-      printf("\tShape %s at %5.3f, %5.3f with angle %5.3f (ie, %5.3f)\n",
-          s.GetName().c_str(), x, y, angle*180.0/M_PI, fmod(angle*180.0/M_PI, sym));
+      double angle = s.GetAngle() * 180.0/M_PI;
+      printf("\tShape %s at %5.3f, %5.3f with angle %5.3f\n", s.GetName().c_str(), c(0), c(1), angle);
     }
 
     std::vector<ge::Point> hits, origins;
     sim.GenerateSimData(&hits, &origins);
 
+    std::vector<Eigen::Vector2d> x_hits;
+    for (ge::Point hit : hits) {
+      Eigen::Vector2d x;
+      x(0) = hit.x;
+      x(1) = hit.y;
+      x_hits.push_back(x);
+    }
+
     DetectionMap detection_map = BuildMap(hits, model_bank);
 
     // Non max suppression
-    library::timer::Timer t;
-    t.Start();
-    auto detections = detection_map.GetMaxDetections(10);
-    printf("Took %5.3f ms to do non-max suppression\n", t.GetMs());
+    //library::timer::Timer t;
+    //t.Start();
+    //auto detections = detection_map.GetMaxDetections(10);
+    //printf("Took %5.3f ms to do non-max suppression\n", t.GetMs());
 
-    for (auto it = detections.begin(); it != detections.end(); it++) {
-      const ObjectState &os = it->first;
-      printf("\tDetected max at %5.3f, %5.3f at %5.3f deg (val = %7.3f)\n",
-          os.pos.x, os.pos.y, os.angle, it->second);
+    //for (auto it = detections.begin(); it != detections.end(); it++) {
+    //  const ObjectState &os = it->first;
+    //  printf("\tDetected max at %5.3f, %5.3f at %5.3f deg (val = %7.3f)\n",
+    //      os.pos.x, os.pos.y, os.angle, it->second);
+    //}
+
+    // At object?
+    for (auto &s : sim.GetShapes()) {
+      auto c = s.GetCenter();
+      double angle = s.GetAngle() * 180.0/M_PI;
+
+      library::timer::Timer t;
+
+      ObjectState os(c(0), c(1), angle, s.GetName());
+      t.Start();
+      double score = detection_map.EvaluateObservationsForState(x_hits, os);
+      double t_ms = t.GetMs();
+      printf("\tShape %s at %5.3f, %5.3f with angle %5.3f --> %5.3f (%5.3f ms)\n",
+          s.GetName().c_str(), os.pos.x, os.pos.y, os.angle, score, t_ms);
+
+      ObjectState os2(-c(0), -c(1), angle, s.GetName());
+      t.Start();
+      double score2 = detection_map.EvaluateObservationsForState(x_hits, os2);
+      t_ms = t.GetMs();
+      printf("\tShape %s at %5.3f, %5.3f with angle %5.3f --> %5.3f (%5.3f ms)\n",
+          s.GetName().c_str(), os2.pos.x, os2.pos.y, os2.angle, score2, t_ms);
     }
-
-    // Evaluate detections
-    std::vector<sw::Shape> shapes(sim.GetShapes());
-
-    int count_good = 0;
-    int count_total = detections.size();
-
-    while (!detections.empty()) {
-      if (shapes.empty()) {
-        for (auto it = detections.begin(); it != detections.end(); it++) {
-          results.push_back(std::pair<double, bool>(it->second, false));
-        }
-        break;
-      }
-
-      // Find max detection
-      ObjectState os = detections.begin()->first;
-      double score = detections.begin()->second;
-      for (auto it = detections.begin(); it != detections.end(); it++) {
-        if (it->second > score) {
-          os = it->first;
-          score = it->second;
-        }
-      }
-
-      detections.erase(os);
-
-      // Is it valid or not?
-      bool valid = false;
-      for (auto shape = shapes.begin(); shape != shapes.end(); shape++) {
-        if (!shape->IsInside(os.pos.x, os.pos.y))
-          continue;
-
-        double object_angle = shape->GetAngle();
-        double sym = 72.0;
-        object_angle = fmod(object_angle*180.0/M_PI, sym);
-
-        double detection_angle = os.angle;
-        detection_angle = fmod(detection_angle*180.0/M_PI, sym);
-
-        double diff = object_angle - detection_angle;
-        while (diff < -180.0) diff += 360.0;
-        while (diff > 180.0) diff -= 360.0;
-
-        if (diff < 9) {
-          valid = true;
-          shapes.erase(shape);
-          count_good++;
-          break;
-        }
-      }
-
-      results.push_back(std::pair<double, bool>(score, valid));
-    }
-
-    printf("%d / %d detections good\n", count_good, count_total);
 
     // Write out data
     printf("Saving data...\n");
@@ -253,31 +257,34 @@ int main(int argc, char** argv) {
     data_file.close();
 
     // Write out result
-    std::ofstream res_file;
-    sprintf(fn, "result_%03d.csv", experiment);
-    res_file.open(fn);
+    const std::vector<std::string> classes = detection_map.GetClasses();
+    for (const std::string &cn : classes) {
+      std::ofstream res_file;
+      sprintf(fn, "result_%s_%03d.csv", cn.c_str(), experiment);
+      res_file.open(fn);
 
-    auto map = detection_map.GetScores();
-    for (auto it = map.begin(); it != map.end(); it++) {
-      float x = it->first.pos.x;
-      float y = it->first.pos.y;
+      printf("Saving %s map...\n", cn.c_str());
 
-      double angle = it->first.angle;
-      //if ( fabs(angle) > 0.1 )
-      //  continue;
+      auto map = detection_map.GetScores();
+      for (auto it = map.begin(); it != map.end(); it++) {
+        const ObjectState &os = it->first;
 
-      double score = it->second;
+        // Check class
+        if (os.classname != cn) {
+          continue;
+        }
 
-      double prob = 0.0;
-      if (score < -100)
-        prob = 0.0;
-      if (score > 100)
-        prob = 1.0;
-      prob = 1/(1+exp(-score));
+        float x = os.pos.x;
+        float y = os.pos.y;
 
-      res_file << x << "," << y << "," << angle << "," << score << ", " << prob << std::endl;
+        double angle = os.angle;
+        double score = it->second;
+        double prob = exp(score);
+
+        res_file << x << "," << y << "," << angle << "," << score << ", " << prob << std::endl;
+      }
+      res_file.close();
     }
-    res_file.close();
 
     // Write out ground truth
     printf("Saving ground truth...\n");
@@ -298,14 +305,6 @@ int main(int argc, char** argv) {
     }
     gt_file.close();
   }
-
-  // Save scores and good/bad results
-  std::ofstream pr_file;
-  pr_file.open("pr_scores.csv");
-  for (auto &res : results) {
-    pr_file << res.first << ", " << res.second << std::endl;
-  }
-  pr_file.close();
 
   printf("Done\n");
 

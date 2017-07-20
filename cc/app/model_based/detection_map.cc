@@ -8,12 +8,21 @@ DetectionMap::DetectionMap(double size, double res, const ModelBank &model_bank)
  size_(size), res_(res), model_bank_(model_bank) {
   auto classes = GetClasses();
 
+  int num_angles = ceil(2*M_PI / angle_res_);
+
   for (double x = -size; x <= size; x += res) {
     for (double y = -size; y <= size; y += res) {
       for (double angle = 0; angle < 2*M_PI; angle += angle_res_) {
         for (std::string classname : classes) {
           ObjectState s(x, y, angle, classname);
-          scores_.insert( std::pair<ObjectState, double>(s, 0.0) );
+
+          double p_obj = model_bank_.GetProbObj(classname);
+          double l_p = log(p_obj);
+
+          //printf("p_obj = %f\n", p_obj);
+          //printf("l_p = %f\n", l_p);
+
+          scores_.insert( std::pair<ObjectState, double>(s, l_p) );
         }
       }
     }
@@ -30,18 +39,21 @@ std::vector<std::string> DetectionMap::GetClasses() const {
   return classes;
 }
 
-void DetectionMap::ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) {
+double DetectionMap::EvaluateObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) const {
   Eigen::Vector2d x_sensor_object;
   x_sensor_object(0) = state.pos.x;
   x_sensor_object(1) = state.pos.y;
 
   double object_angle = state.angle;
 
-  auto update = model_bank_.EvaluateObservations(x_sensor_object, object_angle, x_hits);
+  return model_bank_.GetModel(state.classname).EvaluateObservations(x_sensor_object, object_angle, x_hits, model_bank_.GetObservationModel());
+}
 
-  for (auto it = update.begin(); it != update.end(); it++) {
-    scores_[state] += it->second;
-  }
+void DetectionMap::ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) {
+  double update = EvaluateObservationsForState(x_hits, state);
+  //printf("update: %5.3f\n", update);
+  //printf("prev score: %5.3f\n", scores_[state]);
+  scores_[state] += update;
 }
 
 void DetectionMap::ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, std::deque<ObjectState> *states, std::mutex *mutex) {

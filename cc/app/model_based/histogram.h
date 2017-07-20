@@ -10,11 +10,13 @@ class Histogram {
   bool InRange(double val) const;
   double GetMin() const;
   double GetMax() const;
+  double GetRes() const;
 
-  void Mark(double val);
+  void Mark(double val, double weight=1.0);
+  void Clear();
 
-  int GetCount(double val) const;
-  int GetCountsTotal() const;
+  double GetCount(double val) const;
+  double GetCountsTotal() const;
 
   double GetProbability(double val) const;
   double GetLikelihood(double val) const;
@@ -31,8 +33,8 @@ class Histogram {
   double observed_min_ = 0.0;
   double observed_max_ = 0.0;
 
-  std::vector<int> counts_;
-  int counts_total_ = 0;
+  std::vector<double> counts_;
+  double counts_total_ = 0.0f;
 
   size_t GetIndex(double val) const;
   double GetValue(size_t idx) const;

@@ -13,11 +13,11 @@ SimWorld::SimWorld(size_t n_shapes) :
   origin_(0.0, 0.0) {
 
   std::uniform_real_distribution<double> pos(-8.0, 8.0);
-  std::uniform_real_distribution<double> width(2.0, 4.0);
-  std::uniform_real_distribution<double> length(4.0, 8.0);
-  std::uniform_real_distribution<double> rand_size(1.0, 2.0);
+  std::uniform_real_distribution<double> width(3.0, 3.01);
+  std::uniform_real_distribution<double> length(6.0, 6.01);
+  std::uniform_real_distribution<double> rand_size(1.5, 1.51);
   std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
-  std::uniform_real_distribution<double> rand_shape(0.0, 1.0);
+  std::uniform_real_distribution<double> rand_shape(0.0, 0.3);
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine rand_engine(seed);
 
@@ -39,8 +39,10 @@ SimWorld::SimWorld(size_t n_shapes) :
       continue;
 
     if (make_box) {
-      Shape obj = Shape::CreateBox(x, y, width(rand_engine), length(rand_engine));
-      obj.Rotate(angle);
+      double size = rand_size(rand_engine);
+      //Shape obj = Shape::CreateBox(x, y, width(rand_engine), length(rand_engine));
+      Shape obj = Shape::CreateBox(x, y, size, size);
+      //obj.Rotate(angle);
 
       // Check for origin inside
       if (!obj.IsInside(0, 0))
@@ -49,6 +51,7 @@ SimWorld::SimWorld(size_t n_shapes) :
       double size = rand_size(rand_engine);
 
       Shape obj = Shape::CreateStar(x, y, size);
+      //obj.Rotate(angle);
 
       // Check for origin inside
       if (!obj.IsInside(0, 0))
