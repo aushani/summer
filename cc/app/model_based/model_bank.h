@@ -23,20 +23,15 @@ class ModelBank {
   std::map<std::string, double> EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const;
   double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const std::string &classname) const;
 
-  void BuildObservationModel();
-  const RayModel& GetObservationModel() const;
-
-
   double GetProbObj(const std::string &name) const;
+
+  std::vector<std::string> GetClasses() const;
 
  private:
   const double kMaxRange_ = 50.0;
 
   // These are the object models
   std::map<std::string, RayModel> obj_models_;
-
-  // Observation model
-  RayModel obs_model_;
 
   std::map<std::string, double> p_objs_;
 };

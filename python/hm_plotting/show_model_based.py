@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
 import os.path
+import argparse
 
 def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0, do_non_max=True, name=''):
   unique_xs = np.unique(np.round(res[:, 0], decimals=2))
@@ -22,12 +23,10 @@ def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0, do_no
   y_angle = y[:, :, angle]
   #score_angle = np.clip(score[:, :, angle], -10, 10)
   score_angle = score[:, :, angle]
-  #prob_angle = prob[:, :, angle]
-  prob_angle = np.exp(score_angle)
-  prob_angle = np.clip(prob_angle, 0, 1)
+  prob_angle = prob[:, :, angle]
 
   if not ax_score is None:
-    im = ax_score.pcolor(x_angle, y_angle, np.clip(score_angle, None, 100))
+    im = ax_score.pcolor(x_angle, y_angle, np.clip(score_angle, -100, 100))
     ax_score.scatter(0, 0, c='g', marker='x')
     plt.colorbar(im, ax=ax_score, label='Score')
 
@@ -37,7 +36,7 @@ def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0, do_no
     ax_score.axis('equal')
     ax_score.axis((np.min(res[:, 0]), np.max(res[:, 0]), np.min(res[:, 1]), np.max(res[:, 1])))
 
-    ax_score.set_title('%s at %5.1f deg (log-odds)' % (name, angle_deg))
+    ax_score.set_title('%s at %5.1f deg (score)' % (name, angle_deg))
 
   if not ax_prob is None:
     im = ax_prob.pcolor(x_angle, y_angle, prob_angle)
@@ -129,6 +128,11 @@ def show_model(model):
   ax.grid(True)
   ax.set_title('Synthetic scan from observation model')
 
+parser = argparse.ArgumentParser(description="Make some plots")
+parser.add_argument('exp', metavar = 'exp', nargs='+', help='experiment number')
+args = parser.parse_args()
+
+
 params = {'legend.fontsize': 'x-large',
           'figure.figsize': (15, 5),
          'axes.labelsize': '24',
@@ -138,12 +142,11 @@ params = {'legend.fontsize': 'x-large',
 
 pylab.rcParams.update(params)
 
-experiment = 0
+experiment = int(args.exp[0])
 
 box  = np.loadtxt('/home/aushani/summer/cc/BOX.csv'                         , delimiter=',')
-#star  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
+star  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
 noobj  = np.loadtxt('/home/aushani/summer/cc/NOOBJ.csv'                         , delimiter=',')
-obs_model  = np.loadtxt('/home/aushani/summer/cc/obs_model.csv'                         , delimiter=',')
 
 points = np.loadtxt('/home/aushani/summer/cc/data_%03d.csv'         % (experiment), delimiter=',')
 gt     = np.loadtxt('/home/aushani/summer/cc/ground_truth_%03d.csv' % (experiment), delimiter=',')
@@ -167,13 +170,13 @@ axarr[1].grid(True)
 axarr[1].set_title('Ground Truth')
 
 show_detection_layer("BOX", points)
-#show_detection_layer("STAR", points)
+show_detection_layer("STAR", points)
 show_detection_layer("NOOBJ", points)
 
 show_model(box)
-#show_model(star)
-#show_model(free)
+show_model(star)
 show_model(noobj)
-show_model(obs_model)
 
+print 'Ready to show, press Enter'
+raw_input()
 plt.show()

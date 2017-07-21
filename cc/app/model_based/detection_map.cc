@@ -46,7 +46,7 @@ double DetectionMap::EvaluateObservationsForState(const std::vector<Eigen::Vecto
 
   double object_angle = state.angle;
 
-  return model_bank_.GetModel(state.classname).EvaluateObservations(x_sensor_object, object_angle, x_hits, model_bank_.GetObservationModel());
+  return model_bank_.EvaluateObservations(x_sensor_object, object_angle, x_hits, state.classname);
 }
 
 void DetectionMap::ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) {
@@ -189,4 +189,36 @@ std::map<ObjectState, double> DetectionMap::GetMaxDetections(double thresh_score
 
 const std::map<ObjectState, double>& DetectionMap::GetScores() const {
   return scores_;
+}
+
+double DetectionMap::GetProb(const ObjectState &os) const {
+  auto it_os = scores_.find(os);
+  if (it_os == scores_.end()) {
+    printf("not found!\n");
+    return 0.0f;
+  }
+
+  double my_score = it_os->second;
+  double denom = 0.0;
+
+  auto it = it_os;
+  while (std::abs(it->first.pos.x - it_os->first.pos.x) < 1e-3 &&
+         std::abs(it->first.pos.y - it_os->first.pos.y) < 1e-3) {
+    double s = it->second - my_score;
+    denom += exp(s);
+    it++;
+  }
+
+  it = it_os;
+  it--; // don't double count!
+  while (std::abs(it->first.pos.x - it_os->first.pos.x) < 1e-3 &&
+         std::abs(it->first.pos.y - it_os->first.pos.y) < 1e-3) {
+    double s = it->second - my_score;
+    denom += exp(s);
+    it--;
+  }
+
+  double p = 1.0/denom;
+  //printf("my score = %5.3f, denom = %5.3f\n", my_score, denom);
+  return p;
 }

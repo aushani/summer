@@ -1,8 +1,6 @@
 #include "model_bank.h"
 
-ModelBank::ModelBank() :
- obs_model_(kMaxRange_) {
-
+ModelBank::ModelBank() {
 }
 
 void ModelBank::AddRayModel(const std::string &name, double size, double p_obj) {
@@ -40,23 +38,23 @@ std::map<std::string, double> ModelBank::EvaluateObservations(const Eigen::Vecto
   std::map<std::string, double> result;
 
   for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
-    result[it->first] = it->second.EvaluateObservations(x_sensor_object, object_angle, x_hits, obs_model_);
+    result[it->first] = it->second.EvaluateObservations(x_sensor_object, object_angle, x_hits);
   }
 
   return result;
 }
 
-const RayModel& ModelBank::GetObservationModel() const {
-  return obs_model_;
+double ModelBank::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const std::string &classname) const {
+  // TODO Assume classname exists
+  auto it = obj_models_.find(classname);
+  return it->second.EvaluateObservations(x_sensor_object, object_angle, x_hits);
 }
 
-void ModelBank::BuildObservationModel() {
-  std::vector<RayModel*> models;
-  std::vector<double> probs;
-  for (auto &it : obj_models_) {
-    models.push_back(&it.second);
-    probs.push_back(p_objs_[it.first]);
+std::vector<std::string> ModelBank::GetClasses() const {
+  std::vector<std::string> classes;
+  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
+    classes.push_back(it->first);
   }
 
-  obs_model_ = RayModel(models, probs);
+  return classes;
 }

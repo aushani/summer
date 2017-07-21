@@ -47,6 +47,8 @@ class DetectionMap {
 
   const std::map<ObjectState, double>& GetScores() const;
 
+  double GetProb(const ObjectState &os) const;
+
  private:
   double size_;
   double res_;

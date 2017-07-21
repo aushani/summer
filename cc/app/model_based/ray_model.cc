@@ -12,61 +12,6 @@ RayModel::RayModel(double size) :
   }
 }
 
-RayModel::RayModel(const std::vector<RayModel*> models, const std::vector<double> probs) {
-  // Find size
-  double size = 0.0;
-  for (const auto &m : models) {
-    if (m->GetSize() > size) {
-      size = m->GetSize();
-    }
-  }
-  max_size_ = size;
-
-  // Initialize
-  phi_dim_ = ceil(2*M_PI / kPhiStep_) + 1;
-  dist_dim_ = 2*ceil(max_size_ / kDistanceStep_) + 1;
-
-  for (int i = 0; i < phi_dim_ * dist_dim_; i++) {
-    histograms_.emplace_back(-size, size, kDistanceStep_);
-  }
-
-  // Now build up
-  for (int idx_phi = 0; idx_phi < phi_dim_; idx_phi++) {
-    for (int idx_dist = 0; idx_dist < dist_dim_; idx_dist++) {
-
-      // Compute phi and dist
-      double phi = (idx_phi * kPhiStep_) + kPhiStep_/2;
-      double dist =  (idx_dist - dist_dim_ / 2) * kDistanceStep_ + kDistanceStep_/2;
-
-      // Get histogram
-      int idx = GetHistogramIndex(phi, dist);
-      Histogram &h = histograms_[idx];
-
-      // For every value in histogram...
-      for (double val = h.GetMin() + h.GetRes() / 2; val < h.GetMax(); val += h.GetRes()) {
-        // For every model we're combining
-        for (size_t i=0; i<models.size(); i++) {
-          const RayModel *m = models[i];
-
-          int idx_m = m->GetHistogramIndex(phi, dist);
-          if (idx_m < 0) {
-            continue;
-          }
-
-          const Histogram &h_m = m->histograms_[idx_m];
-          //if (val <= h_m.GetMin() || val >= h_m.GetMax()) {
-          //  continue;
-          //}
-
-          double weight = probs[i] * h_m.GetLikelihood(val);
-          //printf("mark %5.3f with weight %7.5f (prob %5.3f)\n", val, weight, probs[i]);
-          h.Mark(val, weight);
-        }
-      }
-    }
-  }
-}
-
 double RayModel::GetSize() const {
   return max_size_;
 }
@@ -86,8 +31,9 @@ void RayModel::MarkObservationWorldFrame(const Eigen::Vector2d &x_sensor_object,
 
   // We are between object and hit
   double range = x_hit.norm();
-  if (dist_obs > range)
+  if (dist_obs > range) {
     return;
+  }
 
   MarkObservation(phi, dist_ray, dist_obs);
 }
@@ -116,7 +62,7 @@ bool RayModel::GetLogLikelihood(double phi, double dist_ray, double dist_obs, do
   return true;
 }
 
-double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const RayModel &obs_model) const {
+double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const {
   double l_p_z = 0.0;
 
   for (const Eigen::Vector2d& x_hit : x_hits) {
@@ -130,11 +76,9 @@ double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, do
     }
 
     double log_l_obs_obj = 0;
-    double log_l_obs = 0;
 
-    if ( GetLogLikelihood(phi, dist_ray, dist_obs, &log_l_obs_obj) && obs_model.GetLogLikelihood(phi, dist_ray, dist_obs, &log_l_obs) ) {
+    if ( GetLogLikelihood(phi, dist_ray, dist_obs, &log_l_obs_obj) ) {
       l_p_z += log_l_obs_obj;
-      l_p_z -= log_l_obs;
       //printf("update: %5.3f, %5.3f\n", log_l_obs_obj, log_l_obs);
     }
   }
@@ -171,11 +115,13 @@ double RayModel::GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double
 
   int idx = GetHistogramIndex(phi, dist_ray);
   if (idx < 0) {
+    //printf("\tOut of range\n");
     return kMaxRange_;
   }
 
   const Histogram &h = histograms_[idx];
   if (h.GetCountsTotal() == 0) {
+    //printf("\tNo count\n");
     return kMaxRange_;
   }
 
@@ -188,7 +134,8 @@ double RayModel::GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double
 
   double range = dist_obs - dist_sensor;
   if (range < 0) {
-    range = 0;
+    //printf("\tNegative range\n");
+    return kMaxRange_;
   }
 
   return range;

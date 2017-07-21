@@ -121,6 +121,7 @@ Data* DataManager::GetData() {
 
     if (res == NULL) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      //printf("\tNeed to wait...\n");
     }
   }
 

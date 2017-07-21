@@ -28,26 +28,25 @@ ModelBank LearnModelBank(int n_trials) {
   t.Start();
 
   ModelBank model_bank;
-  model_bank.AddRayModel("BOX", 3.0, 0.01);
-  //model_bank.AddRayModel("STAR", 3.0);
-  model_bank.AddRayModel("NOOBJ", 3.0, 0.99);
+  model_bank.AddRayModel("BOX", 10.0, 0.25);
+  model_bank.AddRayModel("STAR", 10.0, 0.25);
+  model_bank.AddRayModel("NOOBJ", 10.0, 0.5);
 
   // Resolution we car about for the model
   double pos_res = 0.3;
   double angle_res = 10.0 * M_PI/180.0;
 
   // Sampling positions
-  double lower_bound = -8;
-  double upper_bound = 8;
+  double lower_bound = -8.0;
+  double upper_bound = 8.0;
   std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
+  std::uniform_real_distribution<double> jitter(-pos_res/2.0, pos_res/2.0);
   //std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
   std::uniform_real_distribution<double> rand_angle(-0.01, 0.01);
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
   int step = fmax(n_trials/100, 100);
-
-  int n_samples = 1000;
 
   for (int trial = 0; trial < n_trials; trial++) {
     if (trial % step == 0) {
@@ -63,6 +62,8 @@ ModelBank LearnModelBank(int n_trials) {
 
     for (auto &shape : shapes) {
       Eigen::Vector2d x_sensor_object = shape.GetCenter();
+      x_sensor_object(0) += jitter(re);
+      x_sensor_object(1) += jitter(re);
       double object_angle = shape.GetAngle();
 
       for (size_t i=0; i<hits->size(); i++) {
@@ -75,27 +76,35 @@ ModelBank LearnModelBank(int n_trials) {
     }
 
     // Negative mining
-    for (int neg=0; neg<100; neg++) {
+    for (int neg=0; neg<10; neg++) {
       Eigen::Vector2d x_sensor_noobj;
       x_sensor_noobj(0) = unif(re);
       x_sensor_noobj(1) = unif(re);
 
       double object_angle = rand_angle(re);
 
+      bool too_close = false;
+
       for (auto &shape : shapes) {
-        auto center = shape.GetCenter();
+        const auto &center = shape.GetCenter();
 
         if ((x_sensor_noobj - center).norm() < pos_res) {
-          continue;
+          too_close = true;
+          //printf("%5.3f, %5.3f is too close to %s at %5.3f, %5.3f\n",
+          //    x_sensor_noobj(0), x_sensor_noobj(1),
+          //    shape.GetName().c_str(), center(0), center(1));
+          break;
         }
       }
 
-      for (size_t i=0; i<hits->size(); i++) {
-        Eigen::Vector2d x_hit;
-        x_hit(0) = hits->at(i).x;
-        x_hit(1) = hits->at(i).y;
+      if (!too_close) {
+        for (size_t i=0; i<hits->size(); i++) {
+          Eigen::Vector2d x_hit;
+          x_hit(0) = hits->at(i).x;
+          x_hit(1) = hits->at(i).y;
 
-        model_bank.MarkObservation("NOOBJ", x_sensor_noobj, object_angle, x_hit);
+          model_bank.MarkObservation("NOOBJ", x_sensor_noobj, object_angle, x_hit);
+        }
       }
     }
 
@@ -103,10 +112,6 @@ ModelBank LearnModelBank(int n_trials) {
   }
   data_manager.Finish();
   printf("Took %5.3f ms to build model\n", t.GetMs());
-
-  t.Start();
-  model_bank.BuildObservationModel();
-  printf("Built observation model in %5.3f ms\n", t.GetMs());
 
   return model_bank;
 }
@@ -134,11 +139,12 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
 
     Eigen::Vector2d x_sensor_object;
     x_sensor_object(0) = 0.0;
-    x_sensor_object(1) = 5.0;
+    x_sensor_object(1) = 50.0;
     double object_angle = (2*M_PI) / 20;
 
-    for (double sensor_angle = -M_PI; sensor_angle < M_PI; sensor_angle += 0.01) {
+    for (double sensor_angle = M_PI/2 * 0.9; sensor_angle < M_PI/2 * 1.1; sensor_angle += 0.001) {
       for (double percentile = 0.01; percentile <= 0.99; percentile+=0.01) {
+        //if (it->first == "NOOBJ" && std::abs(percentile-0.5)<0.01) printf("\tangle: %5.3f ", sensor_angle);
         double range = it->second.GetExpectedRange(x_sensor_object, object_angle, sensor_angle, percentile);
         double x = cos(sensor_angle)*range;
         double y = sin(sensor_angle)*range;
@@ -147,29 +153,6 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
     }
     model_file.close();
   }
-
-  printf("Generating synethic scan for observation model\n");
-
-  std::ofstream model_file;
-  model_file.open("obs_model.csv");
-
-  Eigen::Vector2d x_sensor_object;
-  x_sensor_object(0) = 0.0;
-  x_sensor_object(1) = 5.0;
-  double object_angle = (2*M_PI) / 20;
-
-  const RayModel& obs_model = model_bank.GetObservationModel();
-  printf("obs model has size %5.3f\n", obs_model.GetSize());
-
-  for (double sensor_angle = -M_PI; sensor_angle < M_PI; sensor_angle += 0.01) {
-    for (double percentile = 0.01; percentile <= 0.99; percentile+=0.01) {
-      double range = obs_model.GetExpectedRange(x_sensor_object, object_angle, sensor_angle, percentile);
-      double x = cos(sensor_angle)*range;
-      double y = sin(sensor_angle)*range;
-      model_file << x << "," << y << "," << percentile << std::endl;
-    }
-  }
-  model_file.close();
 }
 
 int main(int argc, char** argv) {
@@ -193,11 +176,6 @@ int main(int argc, char** argv) {
     printf("Experiment %d / %d\n", experiment, n_exp);
 
     sw::SimWorld sim(1);
-    for (auto &s : sim.GetShapes()) {
-      auto c = s.GetCenter();
-      double angle = s.GetAngle() * 180.0/M_PI;
-      printf("\tShape %s at %5.3f, %5.3f with angle %5.3f\n", s.GetName().c_str(), c(0), c(1), angle);
-    }
 
     std::vector<ge::Point> hits, origins;
     sim.GenerateSimData(&hits, &origins);
@@ -212,38 +190,23 @@ int main(int argc, char** argv) {
 
     DetectionMap detection_map = BuildMap(hits, model_bank);
 
-    // Non max suppression
-    //library::timer::Timer t;
-    //t.Start();
-    //auto detections = detection_map.GetMaxDetections(10);
-    //printf("Took %5.3f ms to do non-max suppression\n", t.GetMs());
-
-    //for (auto it = detections.begin(); it != detections.end(); it++) {
-    //  const ObjectState &os = it->first;
-    //  printf("\tDetected max at %5.3f, %5.3f at %5.3f deg (val = %7.3f)\n",
-    //      os.pos.x, os.pos.y, os.angle, it->second);
-    //}
-
     // At object?
     for (auto &s : sim.GetShapes()) {
       auto c = s.GetCenter();
       double angle = s.GetAngle() * 180.0/M_PI;
 
+      printf("\tShape %s at %5.3f, %5.3f with angle %5.3f\n", s.GetName().c_str(), c(0), c(1), angle);
+
       library::timer::Timer t;
 
-      ObjectState os(c(0), c(1), angle, s.GetName());
-      t.Start();
-      double score = detection_map.EvaluateObservationsForState(x_hits, os);
-      double t_ms = t.GetMs();
-      printf("\tShape %s at %5.3f, %5.3f with angle %5.3f --> %5.3f (%5.3f ms)\n",
-          s.GetName().c_str(), os.pos.x, os.pos.y, os.angle, score, t_ms);
-
-      ObjectState os2(-c(0), -c(1), angle, s.GetName());
-      t.Start();
-      double score2 = detection_map.EvaluateObservationsForState(x_hits, os2);
-      t_ms = t.GetMs();
-      printf("\tShape %s at %5.3f, %5.3f with angle %5.3f --> %5.3f (%5.3f ms)\n",
-          s.GetName().c_str(), os2.pos.x, os2.pos.y, os2.angle, score2, t_ms);
+      for (const auto &cn : model_bank.GetClasses()) {
+        ObjectState os(c(0), c(1), angle, cn);
+        t.Start();
+        double score = detection_map.EvaluateObservationsForState(x_hits, os);
+        double t_ms = t.GetMs();
+        printf("\t\tShape %s (actually %s) at %5.3f, %5.3f with angle %5.3f --> %5.3f (%5.3f ms)\n",
+            cn.c_str(), s.GetName().c_str(), os.pos.x, os.pos.y, os.angle, score, t_ms);
+      }
     }
 
     // Write out data
@@ -279,7 +242,9 @@ int main(int argc, char** argv) {
 
         double angle = os.angle;
         double score = it->second;
-        double prob = exp(score);
+
+        double prob = detection_map.GetProb(os);
+        //double prob = 0.5;
 
         res_file << x << "," << y << "," << angle << "," << score << ", " << prob << std::endl;
       }

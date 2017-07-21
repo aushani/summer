@@ -11,19 +11,18 @@
 class RayModel {
  public:
   RayModel(double size);
-  RayModel(const std::vector<RayModel*> models, const std::vector<double> probs);
 
   void MarkObservationWorldFrame(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit);
 
-  double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const RayModel &obs_model) const;
+  double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const;
 
   double GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double percentile) const;
 
   double GetSize() const;
 
  private:
-  double kPhiStep_ = 0.1;
-  double kDistanceStep_ = 0.2;
+  double kPhiStep_ = 0.05;
+  double kDistanceStep_ = 0.3;
   double kMaxRange_ = 100.0;
 
   double max_size_;
