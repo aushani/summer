@@ -3,8 +3,13 @@
 #include <vector>
 #include <cstddef>
 
+#include <boost/serialization/vector.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+
 class Histogram {
  public:
+  Histogram();
   Histogram(double min, double max, double res);
 
   bool InRange(double val) const;
@@ -26,9 +31,9 @@ class Histogram {
   double GetPercentile(double percentile) const;
 
  private:
-  double min_;
-  double max_;
-  double res_;
+  double min_ = 0.0;
+  double max_ = 0.0;
+  double res_ = 1.0;
 
   double observed_min_ = 0.0;
   double observed_max_ = 0.0;
@@ -38,4 +43,18 @@ class Histogram {
 
   size_t GetIndex(double val) const;
   double GetValue(size_t idx) const;
+
+  friend class boost::serialization::access;
+  template<class Archive>
+  void serialize(Archive & ar, const unsigned int /* file_version */){
+    ar & min_;
+    ar & max_;
+    ar & res_;
+
+    ar & observed_min_;
+    ar & observed_max_;
+
+    ar & counts_;
+    ar & counts_total_;
+  }
 };

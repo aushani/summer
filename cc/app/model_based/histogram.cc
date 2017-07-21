@@ -2,6 +2,10 @@
 
 #include <math.h>
 
+Histogram::Histogram() {
+
+}
+
 Histogram::Histogram(double min, double max, double res) :
  min_(min), max_(max), res_(res), counts_total_(0.0f) {
   int dim = ceil((max - min)/res);

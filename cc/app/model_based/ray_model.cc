@@ -2,6 +2,10 @@
 
 #include <math.h>
 
+RayModel::RayModel() :
+ RayModel(10.0) {
+}
+
 RayModel::RayModel(double size) :
  max_size_(size) {
   phi_dim_ = ceil(2*M_PI / kPhiStep_) + 1;
