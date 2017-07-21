@@ -31,7 +31,7 @@ ModelBank LoadModelBank(const char *fn) {
 }
 
 DetectionMap BuildMap(const std::vector<ge::Point> &hits, const ModelBank model_bank) {
-  DetectionMap detection_map(20.0, 0.3, model_bank);
+  DetectionMap detection_map(50.0, 0.3, model_bank);
 
   library::timer::Timer t;
 
@@ -79,7 +79,10 @@ int main(int argc, char** argv) {
 
   int n_exp = strtol(argv[2], NULL, 10);
 
+  library::timer::Timer t;
+  t.Start();
   ModelBank model_bank = LoadModelBank(argv[1]);
+  printf("Took %5.3f sec to load model bank\n", t.GetMs()/1e3);
 
   GenerateSyntheticScans(model_bank);
 
@@ -88,7 +91,7 @@ int main(int argc, char** argv) {
   for (int experiment = 0; experiment < n_exp; experiment++) {
     printf("Experiment %d / %d\n", experiment, n_exp);
 
-    sw::SimWorld sim(1);
+    sw::SimWorld sim(3);
 
     std::vector<ge::Point> hits, origins;
     sim.GenerateSimData(&hits, &origins);

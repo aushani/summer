@@ -103,10 +103,10 @@ def show_detection_layer(class_name, points):
 
   #f_score, axarr_score = plt.subplots(nrows = 3, ncols = 3)
   #f_prob, axarr_prob = plt.subplots(nrows = 3, ncols = 3)
-  f_score, axarr_score = plt.subplots(nrows = 1, ncols = 1)
+  #f_score, axarr_score = plt.subplots(nrows = 1, ncols = 1)
   f_prob, axarr_prob = plt.subplots(nrows = 1, ncols = 1)
 
-  show_detection(res, ax_score=axarr_score, ax_prob=axarr_prob, points=points, angle = 0, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=None, ax_prob=axarr_prob, points=points, angle = 0, do_non_max = False, name=class_name)
   #show_detection(res, ax_score=axarr_score[0, 0], ax_prob=axarr_prob[0, 0], points=points, angle = 0, do_non_max = False, name=class_name)
   #show_detection(res, ax_score=axarr_score[0, 1], ax_prob=axarr_prob[0, 1], points=points, angle = 1, do_non_max = False, name=class_name)
   #show_detection(res, ax_score=axarr_score[0, 2], ax_prob=axarr_prob[0, 2], points=points, angle = 2, do_non_max = False, name=class_name)

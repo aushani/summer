@@ -27,7 +27,7 @@ class RayModel {
 
  private:
   double kPhiStep_ = 0.05;
-  double kDistanceStep_ = 0.3;
+  double kDistanceStep_ = 0.05;
   double kMaxRange_ = 100.0;
 
   double max_size_;

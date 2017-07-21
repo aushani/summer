@@ -9,10 +9,10 @@ namespace library {
 namespace sim_world {
 
 SimWorld::SimWorld(size_t n_shapes) :
-  bounding_box_(Shape::CreateBox(0, 0, 100, 100)),
+  bounding_box_(Shape::CreateBox(0, 0, 1000, 1000)),
   origin_(0.0, 0.0) {
 
-  std::uniform_real_distribution<double> pos(-8.0, 8.0);
+  std::uniform_real_distribution<double> pos(-20.0, 20.0);
   std::uniform_real_distribution<double> width(2.0, 4.0);
   std::uniform_real_distribution<double> length(4.0, 8.0);
   std::uniform_real_distribution<double> rand_size(1.0, 2.0);

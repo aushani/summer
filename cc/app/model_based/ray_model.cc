@@ -33,6 +33,12 @@ void RayModel::MarkObservationWorldFrame(const Eigen::Vector2d &x_sensor_object,
   double phi, dist_ray, dist_obs;
   ConvertObservation(x_sensor_object, object_angle, x_hit, &phi, &dist_ray, &dist_obs);
 
+  // TODO: Do we have to check to make sure we're not too close to the object?
+  //double phi_origin, dist_ray_origin, dist_obs_origin;
+  //Eigen::Vector2d x_origin;
+  //x_origin << 0, 0;
+  //ConvertObservations(x_sensor_object, object, x_origin, &phi_origin, &dist_ray_origin, &dist_obs_origin):
+
   // We are between object and hit
   double range = x_hit.norm();
   if (dist_obs > range) {

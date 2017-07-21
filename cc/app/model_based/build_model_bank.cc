@@ -10,17 +10,13 @@
 namespace ge = library::geometry;
 namespace sw = library::sim_world;
 
-ModelBank LearnModelBank(int n_trials) {
-  sw::DataManager data_manager(16, false, false);
+void SaveModelBank(const ModelBank &model_bank, const std::string &fn) {
+  std::ofstream ofs(fn);
+  boost::archive::text_oarchive oa(ofs);
+  oa << model_bank;
+}
 
-  library::timer::Timer t;
-  t.Start();
-
-  ModelBank model_bank;
-  model_bank.AddRayModel("BOX", 10.0, 0.25);
-  model_bank.AddRayModel("STAR", 10.0, 0.25);
-  model_bank.AddRayModel("NOOBJ", 10.0, 0.5);
-
+void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trials) {
   // Resolution we car about for the model
   double pos_res = 0.3;
   double angle_res = 10.0 * M_PI/180.0;
@@ -39,11 +35,11 @@ ModelBank LearnModelBank(int n_trials) {
 
   for (int trial = 0; trial < n_trials; trial++) {
     if (trial % step == 0) {
-      printf("\tTrial %d / %d\n", trial, n_trials);
+      //printf("\tTrial %d / %d\n", trial, n_trials);
     }
 
     // Get sim data
-    sw::Data *data = data_manager.GetData();
+    sw::Data *data = data_manager->GetData();
     sw::SimWorld *sim = data->GetSim();
     std::vector<ge::Point> *hits = data->GetHits();
 
@@ -60,7 +56,7 @@ ModelBank LearnModelBank(int n_trials) {
         x_hit(0) = hits->at(i).x;
         x_hit(1) = hits->at(i).y;
 
-        model_bank.MarkObservation(shape.GetName(), x_sensor_object, object_angle, x_hit);
+        model_bank->MarkObservation(shape.GetName(), x_sensor_object, object_angle, x_hit);
       }
     }
 
@@ -79,9 +75,6 @@ ModelBank LearnModelBank(int n_trials) {
 
         if ((x_sensor_noobj - center).norm() < pos_res) {
           too_close = true;
-          //printf("%5.3f, %5.3f is too close to %s at %5.3f, %5.3f\n",
-          //    x_sensor_noobj(0), x_sensor_noobj(1),
-          //    shape.GetName().c_str(), center(0), center(1));
           break;
         }
       }
@@ -92,15 +85,39 @@ ModelBank LearnModelBank(int n_trials) {
           x_hit(0) = hits->at(i).x;
           x_hit(1) = hits->at(i).y;
 
-          model_bank.MarkObservation("NOOBJ", x_sensor_noobj, object_angle, x_hit);
+          model_bank->MarkObservation("NOOBJ", x_sensor_noobj, object_angle, x_hit);
         }
       }
     }
 
     delete data;
   }
+}
+
+ModelBank LearnModelBank(int n_trials, const char *base) {
+  sw::DataManager data_manager(16, false, false);
+
+  library::timer::Timer t;
+
+  ModelBank model_bank;
+  model_bank.AddRayModel("BOX", 10.0, 0.25);
+  model_bank.AddRayModel("STAR", 10.0, 0.25);
+  model_bank.AddRayModel("NOOBJ", 10.0, 0.5);
+
+  std::string bs(base);
+
+  char fn[1000];
+  int step = 0;
+
+  while (true) {
+    t.Start();
+    RunTrials(&model_bank, &data_manager, n_trials);
+    printf("Took %5.3f sec to run %d trials, saving step %d result \n", t.GetMs()/1e3, n_trials, step);
+
+    sprintf(fn, "%s_%06d", base, step++);
+    SaveModelBank(model_bank, std::string(fn));
+  }
   data_manager.Finish();
-  printf("Took %5.3f ms to build model\n", t.GetMs());
 
   return model_bank;
 }
@@ -114,9 +131,5 @@ int main(int argc, char** argv) {
   }
 
   int n_trials = strtol(argv[1], NULL, 10);
-  ModelBank model_bank = LearnModelBank(n_trials);
-
-  std::ofstream ofs(argv[2]);
-  boost::archive::text_oarchive oa(ofs);
-  oa << model_bank;
+  ModelBank model_bank = LearnModelBank(n_trials, argv[2]);
 }
