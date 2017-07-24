@@ -53,10 +53,10 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
 
     Eigen::Vector2d x_sensor_object;
     x_sensor_object(0) = 0.0;
-    x_sensor_object(1) = 50.0;
+    x_sensor_object(1) = 20.0;
     double object_angle = (2*M_PI) / 20;
 
-    for (double sensor_angle = M_PI/2 * 0.9; sensor_angle < M_PI/2 * 1.1; sensor_angle += 0.001) {
+    for (double sensor_angle = 0; sensor_angle < M_PI; sensor_angle += 0.01) {
       for (double percentile = 0.01; percentile <= 0.99; percentile+=0.01) {
         //if (it->first == "NOOBJ" && std::abs(percentile-0.5)<0.01) printf("\tangle: %5.3f ", sensor_angle);
         double range = it->second.GetExpectedRange(x_sensor_object, object_angle, sensor_angle, percentile);
@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
 
     std::vector<ge::Point> query_points;
     std::vector<float> gt_labels;
-    sim.GenerateGrid(10.0, &query_points, &gt_labels);
+    sim.GenerateGrid(20.0, &query_points, &gt_labels, 0.2);
 
     for (size_t i=0; i<query_points.size(); i++) {
       float x = query_points[i].x;

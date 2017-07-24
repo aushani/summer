@@ -38,23 +38,35 @@ SimWorld::SimWorld(size_t n_shapes) :
     if (std::abs(x) < 3 && std::abs(y) < 3)
       continue;
 
+    Shape obj = Shape::CreateBox(0, 0, 1, 1);
+
     if (make_box) {
-      Shape obj = Shape::CreateBox(x, y, width(rand_engine), length(rand_engine));
-      //obj.Rotate(angle);
-
-      // Check for origin inside
-      if (!obj.IsInside(0, 0))
-        shapes_.push_back(obj);
+      obj = Shape::CreateBox(x, y, width(rand_engine), length(rand_engine));
     } else if (make_star) {
-      double size = rand_size(rand_engine);
-
-      Shape obj = Shape::CreateStar(x, y, size);
-      //obj.Rotate(angle);
-
-      // Check for origin inside
-      if (!obj.IsInside(0, 0))
-        shapes_.push_back(obj);
+      obj = Shape::CreateStar(x, y, rand_size(rand_engine));
     }
+
+    //obj.Rotate(angle);
+
+    // Check for origin inside shape
+    if (obj.IsInside(0, 0)) {
+      continue;
+    }
+
+    // Check for intersection
+    bool intersects = false;
+    for (const auto &s : shapes_) {
+      if (s.Intersects(obj)) {
+        intersects = true;
+        break;
+      }
+    }
+
+    if (intersects) {
+      continue;
+    }
+
+    shapes_.push_back(obj);
   }
 
 }

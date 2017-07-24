@@ -20,8 +20,10 @@ double Shape::GetHit(const Eigen::Vector2d &origin, double angle, Eigen::Vector2
 
 double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, Eigen::Vector2d *hit) const {
 
+  Eigen::Vector2d ray_hat = ray.normalized();
+
   // Find line representing ray
-  Eigen::Vector2d p_o1 = origin + ray;
+  Eigen::Vector2d p_o1 = origin + ray_hat;
 
   Eigen::Vector3d originh = origin.homogeneous();
   Eigen::Vector3d p_o1h = p_o1.homogeneous();
@@ -43,7 +45,7 @@ double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, 
     Eigen::Vector2d p_intersect = l_ray.cross(l_edge).hnormalized();
 
     // Check for intersection in front of ray
-    double distance = (p_intersect - origin).dot(ray);
+    double distance = (p_intersect - origin).dot(ray_hat);
     if (distance <= 0.0f)
       continue;
 
@@ -67,7 +69,6 @@ double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, 
 }
 
 bool Shape::IsInside(double x, double y) const {
-
   // TODO Really should check being colinear
   // And handle literal corner cases better
   for (double angle = 0.4242; angle<2*M_PI; angle+=0.234) {
@@ -93,6 +94,45 @@ bool Shape::IsInside(double x, double y) const {
   }
 
   return true;
+}
+
+bool Shape::Intersects(const Shape &shape) const {
+  auto c = GetCenter();
+  if (shape.IsInside(c(0), c(1))) {
+    return true;
+  }
+
+  c = shape.GetCenter();
+  if (IsInside(c(0), c(1))) {
+    return true;
+  }
+
+  for (const auto& c : corners_) {
+    if (shape.IsInside(c(0), c(1))) {
+      return true;
+    }
+  }
+
+  for (const auto& c : shape.corners_) {
+    if (IsInside(c(0), c(1))) {
+      return true;
+    }
+  }
+
+  for (size_t i=0; i<corners_.size(); i++) {
+    auto c0 = corners_[i];
+    auto c1 = corners_[(i+1)%(corners_.size())];
+
+    Eigen::Vector2d hit;
+
+    double dist = shape.GetHit(c0, (c1 - c0), &hit);
+
+    if (dist > 0.0 && dist < (c1 - c0).norm()) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 Eigen::Vector2d Shape::GetCenter() const {
