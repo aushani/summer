@@ -104,32 +104,45 @@ def show_detection_layer(class_name, points):
   print 'Scores range from %5.3f to %5.3f' % (np.min(res[:, 3]), np.max(res[:, 3]))
   print 'Probs range from %5.3f to %5.3f' % (np.min(res[:, 4]), np.max(res[:, 4]))
 
-  #f_score, axarr_score = plt.subplots(nrows = 3, ncols = 3)
-  #f_prob, axarr_prob = plt.subplots(nrows = 3, ncols = 3)
-  f_score, axarr_score = plt.subplots(nrows = 1, ncols = 1)
-  f_prob, axarr_prob = plt.subplots(nrows = 1, ncols = 1)
+  f_score, axarr_score = plt.subplots(nrows = 3, ncols = 3, sharex=True, sharey=True)
+  f_prob, axarr_prob = plt.subplots(nrows = 3, ncols = 3, sharex=True, sharey=True)
+  #f_score, axarr_score = plt.subplots(nrows = 1, ncols = 1)
+  #f_prob, axarr_prob = plt.subplots(nrows = 1, ncols = 1)
 
-  show_detection(res, ax_score=axarr_score, ax_prob=axarr_prob, points=points, angle = 0, do_non_max = False, name=class_name)
-  #show_detection(res, ax_score=axarr_score[0, 0], ax_prob=axarr_prob[0, 0], points=points, angle = 0, do_non_max = False, name=class_name)
-  #show_detection(res, ax_score=axarr_score[0, 1], ax_prob=axarr_prob[0, 1], points=points, angle = 1, do_non_max = False, name=class_name)
-  #show_detection(res, ax_score=axarr_score[0, 2], ax_prob=axarr_prob[0, 2], points=points, angle = 2, do_non_max = False, name=class_name)
-  #show_detection(res, ax_score=axarr_score[1, 0], ax_prob=axarr_prob[1, 0], points=points, angle = 3, do_non_max = False, name=class_name)
-  #show_detection(res, ax_score=axarr_score[1, 1], ax_prob=axarr_prob[1, 1], points=points, angle = 4, do_non_max = False, name=class_name)
-  #show_detection(res, ax_score=axarr_score[1, 2], ax_prob=axarr_prob[1, 2], points=points, angle = 5, do_non_max = False, name=class_name)
-  #show_detection(res, ax_score=axarr_score[2, 0], ax_prob=axarr_prob[2, 0], points=points, angle = 6, do_non_max = False, name=class_name)
-  #show_detection(res, ax_score=axarr_score[2, 1], ax_prob=axarr_prob[2, 1], points=points, angle = 7, do_non_max = False, name=class_name)
+  #show_detection(res, ax_score=axarr_score, ax_prob=axarr_prob, points=points, angle = 0, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[0, 0], ax_prob=axarr_prob[0, 0], points=points, angle = 0, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[0, 1], ax_prob=axarr_prob[0, 1], points=points, angle = 1, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[0, 2], ax_prob=axarr_prob[0, 2], points=points, angle = 2, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[1, 0], ax_prob=axarr_prob[1, 0], points=points, angle = 3, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[1, 1], ax_prob=axarr_prob[1, 1], points=points, angle = 4, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[1, 2], ax_prob=axarr_prob[1, 2], points=points, angle = 5, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[2, 0], ax_prob=axarr_prob[2, 0], points=points, angle = 6, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[2, 1], ax_prob=axarr_prob[2, 1], points=points, angle = 7, do_non_max = False, name=class_name)
 
-  #f_score.delaxes(axarr_score[2, 2])
-  #f_prob.delaxes(axarr_prob[2, 2])
+  f_score.delaxes(axarr_score[2, 2])
+  f_prob.delaxes(axarr_prob[2, 2])
 
 def show_model(model):
   f, ax = plt.subplots(nrows = 1, ncols = 1)
-  sc = ax.scatter(model[:, 0], model[:, 1], c=model[:, 2], marker='x', s=10)
-  plt.colorbar(sc, label='Histogram Percentile')
+
+  unique_xs = np.unique(np.round(model[:, 0], decimals=2))
+  unique_ys = np.unique(np.round(model[:, 1], decimals=2))
+  grid_shape = (len(unique_xs), len(unique_ys))
+
+  x = np.reshape(model[:, 0], grid_shape)
+  y = np.reshape(model[:, 1], grid_shape)
+  z = np.reshape(model[:, 2], grid_shape);
+
+  #z = np.clip(z, 1e-10, None)
+  #z = np.log(z)
+
+  #sc = ax.scatter(x, y, c=z, marker='x', s=10)
+  im = ax.pcolor(x, y, z);
+  plt.colorbar(im, label='Likelihood')
   ax.axis('equal')
   #ax.axis((-5, 5, 0, 8))
   ax.grid(True)
-  ax.set_title('Synthetic scan from observation model')
+  ax.set_title('Observation Model')
 
 parser = argparse.ArgumentParser(description="Make some plots")
 parser.add_argument('exp', metavar = 'exp', nargs='+', help='experiment number')
@@ -147,38 +160,41 @@ pylab.rcParams.update(params)
 
 experiment = int(args.exp[0])
 
-box  = np.loadtxt('/home/aushani/summer/cc/BOX.csv'                         , delimiter=',')
-star  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
-noobj  = np.loadtxt('/home/aushani/summer/cc/NOOBJ.csv'                         , delimiter=',')
-
 points = np.loadtxt('/home/aushani/summer/cc/data_%03d.csv'         % (experiment), delimiter=',')
 gt     = np.loadtxt('/home/aushani/summer/cc/ground_truth_%03d.csv' % (experiment), delimiter=',')
 
 print 'Plotting...'
 
-f, axarr = plt.subplots(nrows = 1, ncols = 2)
+if True:
+  f, axarr = plt.subplots(nrows = 1, ncols = 2)
 
-axarr[0].scatter(points[:, 0], points[:, 1], marker='.')
-axarr[0].scatter(0, 0, c='r', marker='x')
-axarr[0].axis((-20, 20, -20, 20))
-axarr[0].axis('equal')
-axarr[0].grid(True)
-axarr[0].set_title('LIDAR Data')
+  axarr[0].scatter(points[:, 0], points[:, 1], marker='.')
+  axarr[0].scatter(0, 0, c='r', marker='x')
+  axarr[0].axis((-20, 20, -20, 20))
+  axarr[0].axis('equal')
+  axarr[0].grid(True)
+  axarr[0].set_title('LIDAR Data')
 
-axarr[1].scatter(gt[:, 0], gt[:, 1], c=gt[:, 2], marker='.')
-axarr[1].scatter(0, 0, c='r', marker='x')
-axarr[1].axis((-20, 20, -20, 20))
-axarr[1].axis('equal')
-axarr[1].grid(True)
-axarr[1].set_title('Ground Truth')
+  axarr[1].scatter(gt[:, 0], gt[:, 1], c=gt[:, 2], marker='.')
+  axarr[1].scatter(0, 0, c='r', marker='x')
+  axarr[1].axis((-20, 20, -20, 20))
+  axarr[1].axis('equal')
+  axarr[1].grid(True)
+  axarr[1].set_title('Ground Truth')
 
-show_detection_layer("BOX", points)
-show_detection_layer("STAR", points)
-show_detection_layer("NOOBJ", points)
+if True:
+  show_detection_layer("BOX", points)
+  show_detection_layer("STAR", points)
+  show_detection_layer("NOOBJ", points)
 
-show_model(box)
-show_model(star)
-show_model(noobj)
+if True:
+  box  = np.loadtxt('/home/aushani/summer/cc/BOX.csv'                         , delimiter=',')
+  star  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
+  noobj  = np.loadtxt('/home/aushani/summer/cc/NOOBJ.csv'                         , delimiter=',')
+
+  show_model(box)
+  show_model(star)
+  show_model(noobj)
 
 print 'Ready to show, press Enter'
 raw_input()

@@ -79,6 +79,23 @@ bool RayModel::GetLogLikelihood(double phi, double dist_ray, double dist_obs, do
   return true;
 }
 
+double RayModel::GetLikelihood(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit) const {
+  double phi, dist_ray, dist_obs;
+  ConvertObservation(x_sensor_object, object_angle, x_hit, &phi, &dist_ray, &dist_obs);
+
+  double range = x_hit.norm();
+  if (dist_obs > range) {
+    return -1.0;
+  }
+
+  int idx = GetHistogramIndex(phi, dist_ray);
+  if (idx < 0) {
+    return -1.0;
+  }
+
+  return histograms_[idx].GetLikelihood(dist_obs);
+}
+
 double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const {
   double l_p_z = 0.0;
 

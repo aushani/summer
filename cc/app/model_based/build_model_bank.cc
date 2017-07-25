@@ -18,14 +18,13 @@ void SaveModelBank(const ModelBank &model_bank, const std::string &fn) {
 
 void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trials) {
   // Resolution we car about for the model
-  double pos_res = 0.3;
-  double angle_res = 10.0 * M_PI/180.0;
+  double pos_res = 0.3; // 30 cm
+  double angle_res = 10.0 * M_PI/180.0; // 10 deg
 
   // Sampling positions
   double lower_bound = -20.0;
   double upper_bound = 20.0;
   std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
-  std::uniform_real_distribution<double> jitter(-pos_res/2.0, pos_res/2.0);
   //std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
   std::uniform_real_distribution<double> rand_angle(-0.01, 0.01);
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -47,8 +46,6 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
 
     for (auto &shape : shapes) {
       Eigen::Vector2d x_sensor_object = shape.GetCenter();
-      x_sensor_object(0) += jitter(re);
-      x_sensor_object(1) += jitter(re);
       double object_angle = shape.GetAngle();
 
       for (size_t i=0; i<hits->size(); i++) {
@@ -61,13 +58,14 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
     }
 
     // Negative mining
-    for (int neg=0; neg<shapes.size(); neg++) {
+    for (size_t neg=0; neg<shapes.size(); neg++) {
       Eigen::Vector2d x_sensor_noobj;
       x_sensor_noobj(0) = unif(re);
       x_sensor_noobj(1) = unif(re);
 
-      if (std::abs(x_sensor_noobj(0)) < 10 && std::abs(x_sensor_noobj(1)) < 10)
+      if (std::abs(x_sensor_noobj(0)) < 10 && std::abs(x_sensor_noobj(1)) < 10) {
         continue;
+      }
 
       double object_angle = rand_angle(re);
 
@@ -77,8 +75,14 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
         const auto &center = shape.GetCenter();
 
         if ((x_sensor_noobj - center).norm() < pos_res) {
-          too_close = true;
-          break;
+          double d_angle = shape.GetAngle() - object_angle;
+          while (d_angle < -M_PI) d_angle += 2*M_PI;
+          while (d_angle > M_PI) d_angle -= 2*M_PI;
+
+          if (std::abs(d_angle) < angle_res) {
+            too_close = true;
+            break;
+          }
         }
       }
 
@@ -109,9 +113,9 @@ ModelBank LearnModelBank(int n_trials, const char *base) {
   double prior = pos_res*pos_res*n_shapes / area;
 
   ModelBank model_bank;
-  model_bank.AddRayModel("BOX", 10.0, prior);
-  model_bank.AddRayModel("STAR", 10.0, prior);
-  model_bank.AddRayModel("NOOBJ", 10.0, 1 - 2*prior);
+  model_bank.AddRayModel("BOX", 5.0, prior);
+  model_bank.AddRayModel("STAR", 5.0, prior);
+  model_bank.AddRayModel("NOOBJ", 5.0, 1 - 2*prior);
 
   std::string bs(base);
 
@@ -122,6 +126,10 @@ ModelBank LearnModelBank(int n_trials, const char *base) {
     t.Start();
     RunTrials(&model_bank, &data_manager, n_trials);
     printf("Took %5.3f sec to run %d trials, saving step %d result \n", t.GetMs()/1e3, n_trials, step);
+
+    printf("\n");
+    model_bank.PrintStats();
+    printf("\n");
 
     sprintf(fn, "%s_%06d", base, step++);
     SaveModelBank(model_bank, std::string(fn));

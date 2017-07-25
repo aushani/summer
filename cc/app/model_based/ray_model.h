@@ -22,14 +22,15 @@ class RayModel {
   double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const;
 
   double GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double percentile) const;
+  double GetLikelihood(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit) const;
 
   double GetSize() const;
 
   void PrintStats() const;
 
  private:
-  double kPhiStep_ = 0.2;
-  double kDistanceStep_ = 0.3;
+  double kPhiStep_ = 0.05;
+  double kDistanceStep_ = 0.05;
   double kMaxRange_ = 100.0;
 
   double max_size_;

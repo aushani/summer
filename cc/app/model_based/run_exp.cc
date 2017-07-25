@@ -57,13 +57,17 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
     //double object_angle = (2*M_PI) / 20;
     double object_angle = 0;
 
-    for (double sensor_angle = 0; sensor_angle < M_PI; sensor_angle += 0.01) {
-      for (double percentile = 0.01; percentile <= 0.99; percentile+=0.01) {
-        //if (it->first == "NOOBJ" && std::abs(percentile-0.5)<0.01) printf("\tangle: %5.3f ", sensor_angle);
-        double range = it->second.GetExpectedRange(x_sensor_object, object_angle, sensor_angle, percentile);
-        double x = cos(sensor_angle)*range;
-        double y = sin(sensor_angle)*range;
-        model_file << x << "," << y << "," << percentile << std::endl;
+    for (double x = -5; x<5; x+=0.05) {
+      for (double y = 15; y<25; y+=0.05) {
+        Eigen::Vector2d x_hit;
+        x_hit(0) = x;
+        x_hit(1) = y;
+        double likelihood = it->second.GetLikelihood(x_sensor_object, object_angle, x_hit);
+        if (likelihood < 0) {
+          likelihood = 0;
+        }
+
+        model_file << x_hit(0) << "," << x_hit(1) << "," << likelihood << std::endl;
       }
     }
     model_file.close();

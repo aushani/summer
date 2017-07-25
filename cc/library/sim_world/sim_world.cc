@@ -46,7 +46,7 @@ SimWorld::SimWorld(size_t n_shapes) :
       obj = Shape::CreateStar(x, y, rand_size(rand_engine));
     }
 
-    //obj.Rotate(angle);
+    obj.Rotate(angle);
 
     // Check for origin inside shape
     if (obj.IsInside(0, 0)) {
