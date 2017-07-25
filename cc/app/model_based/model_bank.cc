@@ -58,3 +58,11 @@ std::vector<std::string> ModelBank::GetClasses() const {
 
   return classes;
 }
+
+void ModelBank::PrintStats() const {
+  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
+    printf("Class: %s\n", it->first.c_str());
+    it->second.PrintStats();
+    printf("\n");
+  }
+}

@@ -18,6 +18,7 @@ DetectionMap::DetectionMap(double size, double res, const ModelBank &model_bank)
 
           double p_obj = model_bank_.GetProbObj(classname);
           double l_p = log(p_obj);
+          l_p = 0.0;
 
           //printf("p_obj = %f\n", p_obj);
           //printf("l_p = %f\n", l_p);
@@ -88,7 +89,7 @@ void DetectionMap::ProcessObservations(const std::vector<ge::Point> &hits) {
     states.push_back(it->first);
   }
 
-  int num_threads = 64;
+  int num_threads = 32;
   std::vector<std::thread> threads;
   for (int i=0; i<num_threads; i++) {
     threads.push_back(std::thread(&DetectionMap::ProcessObservationsWorker, this, x_hits, &states, &mutex));
@@ -221,4 +222,23 @@ double DetectionMap::GetProb(const ObjectState &os) const {
   double p = 1.0/denom;
   //printf("my score = %5.3f, denom = %5.3f\n", my_score, denom);
   return p;
+}
+
+double DetectionMap::GetLogOdds(const ObjectState &os) const {
+  double p = GetProb(os);
+  if (p < 1e-10)
+    p = 1e-10;
+  if (p > (1 - 1e-10))
+    p = 1 - 1e-10;
+  double lo = -log(1.0/p - 1);
+  return lo;
+}
+
+double DetectionMap::GetScore(const ObjectState &os) const {
+  auto it = scores_.find(os);
+  if (it == scores_.end()) {
+    printf("not found!\n");
+    return 0.0f;
+  }
+  return it->second;
 }

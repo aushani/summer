@@ -37,23 +37,42 @@ double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, 
     Eigen::Vector2d p_b0 = corners_[i];
     Eigen::Vector2d p_b1 = corners_[(i+1)%corners_.size()];
 
+    // Check for line parallel to ray
+    Eigen::Vector2d v_edge_hat = (p_b1 - p_b0).normalized();
+    if (std::abs(ray_hat.dot(v_edge_hat)) > 1 - 1e-99) {
+      //printf("\tparallel\n");
+      continue;
+    }
+
     Eigen::Vector3d p_b0h = p_b0.homogeneous();
     Eigen::Vector3d p_b1h = p_b1.homogeneous();
     Eigen::Vector3d l_edge = p_b0h.cross(p_b1h);
 
     // Find their intersection point
-    Eigen::Vector2d p_intersect = l_ray.cross(l_edge).hnormalized();
+    Eigen::Vector3d cp = l_ray.cross(l_edge);
+
+    // Check for intersection at infinity
+    if (std::abs(cp(2)) < 1e-99) {
+      //printf("\tintersect at inf: %5.3f\n", cp(2));
+      continue;
+    }
+
+    Eigen::Vector2d p_intersect = cp.hnormalized();
 
     // Check for intersection in front of ray
     double distance = (p_intersect - origin).dot(ray_hat);
-    if (distance <= 0.0f)
+    if (distance <= 0.0f) {
+      //printf("\tbehind\n");
       continue;
+    }
 
     // Check for intersection on shape and in range
     Eigen::Vector2d p_b10 = p_b1 - p_b0;
     double x = (p_intersect - p_b0).dot(p_b10);
-    if (x<=0.0f || x>p_b10.dot(p_b10))
+    if (x<=0.0f || x>=p_b10.dot(p_b10)) {
+      //printf("\tnot on shape\n");
       continue;
+    }
 
     // Check to see if this is the closest hit for the ray
     if (valid && best_distance < distance)
@@ -69,31 +88,28 @@ double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, 
 }
 
 bool Shape::IsInside(double x, double y) const {
-  // TODO Really should check being colinear
-  // And handle literal corner cases better
-  for (double angle = 0.4242; angle<2*M_PI; angle+=0.234) {
-    // Count intersections
-    Eigen::Vector2d origin(x, y);
-    Eigen::Vector2d ray(cos(angle), sin(angle));
+  // Count intersections
+  Eigen::Vector2d origin(x, y);
+  Eigen::Vector2d ray(0, 1);
 
-    int count = 0;
+  int count = 0;
 
-    while (true) {
-      Eigen::Vector2d hit;
-      double distance = GetHit(origin, ray, &hit);
+  while (true) {
+    Eigen::Vector2d hit;
+    double distance = GetHit(origin, ray, &hit);
 
-      if (distance < 0)
-        break;
+    if (distance < 0)
+      break;
 
-      count++;
-      origin = hit + ray*1e-5;
-    }
+    //printf("intersect at %5.3f, %5.3f\n", hit(0), hit(1));
 
-    if (count%2 == 0)
-      return false;
+    count++;
+    origin = hit + ray*1e-9;
   }
 
-  return true;
+  //printf("count: %d\n", count);
+
+  return (count%2) == 1;
 }
 
 bool Shape::Intersects(const Shape &shape) const {

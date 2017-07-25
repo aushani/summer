@@ -49,23 +49,30 @@ void RayModel::MarkObservationWorldFrame(const Eigen::Vector2d &x_sensor_object,
 }
 
 bool RayModel::GetLogLikelihood(double phi, double dist_ray, double dist_obs, double *res) const {
+
+  if (std::abs(dist_ray) > 8) {
+    return false;
+  }
+
   int idx = GetHistogramIndex(phi, dist_ray);
   if (idx < 0) {
     return false;
   }
 
   const Histogram &h = histograms_[idx];
-  if (h.GetCountsTotal() == 0) {
+  if (h.GetCountsTotal() < 10) {
+    printf("Count = %5.3f, histogram with phi = %5.3f, dist_ray = %5.3f!!!\n", h.GetCountsTotal(), phi, dist_ray);
     return false;
   }
 
+  // Occluded
   if (dist_obs < h.GetMin()) {
     return false;
   }
 
   double l = h.GetLikelihood(dist_obs);
-  if (l < 1e-9) {
-    l = 1e-9;
+  if (l < 1e-5) {
+    l = 1e-5;
   }
 
   *res = log(l);
@@ -163,4 +170,28 @@ int RayModel::GetHistogramIndex(double phi, double dist_ray) const {
   }
 
   return idx_phi * dist_dim_ + idx_dist;
+}
+
+void RayModel::PrintStats() const {
+  double min_l = 100000.0;
+  double max_l = -100000.0;
+  double min_count = 9999999;
+  double max_count = 0;
+  for (const auto& h : histograms_) {
+    for (double x = h.GetMin(); x <= h.GetMax(); x+=h.GetRes()) {
+      double l = h.GetLikelihood(x);
+
+      if (l == 0)
+        continue;
+
+      if (l < min_l) min_l = l;
+      if (l > max_l) max_l = l;
+
+      if (h.GetCountsTotal() > max_count) max_count = h.GetCountsTotal();
+      if (h.GetCountsTotal() < min_count) min_count = h.GetCountsTotal();
+    }
+  }
+
+  printf("\tLikelihood ranges from %f to %f\n", min_l, max_l);
+  printf("\tCount ranges from %f to %f\n", min_count, max_count);
 }

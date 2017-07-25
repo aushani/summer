@@ -31,6 +31,8 @@ class ModelBank {
 
   std::vector<std::string> GetClasses() const;
 
+  void PrintStats() const;
+
  private:
   // These are the object models
   std::map<std::string, RayModel> obj_models_;

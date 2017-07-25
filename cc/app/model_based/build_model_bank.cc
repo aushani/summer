@@ -22,8 +22,8 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
   double angle_res = 10.0 * M_PI/180.0;
 
   // Sampling positions
-  double lower_bound = -8.0;
-  double upper_bound = 8.0;
+  double lower_bound = -20.0;
+  double upper_bound = 20.0;
   std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
   std::uniform_real_distribution<double> jitter(-pos_res/2.0, pos_res/2.0);
   //std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
@@ -61,10 +61,13 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
     }
 
     // Negative mining
-    for (int neg=0; neg<10; neg++) {
+    for (int neg=0; neg<shapes.size(); neg++) {
       Eigen::Vector2d x_sensor_noobj;
       x_sensor_noobj(0) = unif(re);
       x_sensor_noobj(1) = unif(re);
+
+      if (std::abs(x_sensor_noobj(0)) < 10 && std::abs(x_sensor_noobj(1)) < 10)
+        continue;
 
       double object_angle = rand_angle(re);
 
@@ -99,10 +102,16 @@ ModelBank LearnModelBank(int n_trials, const char *base) {
 
   library::timer::Timer t;
 
+  double area = 20*20 - 10*10;
+  double pos_res = 0.3;
+  double n_shapes = 1.5;
+
+  double prior = pos_res*pos_res*n_shapes / area;
+
   ModelBank model_bank;
-  model_bank.AddRayModel("BOX", 10.0, 0.25);
-  model_bank.AddRayModel("STAR", 10.0, 0.25);
-  model_bank.AddRayModel("NOOBJ", 10.0, 0.5);
+  model_bank.AddRayModel("BOX", 10.0, prior);
+  model_bank.AddRayModel("STAR", 10.0, prior);
+  model_bank.AddRayModel("NOOBJ", 10.0, 1 - 2*prior);
 
   std::string bs(base);
 

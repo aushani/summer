@@ -35,7 +35,7 @@ SimWorld::SimWorld(size_t n_shapes) :
     bool make_star = !make_box;
 
     // Not too close to origin
-    if (std::abs(x) < 3 && std::abs(y) < 3)
+    if (std::abs(x) < 10 && std::abs(y) < 10)
       continue;
 
     Shape obj = Shape::CreateBox(0, 0, 1, 1);

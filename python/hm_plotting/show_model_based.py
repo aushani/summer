@@ -21,12 +21,12 @@ def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0, do_no
 
   x_angle = x[:, :, angle]
   y_angle = y[:, :, angle]
-  #score_angle = np.clip(score[:, :, angle], -10, 10)
+  score_angle = np.clip(score[:, :, angle], -1000, 0)
   score_angle = score[:, :, angle]
   prob_angle = prob[:, :, angle]
 
   if not ax_score is None:
-    im = ax_score.pcolor(x_angle, y_angle, np.clip(score_angle, -100, 100))
+    im = ax_score.pcolor(x_angle, y_angle, score_angle)
     ax_score.scatter(0, 0, c='g', marker='x')
     plt.colorbar(im, ax=ax_score, label='Score')
 
@@ -101,12 +101,15 @@ def show_detection_layer(class_name, points):
   print 'Plotting', class_name
   res = np.loadtxt('/home/aushani/summer/cc/result_%s_%03d.csv' % (class_name, experiment), delimiter=',')
 
+  print 'Scores range from %5.3f to %5.3f' % (np.min(res[:, 3]), np.max(res[:, 3]))
+  print 'Probs range from %5.3f to %5.3f' % (np.min(res[:, 4]), np.max(res[:, 4]))
+
   #f_score, axarr_score = plt.subplots(nrows = 3, ncols = 3)
   #f_prob, axarr_prob = plt.subplots(nrows = 3, ncols = 3)
-  #f_score, axarr_score = plt.subplots(nrows = 1, ncols = 1)
+  f_score, axarr_score = plt.subplots(nrows = 1, ncols = 1)
   f_prob, axarr_prob = plt.subplots(nrows = 1, ncols = 1)
 
-  show_detection(res, ax_score=None, ax_prob=axarr_prob, points=points, angle = 0, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score, ax_prob=axarr_prob, points=points, angle = 0, do_non_max = False, name=class_name)
   #show_detection(res, ax_score=axarr_score[0, 0], ax_prob=axarr_prob[0, 0], points=points, angle = 0, do_non_max = False, name=class_name)
   #show_detection(res, ax_score=axarr_score[0, 1], ax_prob=axarr_prob[0, 1], points=points, angle = 1, do_non_max = False, name=class_name)
   #show_detection(res, ax_score=axarr_score[0, 2], ax_prob=axarr_prob[0, 2], points=points, angle = 2, do_non_max = False, name=class_name)

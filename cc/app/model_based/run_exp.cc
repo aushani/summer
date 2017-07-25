@@ -54,7 +54,8 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
     Eigen::Vector2d x_sensor_object;
     x_sensor_object(0) = 0.0;
     x_sensor_object(1) = 20.0;
-    double object_angle = (2*M_PI) / 20;
+    //double object_angle = (2*M_PI) / 20;
+    double object_angle = 0;
 
     for (double sensor_angle = 0; sensor_angle < M_PI; sensor_angle += 0.01) {
       for (double percentile = 0.01; percentile <= 0.99; percentile+=0.01) {
@@ -84,6 +85,9 @@ int main(int argc, char** argv) {
   ModelBank model_bank = LoadModelBank(argv[1]);
   printf("Took %5.3f sec to load model bank\n", t.GetMs()/1e3);
 
+  model_bank.PrintStats();
+  //return 1;
+
   GenerateSyntheticScans(model_bank);
 
   char fn[100];
@@ -92,9 +96,24 @@ int main(int argc, char** argv) {
     printf("Experiment %d / %d\n", experiment, n_exp);
 
     sw::SimWorld sim(3);
+    //sw::SimWorld sim(0);
+    //sim.AddShape(sw::Shape::CreateStar(0, 20, 1.5));
+    //sim.AddShape(sw::Shape::CreateBox(0, 30, 3, 6));
+    //sim.AddShape(sw::Shape::CreateBox(30, 0, 3, 6));
+    //sim.AddShape(sw::Shape::CreateBox(0, -30, 3, 6));
+    //sim.AddShape(sw::Shape::CreateBox(-30, 0, 3, 6));
 
     std::vector<ge::Point> hits, origins;
     sim.GenerateSimData(&hits, &origins);
+
+    printf("Have %ld hits\n", hits.size());
+
+    //std::vector<ge::Point> mod_hits;
+    //mod_hits.push_back(hits[hits.size()*0.00]);
+    //mod_hits.push_back(hits[hits.size()*0.25]);
+    //mod_hits.push_back(hits[hits.size()*0.50]);
+    //mod_hits.push_back(hits[hits.size()*0.75]);
+    //hits = mod_hits;
 
     std::vector<Eigen::Vector2d> x_hits;
     for (ge::Point hit : hits) {
@@ -157,10 +176,10 @@ int main(int argc, char** argv) {
         float y = os.pos.y;
 
         double angle = os.angle;
-        double score = it->second;
 
+        //double score = detection_map.GetScore(os);
+        double score = detection_map.GetLogOdds(os);
         double prob = detection_map.GetProb(os);
-        //double prob = 0.5;
 
         res_file << x << "," << y << "," << angle << "," << score << ", " << prob << std::endl;
       }
