@@ -14,7 +14,13 @@ compute the relative angle between the ray and the object, $\phi = \theta_i -
 center of the object location, $d_{\text{ray}}$. Finally, we compute
 $d_{\text{obs}}$, the position of the range $r_i$ along the ray, relative to the
 closest point along the ray to the object center. This is depicted in
-\figref{fig:obs_model}.
+\figref{fig:obs_model} and given by:
+%
+\begin{align}
+  \phi            &= \theta_i  - \theta_{\text{object}}        \text{,} \\
+  d_{\text{ray}}  &= x \sin(\theta_i) - y \cos(\theta_i)       \text{,} \\
+  d_{\text{obs}}  &= r_i - x \cos(\theta_i) - y \sin(\theta_i) \text{.}
+\end{align}
 %
 \begin{figure}
   \centering
@@ -34,6 +40,8 @@ object's location. (Note that these can be positive or negative). So, we have
     p_{obj}( d_{\text{obs}} | \phi, d_{\text{ray}} )
   \text{.}
 \end{align}
+%
+(Note that for the change of variables, $\frac{d}{d d_{\text{obj}}} r_i = 1$)
 
 We maintain a two-dimensional array of histograms, parameterized by $(\phi,
 d_{\text{ray}})$. We discretize $\phi$ at \unit{0.05}{\rad} and
