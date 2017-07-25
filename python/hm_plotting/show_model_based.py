@@ -4,7 +4,20 @@ import matplotlib.pylab as pylab
 import os.path
 import argparse
 
-def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0, do_non_max=True, name=''):
+def show_map(ax, x, y, z, title, points=None):
+  im = ax.pcolor(x, y, z)
+  ax.scatter(0, 0, c='g', marker='x')
+  plt.colorbar(im, ax=ax)
+
+  if not points is None:
+    ax.scatter(points[:, 0], points[:, 1], color='k', marker='.')
+
+  ax.axis('equal')
+  ax.axis((np.min(x[:]), np.max(x[:]), np.min(y[:]), np.max(y[:])))
+
+  ax.set_title(title)
+
+def show_detection(res, ax_score=None, ax_logodds=None, ax_prob=None, points=None, angle=0, do_non_max=True, name=''):
   unique_xs = np.unique(np.round(res[:, 0], decimals=2))
   unique_ys = np.unique(np.round(res[:, 1], decimals=2))
   unique_angles = np.unique(np.round(res[:, 2], decimals=2))
@@ -17,39 +30,23 @@ def show_detection(res, ax_score=None, ax_prob=None, points=None, angle=0, do_no
   y = np.reshape(res[:, 1], grid_shape)
 
   score = np.reshape(res[:, 3], grid_shape)
-  prob = np.reshape(res[:, 4], grid_shape)
+  logodds = np.reshape(res[:, 4], grid_shape)
+  prob = np.reshape(res[:, 5], grid_shape)
 
   x_angle = x[:, :, angle]
   y_angle = y[:, :, angle]
-  score_angle = np.clip(score[:, :, angle], -1000, 0)
   score_angle = score[:, :, angle]
+  logodds_angle = logodds[:, :, angle]
   prob_angle = prob[:, :, angle]
 
   if not ax_score is None:
-    im = ax_score.pcolor(x_angle, y_angle, score_angle)
-    ax_score.scatter(0, 0, c='g', marker='x')
-    plt.colorbar(im, ax=ax_score, label='Score')
+    show_map(ax_score,   x_angle, y_angle, score_angle   , '%s at %5.1f deg (score)' % (name, angle_deg))
 
-    if not points is None:
-      ax_score.scatter(points[:, 0], points[:, 1], color='k', marker='.')
+  if not ax_logodds is None:
+    show_map(ax_logodds, x_angle, y_angle, logodds_angle , '%s at %5.1f deg (log-odds)' % (name, angle_deg))
 
-    ax_score.axis('equal')
-    ax_score.axis((np.min(res[:, 0]), np.max(res[:, 0]), np.min(res[:, 1]), np.max(res[:, 1])))
-
-    ax_score.set_title('%s at %5.1f deg (score)' % (name, angle_deg))
-
-  if not ax_prob is None:
-    im = ax_prob.pcolor(x_angle, y_angle, prob_angle)
-    ax_prob.scatter(0, 0, c='g', marker='x')
-    plt.colorbar(im, ax=ax_prob, label='Prob')
-
-    if not points is None:
-      ax_prob.scatter(points[:, 0], points[:, 1], color='k', marker='.')
-
-    ax_prob.axis('equal')
-    ax_prob.axis((np.min(res[:, 0]), np.max(res[:, 0]), np.min(res[:, 1]), np.max(res[:, 1])))
-
-    ax_prob.set_title('%s at %5.1f deg (Prob)' % (name, angle_deg))
+  if not ax_score is None:
+    show_map(ax_prob,    x_angle, y_angle, prob_angle    , '%s at %5.1f deg (prob)' % (name, angle_deg))
 
   # Non maximal supression
   if do_non_max:
@@ -101,25 +98,28 @@ def show_detection_layer(class_name, points):
   print 'Plotting', class_name
   res = np.loadtxt('/home/aushani/summer/cc/result_%s_%03d.csv' % (class_name, experiment), delimiter=',')
 
-  print 'Scores range from %5.3f to %5.3f' % (np.min(res[:, 3]), np.max(res[:, 3]))
-  print 'Probs range from %5.3f to %5.3f' % (np.min(res[:, 4]), np.max(res[:, 4]))
+  print 'Scores range from %5.3f to %5.3f'   % (np.min(res[:, 3]), np.max(res[:, 3]))
+  print 'Log-odds range from %5.3f to %5.3f' % (np.min(res[:, 4]), np.max(res[:, 4]))
+  print 'Probs range from %5.3f to %5.3f'    % (np.min(res[:, 5]), np.max(res[:, 5]))
 
   f_score, axarr_score = plt.subplots(nrows = 3, ncols = 3, sharex=True, sharey=True)
+  f_logodds, axarr_logodds = plt.subplots(nrows = 3, ncols = 3, sharex=True, sharey=True)
   f_prob, axarr_prob = plt.subplots(nrows = 3, ncols = 3, sharex=True, sharey=True)
   #f_score, axarr_score = plt.subplots(nrows = 1, ncols = 1)
   #f_prob, axarr_prob = plt.subplots(nrows = 1, ncols = 1)
 
   #show_detection(res, ax_score=axarr_score, ax_prob=axarr_prob, points=points, angle = 0, do_non_max = False, name=class_name)
-  show_detection(res, ax_score=axarr_score[0, 0], ax_prob=axarr_prob[0, 0], points=points, angle = 0, do_non_max = False, name=class_name)
-  show_detection(res, ax_score=axarr_score[0, 1], ax_prob=axarr_prob[0, 1], points=points, angle = 1, do_non_max = False, name=class_name)
-  show_detection(res, ax_score=axarr_score[0, 2], ax_prob=axarr_prob[0, 2], points=points, angle = 2, do_non_max = False, name=class_name)
-  show_detection(res, ax_score=axarr_score[1, 0], ax_prob=axarr_prob[1, 0], points=points, angle = 3, do_non_max = False, name=class_name)
-  show_detection(res, ax_score=axarr_score[1, 1], ax_prob=axarr_prob[1, 1], points=points, angle = 4, do_non_max = False, name=class_name)
-  show_detection(res, ax_score=axarr_score[1, 2], ax_prob=axarr_prob[1, 2], points=points, angle = 5, do_non_max = False, name=class_name)
-  show_detection(res, ax_score=axarr_score[2, 0], ax_prob=axarr_prob[2, 0], points=points, angle = 6, do_non_max = False, name=class_name)
-  show_detection(res, ax_score=axarr_score[2, 1], ax_prob=axarr_prob[2, 1], points=points, angle = 7, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[0, 0], ax_logodds=axarr_logodds[0, 0], ax_prob=axarr_prob[0, 0], points=points, angle = 0, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[0, 1], ax_logodds=axarr_logodds[0, 1], ax_prob=axarr_prob[0, 1], points=points, angle = 1, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[0, 2], ax_logodds=axarr_logodds[0, 2], ax_prob=axarr_prob[0, 2], points=points, angle = 2, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[1, 0], ax_logodds=axarr_logodds[1, 0], ax_prob=axarr_prob[1, 0], points=points, angle = 3, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[1, 1], ax_logodds=axarr_logodds[1, 1], ax_prob=axarr_prob[1, 1], points=points, angle = 4, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[1, 2], ax_logodds=axarr_logodds[1, 2], ax_prob=axarr_prob[1, 2], points=points, angle = 5, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[2, 0], ax_logodds=axarr_logodds[2, 0], ax_prob=axarr_prob[2, 0], points=points, angle = 6, do_non_max = False, name=class_name)
+  show_detection(res, ax_score=axarr_score[2, 1], ax_logodds=axarr_logodds[2, 1], ax_prob=axarr_prob[2, 1], points=points, angle = 7, do_non_max = False, name=class_name)
 
   f_score.delaxes(axarr_score[2, 2])
+  f_logodds.delaxes(axarr_logodds[2, 2])
   f_prob.delaxes(axarr_prob[2, 2])
 
 def show_model(model):

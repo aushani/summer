@@ -90,7 +90,6 @@ int main(int argc, char** argv) {
   printf("Took %5.3f sec to load model bank\n", t.GetMs()/1e3);
 
   model_bank.PrintStats();
-  //return 1;
 
   GenerateSyntheticScans(model_bank);
 
@@ -181,11 +180,11 @@ int main(int argc, char** argv) {
 
         double angle = os.angle;
 
-        //double score = detection_map.GetScore(os);
-        double score = detection_map.GetLogOdds(os);
+        double score = detection_map.GetScore(os);
+        double logodds = detection_map.GetLogOdds(os);
         double prob = detection_map.GetProb(os);
 
-        res_file << x << "," << y << "," << angle << "," << score << ", " << prob << std::endl;
+        res_file << x << "," << y << "," << angle << "," << score << "," << logodds << "," << prob << std::endl;
       }
       res_file.close();
     }
@@ -198,14 +197,14 @@ int main(int argc, char** argv) {
 
     std::vector<ge::Point> query_points;
     std::vector<float> gt_labels;
-    sim.GenerateGrid(20.0, &query_points, &gt_labels, 0.2);
+    sim.GenerateGrid(30.0, &query_points, &gt_labels, 0.2);
 
     for (size_t i=0; i<query_points.size(); i++) {
       float x = query_points[i].x;
       float y = query_points[i].y;
       float p_gt = gt_labels[i];
 
-      gt_file << x << ", " << y << ", " << p_gt << std::endl;
+      gt_file << x << "," << y << "," << p_gt << std::endl;
     }
     gt_file.close();
   }
