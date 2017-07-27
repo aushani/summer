@@ -4,8 +4,8 @@ import matplotlib.pylab as pylab
 import os.path
 import argparse
 
-def show_map(ax, x, y, z, title, points=None):
-  im = ax.pcolor(x, y, z)
+def show_map(ax, x, y, z, title, points=None, vmin=None, vmax=None):
+  im = ax.pcolor(x, y, z, vmin=vmin, vmax=vmax)
   ax.scatter(0, 0, c='g', marker='x')
   plt.colorbar(im, ax=ax)
 
@@ -40,13 +40,13 @@ def show_detection(res, ax_score=None, ax_logodds=None, ax_prob=None, points=Non
   prob_angle = prob[:, :, angle]
 
   if not ax_score is None:
-    show_map(ax_score,   x_angle, y_angle, score_angle   , '%s at %5.1f deg (score)' % (name, angle_deg))
+    show_map(ax_score,   x_angle, y_angle, score_angle   , '%s at %5.1f deg (score)' % (name, angle_deg), points=points)
 
   if not ax_logodds is None:
-    show_map(ax_logodds, x_angle, y_angle, logodds_angle , '%s at %5.1f deg (log-odds)' % (name, angle_deg))
+    show_map(ax_logodds, x_angle, y_angle, logodds_angle , '%s at %5.1f deg (log-odds)' % (name, angle_deg), points=points)
 
   if not ax_score is None:
-    show_map(ax_prob,    x_angle, y_angle, prob_angle    , '%s at %5.1f deg (prob)' % (name, angle_deg))
+    show_map(ax_prob,    x_angle, y_angle, prob_angle    , '%s at %5.1f deg (prob)' % (name, angle_deg), points=points, vmin=0, vmax=1)
 
   # Non maximal supression
   if do_non_max:
