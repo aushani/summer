@@ -19,7 +19,7 @@ class RayModel {
 
   void MarkObservationWorldFrame(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit);
 
-  double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const;
+  double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles) const;
 
   double GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double percentile) const;
   double GetLikelihood(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit) const;

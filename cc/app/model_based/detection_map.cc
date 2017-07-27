@@ -41,23 +41,32 @@ std::vector<std::string> DetectionMap::GetClasses() const {
 }
 
 double DetectionMap::EvaluateObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) const {
+  std::vector<float> angles;
+  for (auto h : x_hits) {
+    angles.push_back(atan2(h(1), h(0)));
+  }
+  return EvaluateObservationsForState(x_hits, angles, state);
+}
+
+double DetectionMap::EvaluateObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles, const ObjectState &state) const {
   Eigen::Vector2d x_sensor_object;
   x_sensor_object(0) = state.pos.x;
   x_sensor_object(1) = state.pos.y;
 
   double object_angle = state.angle;
 
-  return model_bank_.EvaluateObservations(x_sensor_object, object_angle, x_hits, state.classname);
+  return model_bank_.EvaluateObservations(x_sensor_object, object_angle, x_hits, angles, state.classname);
 }
 
-void DetectionMap::ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) {
-  double update = EvaluateObservationsForState(x_hits, state);
+void DetectionMap::ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles, const ObjectState &state) {
+  double update = EvaluateObservationsForState(x_hits, angles, state);
   //printf("update: %5.3f\n", update);
   //printf("prev score: %5.3f\n", scores_[state]);
   scores_[state] += update;
 }
 
-void DetectionMap::ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, std::deque<ObjectState> *states, std::mutex *mutex) {
+void DetectionMap::ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles,
+                                             std::deque<ObjectState> *states, std::mutex *mutex) {
   bool done = false;
 
   while (!done) {
@@ -69,17 +78,19 @@ void DetectionMap::ProcessObservationsWorker(const std::vector<Eigen::Vector2d> 
       ObjectState state = states->front();
       states->pop_front();
       mutex->unlock();
-      ProcessObservationsForState(x_hits, state);
+      ProcessObservationsForState(x_hits, angles, state);
     }
   }
 }
 
 void DetectionMap::ProcessObservations(const std::vector<ge::Point> &hits) {
   std::vector<Eigen::Vector2d> x_hits;
+  std::vector<float> angles;
   for (auto h : hits) {
     Eigen::Vector2d hit;
     hit << h.x, h.y;
     x_hits.push_back(hit);
+    angles.push_back(atan2(h.y, h.x));
   }
 
   std::deque<ObjectState> states;
@@ -92,7 +103,7 @@ void DetectionMap::ProcessObservations(const std::vector<ge::Point> &hits) {
   int num_threads = 32;
   std::vector<std::thread> threads;
   for (int i=0; i<num_threads; i++) {
-    threads.push_back(std::thread(&DetectionMap::ProcessObservationsWorker, this, x_hits, &states, &mutex));
+    threads.push_back(std::thread(&DetectionMap::ProcessObservationsWorker, this, x_hits, angles, &states, &mutex));
   }
 
   for (auto &thread : threads) {

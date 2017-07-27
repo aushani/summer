@@ -34,20 +34,11 @@ const RayModel& ModelBank::GetModel(const std::string &name) const {
   return obj_models_.find(name)->second;
 }
 
-std::map<std::string, double> ModelBank::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const {
-  std::map<std::string, double> result;
-
-  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
-    result[it->first] = it->second.EvaluateObservations(x_sensor_object, object_angle, x_hits);
-  }
-
-  return result;
-}
-
-double ModelBank::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const std::string &classname) const {
+double ModelBank::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits,
+    const std::vector<float> &angles, const std::string &classname) const {
   // TODO Assume classname exists
   auto it = obj_models_.find(classname);
-  return it->second.EvaluateObservations(x_sensor_object, object_angle, x_hits);
+  return it->second.EvaluateObservations(x_sensor_object, object_angle, x_hits, angles);
 }
 
 std::vector<std::string> ModelBank::GetClasses() const {

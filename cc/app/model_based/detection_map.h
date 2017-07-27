@@ -42,6 +42,7 @@ class DetectionMap {
   void ProcessObservations(const std::vector<ge::Point> &hits);
 
   double EvaluateObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) const;
+  double EvaluateObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles, const ObjectState &state) const;
 
   std::map<ObjectState, double> GetMaxDetections(double thresh_score);
 
@@ -59,8 +60,8 @@ class DetectionMap {
 
   ModelBank model_bank_;
 
-  void ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state);
-  void ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, std::deque<ObjectState> *states, std::mutex *mutex);
+  void ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles, const ObjectState &state);
+  void ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles, std::deque<ObjectState> *states, std::mutex *mutex);
 
   void GetMaxDetectionsWorker(std::deque<ObjectState> *states, std::map<ObjectState, double> *result, std::mutex *mutex);
   bool IsMaxDetection(const ObjectState &state);

@@ -96,10 +96,47 @@ double RayModel::GetLikelihood(const Eigen::Vector2d &x_sensor_object, double ob
   return histograms_[idx].GetLikelihood(dist_obs);
 }
 
-double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const {
+double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles) const {
   double l_p_z = 0.0;
 
-  for (const Eigen::Vector2d& x_hit : x_hits) {
+  const double angle_to_object = atan2(x_sensor_object(1), x_sensor_object(0));
+  const double dist_to_object = x_sensor_object.norm();
+
+  double max_dtheta = 2*M_PI;
+  if (dist_to_object > max_size_) {
+    max_dtheta = asin( (max_size_ + 2 * kDistanceStep_) / dist_to_object);
+  }
+
+  for (size_t i=0; i<x_hits.size(); i++) {
+    const Eigen::Vector2d &x_hit = x_hits[i];
+
+    if (max_dtheta < 2*M_PI) {
+      float angle = angles[i];
+
+      double dtheta = angle - angle_to_object;
+      while (dtheta < -M_PI) dtheta += 2*M_PI;
+      while (dtheta > M_PI) dtheta -= 2*M_PI;
+
+      if (std::abs(dtheta) > max_dtheta) {
+        //// Verify
+        //double phi, dist_ray, dist_obs;
+        //ConvertObservation(x_sensor_object, object_angle, x_hit, &phi, &dist_ray, &dist_obs);
+
+        //// Check for projected observations behind us
+        //double range = x_hit.norm();
+        //if (dist_obs > range) {
+        //  continue;
+        //}
+
+        //double log_l_obs_obj = 0;
+        //if ( GetLogLikelihood(phi, dist_ray, dist_obs, &log_l_obs_obj) ) {
+        //  printf("ERROR ERROR ERROR, %5.3f dtheta vs %5.3f max dtheta\n",
+        //      dtheta, max_dtheta);
+        //}
+        continue;
+      }
+    }
+
     double phi, dist_ray, dist_obs;
     ConvertObservation(x_sensor_object, object_angle, x_hit, &phi, &dist_ray, &dist_obs);
 

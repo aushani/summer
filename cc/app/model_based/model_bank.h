@@ -24,8 +24,8 @@ class ModelBank {
   const std::map<std::string, RayModel>& GetModels() const;
   const RayModel& GetModel(const std::string &name) const;
 
-  std::map<std::string, double> EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits) const;
-  double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const std::string &classname) const;
+  double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits,
+      const std::vector<float> &angles, const std::string &classname) const;
 
   double GetProbObj(const std::string &name) const;
 
