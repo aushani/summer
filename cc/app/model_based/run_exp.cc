@@ -10,6 +10,8 @@
 #include <math.h>
 #include <random>
 
+#include <boost/archive/binary_iarchive.hpp>
+
 #include "library/timer/timer.h"
 #include "library/sim_world/sim_world.h"
 #include "library/sim_world/data.h"
@@ -25,7 +27,7 @@ namespace sw = library::sim_world;
 ModelBank LoadModelBank(const char *fn) {
   ModelBank model_bank;
   std::ifstream ifs(fn);
-  boost::archive::text_iarchive ia(ifs);
+  boost::archive::binary_iarchive ia(ifs);
   ia >> model_bank;
 
   return model_bank;
@@ -125,6 +127,18 @@ int main(int argc, char** argv) {
     }
 
     DetectionMap detection_map = BuildMap(hits, model_bank);
+
+    library::timer::Timer t;
+    t.Start();
+    auto detections = detection_map.GetMaxDetections(0);
+    double ms = t.GetMs();
+    printf("Took %5.3f ms for max detectinos\n", ms);
+    for (auto it = detections.begin(); it != detections.end(); it++) {
+      auto d = it->first;
+      printf("\tMax Detection: %s, %5.3f, %5.3f at angle %5.3f ==> %5.3f\n",
+          d.GetClassname().c_str(), d.GetPos()(0), d.GetPos()(1), d.GetTheta(), it->second);
+    }
+
 
     // At object?
     for (auto &s : sim.GetShapes()) {

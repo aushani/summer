@@ -1,6 +1,7 @@
 #include "detection_map.h"
 
 #include <thread>
+#include <queue>
 
 #include <Eigen/Core>
 
@@ -166,29 +167,54 @@ void DetectionMap::GetMaxDetectionsWorker(std::deque<ObjectState> *states, std::
   }
 }
 
-std::map<ObjectState, double> DetectionMap::GetMaxDetections(double thresh_score) {
-  std::map<ObjectState, double> result;
+std::map<ObjectState, double> DetectionMap::GetMaxDetections(double log_odds_threshold) {
+  typedef std::pair<ObjectState, double> Detection;
 
-  std::deque<ObjectState> states;
-  std::mutex mutex;
+  struct DetectionComparator {
+    bool operator() (const Detection &lhs, const Detection &rhs) const {
+      return lhs.second < rhs.second;
+    }
+  };
 
+  std::priority_queue<Detection, std::vector<Detection>, DetectionComparator> detections;
   for (auto it = scores_.begin(); it != scores_.end(); it++) {
-    if (it->second > thresh_score) {
-      states.push_back(it->first);
+    if (it->first.GetClassname() == std::string("NOOBJ")) {
+      continue;
+    }
+
+    double lo = GetLogOdds(it->first);
+
+    if (lo > log_odds_threshold) {
+      detections.push(Detection(it->first, lo));
     }
   }
 
-  int num_threads = 4;
-  std::vector<std::thread> threads;
-  for (int i=0; i<num_threads; i++) {
-    threads.push_back(std::thread(&DetectionMap::GetMaxDetectionsWorker, this, &states, &result, &mutex));
+  std::map<ObjectState, double> max_detections;
+
+  while (!detections.empty()) {
+    const Detection &d = detections.top();
+    const ObjectState &os = d.first;
+
+    bool is_max_detection = true;
+
+    for (auto it = max_detections.begin(); it != max_detections.end(); it++) {
+      const ObjectState &m_os = it->first;
+      // Is there overlap between these two states?
+      // TODO
+      if ( (os.GetPos() - m_os.GetPos()).norm() < 3.0) {
+        is_max_detection = false;
+        break;
+      }
+    }
+
+    if (is_max_detection) {
+      max_detections[os] = d.second;
+    }
+
+    detections.pop();
   }
 
-  for (auto &thread : threads) {
-    thread.join();
-  }
-
-  return result;
+  return max_detections;
 }
 
 const std::map<ObjectState, double>& DetectionMap::GetScores() const {

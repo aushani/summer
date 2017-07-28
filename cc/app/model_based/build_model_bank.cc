@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream>
 
+#include <boost/archive/binary_oarchive.hpp>
+
 #include "library/timer/timer.h"
 #include "library/sim_world/sim_world.h"
 #include "library/sim_world/data.h"
@@ -12,7 +14,7 @@ namespace sw = library::sim_world;
 
 void SaveModelBank(const ModelBank &model_bank, const std::string &fn) {
   std::ofstream ofs(fn);
-  boost::archive::text_oarchive oa(ofs);
+  boost::archive::binary_oarchive oa(ofs);
   oa << model_bank;
 }
 

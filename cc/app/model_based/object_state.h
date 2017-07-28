@@ -21,11 +21,11 @@ class ObjectState {
   bool operator<(const ObjectState &os) const;
 
  private:
-  const double kResPos_ = 0.001;
-  const double kResAngle_ = 0.001;
+  double kResPos_ = 0.001;
+  double kResAngle_ = 0.001;
 
-  const double max_size_ = 5.0;
-  const double kDistanceStep_ = 0.15; // 15 cm
+  double max_size_ = 5.0;
+  double kDistanceStep_ = 0.15; // 15 cm
 
   Eigen::Vector2d pos_;
   double theta_;

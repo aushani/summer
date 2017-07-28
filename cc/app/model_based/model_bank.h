@@ -7,8 +7,6 @@
 #include <Eigen/Core>
 
 #include <boost/serialization/map.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
 
 #include "ray_model.h"
 #include "histogram.h"

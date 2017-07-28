@@ -24,7 +24,7 @@ class DetectionMap {
   double EvaluateObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) const;
   double EvaluateObservationsForState(const std::vector<Observation> &x_hits, const ObjectState &state) const;
 
-  std::map<ObjectState, double> GetMaxDetections(double thresh_score);
+  std::map<ObjectState, double> GetMaxDetections(double log_odds_threshold);
 
   const std::map<ObjectState, double>& GetScores() const;
 
