@@ -45,36 +45,32 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
     auto shapes = sim->GetShapes();
 
     for (auto &shape : shapes) {
-      Eigen::Vector2d x_sensor_object = shape.GetCenter();
-      double object_angle = shape.GetAngle();
+      ObjectState os(shape.GetCenter()(0), shape.GetCenter()(1), shape.GetAngle(), shape.GetName());
 
       for (size_t i=0; i<hits->size(); i++) {
-        Eigen::Vector2d x_hit;
-        x_hit(0) = hits->at(i).x;
-        x_hit(1) = hits->at(i).y;
-
-        model_bank->MarkObservation(shape.GetName(), x_sensor_object, object_angle, x_hit);
+        Observation x_hit(Eigen::Vector2d(hits->at(i).x, hits->at(i).y));
+        model_bank->MarkObservation(os, x_hit);
       }
     }
 
     // Negative mining
     for (size_t neg=0; neg<shapes.size(); neg++) {
-      Eigen::Vector2d x_sensor_noobj;
-      x_sensor_noobj(0) = unif(re);
-      x_sensor_noobj(1) = unif(re);
+      double x = unif(re);
+      double y = unif(re);
+      double object_angle = rand_angle(re);
 
-      if (std::abs(x_sensor_noobj(0)) < 10 && std::abs(x_sensor_noobj(1)) < 10) {
+      ObjectState os(x, y, object_angle, "NOOBJ");
+
+      if (std::abs(x) < 10 && std::abs(y) < 10) {
         continue;
       }
-
-      double object_angle = rand_angle(re);
 
       bool too_close = false;
 
       for (auto &shape : shapes) {
         const auto &center = shape.GetCenter();
 
-        if ((x_sensor_noobj - center).norm() < pos_res) {
+        if ((os.GetPos() - center).norm() < pos_res) {
           double d_angle = shape.GetAngle() - object_angle;
           while (d_angle < -M_PI) d_angle += 2*M_PI;
           while (d_angle > M_PI) d_angle -= 2*M_PI;
@@ -88,11 +84,8 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
 
       if (!too_close) {
         for (size_t i=0; i<hits->size(); i++) {
-          Eigen::Vector2d x_hit;
-          x_hit(0) = hits->at(i).x;
-          x_hit(1) = hits->at(i).y;
-
-          model_bank->MarkObservation("NOOBJ", x_sensor_noobj, object_angle, x_hit);
+          Observation x_hit(Eigen::Vector2d(hits->at(i).x, hits->at(i).y));
+          model_bank->MarkObservation(os, x_hit);
         }
       }
     }

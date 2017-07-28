@@ -3,7 +3,10 @@ cc_library(
     srcs = ["detection_map.cc", "detection_map.h",
             "histogram.cc", "histogram.h",
             "model_bank.cc", "model_bank.h",
-            "ray_model.cc", "ray_model.h"],
+            "ray_model.cc", "ray_model.h",
+            "observation.cc", "observation.h",
+            "object_state.cc", "object_state.h",
+            ],
     linkopts = ["-pthread"],
     deps = ["@eigen//:eigen", "//library/sim_world", "//library/timer", "@boost//:boost_serialization"]
 )

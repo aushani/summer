@@ -17,6 +17,7 @@
 #include "model_bank.h"
 #include "ray_model.h"
 #include "detection_map.h"
+#include "observation.h"
 
 namespace ge = library::geometry;
 namespace sw = library::sim_world;
@@ -31,7 +32,7 @@ ModelBank LoadModelBank(const char *fn) {
 }
 
 DetectionMap BuildMap(const std::vector<ge::Point> &hits, const ModelBank model_bank) {
-  DetectionMap detection_map(30.0, 1.0, model_bank);
+  DetectionMap detection_map(50.0, 0.3, model_bank);
 
   library::timer::Timer t;
 
@@ -46,28 +47,25 @@ DetectionMap BuildMap(const std::vector<ge::Point> &hits, const ModelBank model_
 void GenerateSyntheticScans(const ModelBank &model_bank) {
   auto models = model_bank.GetModels();
   for (auto it = models.begin(); it != models.end(); it++) {
-    printf("Generating synethic scan for %s\n", it->first.c_str());
+    printf("Generating synthetic scan for %s\n", it->first.c_str());
 
     std::ofstream model_file;
     model_file.open(it->first + std::string(".csv"));
 
-    Eigen::Vector2d x_sensor_object;
-    x_sensor_object(0) = 0.0;
-    x_sensor_object(1) = 20.0;
-    //double object_angle = (2*M_PI) / 20;
-    double object_angle = 0;
+    double x = 0.0;
+    double y = 20.0;
+    double object_angle = 0.0;
+    ObjectState os(x, y, object_angle, it->first);
 
     for (double x = -5; x<5; x+=0.05) {
       for (double y = 15; y<25; y+=0.05) {
-        Eigen::Vector2d x_hit;
-        x_hit(0) = x;
-        x_hit(1) = y;
-        double likelihood = it->second.GetLikelihood(x_sensor_object, object_angle, x_hit);
+        Observation x_hit(Eigen::Vector2d(x, y));
+        double likelihood = it->second.GetLikelihood(os, x_hit);
         if (likelihood < 0) {
           likelihood = 0;
         }
 
-        model_file << x_hit(0) << "," << x_hit(1) << "," << likelihood << std::endl;
+        model_file << x_hit.GetX() << "," << x_hit.GetY() << "," << likelihood << std::endl;
       }
     }
     model_file.close();
@@ -143,7 +141,7 @@ int main(int argc, char** argv) {
         double score = detection_map.EvaluateObservationsForState(x_hits, os);
         double t_ms = t.GetMs();
         printf("\t\tShape %s (actually %s) at %5.3f, %5.3f with angle %5.3f --> %5.3f (%5.3f ms)\n",
-            cn.c_str(), s.GetName().c_str(), os.pos.x, os.pos.y, os.angle, score, t_ms);
+            cn.c_str(), s.GetName().c_str(), os.GetPos()(0), os.GetPos()(1), os.GetTheta(), score, t_ms);
       }
     }
 
@@ -171,14 +169,14 @@ int main(int argc, char** argv) {
         const ObjectState &os = it->first;
 
         // Check class
-        if (os.classname != cn) {
+        if (os.GetClassname() != cn) {
           continue;
         }
 
-        float x = os.pos.x;
-        float y = os.pos.y;
+        float x = os.GetPos()(0);
+        float y = os.GetPos()(1);
 
-        double angle = os.angle;
+        double angle = os.GetTheta();
 
         double score = detection_map.GetScore(os);
         double logodds = detection_map.GetLogOdds(os);

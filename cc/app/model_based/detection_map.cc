@@ -4,6 +4,8 @@
 
 #include <Eigen/Core>
 
+#include "library/timer/timer.h"
+
 DetectionMap::DetectionMap(double size, double res, const ModelBank &model_bank) :
  size_(size), res_(res), model_bank_(model_bank) {
   auto classes = GetClasses();
@@ -41,32 +43,22 @@ std::vector<std::string> DetectionMap::GetClasses() const {
 }
 
 double DetectionMap::EvaluateObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const ObjectState &state) const {
-  std::vector<float> angles;
+  std::vector<Observation> obs;
   for (auto h : x_hits) {
-    angles.push_back(atan2(h(1), h(0)));
+    obs.emplace_back(h);
   }
-  return EvaluateObservationsForState(x_hits, angles, state);
+  return EvaluateObservationsForState(obs, state);
 }
 
-double DetectionMap::EvaluateObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles, const ObjectState &state) const {
-  Eigen::Vector2d x_sensor_object;
-  x_sensor_object(0) = state.pos.x;
-  x_sensor_object(1) = state.pos.y;
-
-  double object_angle = state.angle;
-
-  return model_bank_.EvaluateObservations(x_sensor_object, object_angle, x_hits, angles, state.classname);
+double DetectionMap::EvaluateObservationsForState(const std::vector<Observation> &x_hits, const ObjectState &state) const {
+  return model_bank_.EvaluateObservations(state, x_hits);
 }
 
-void DetectionMap::ProcessObservationsForState(const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles, const ObjectState &state) {
-  double update = EvaluateObservationsForState(x_hits, angles, state);
-  //printf("update: %5.3f\n", update);
-  //printf("prev score: %5.3f\n", scores_[state]);
-  scores_[state] += update;
+void DetectionMap::ProcessObservationsForState(const std::vector<Observation> &x_hits, const ObjectState &state) {
+  scores_[state] += EvaluateObservationsForState(x_hits, state);
 }
 
-void DetectionMap::ProcessObservationsWorker(const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles,
-                                             std::deque<ObjectState> *states, std::mutex *mutex) {
+void DetectionMap::ProcessObservationsWorker(const std::vector<Observation> &x_hits, std::deque<ObjectState> *states, std::mutex *mutex) {
   bool done = false;
 
   while (!done) {
@@ -78,20 +70,20 @@ void DetectionMap::ProcessObservationsWorker(const std::vector<Eigen::Vector2d> 
       ObjectState state = states->front();
       states->pop_front();
       mutex->unlock();
-      ProcessObservationsForState(x_hits, angles, state);
+      ProcessObservationsForState(x_hits, state);
     }
   }
 }
 
 void DetectionMap::ProcessObservations(const std::vector<ge::Point> &hits) {
-  std::vector<Eigen::Vector2d> x_hits;
-  std::vector<float> angles;
+  library::timer::Timer t;
+  t.Start();
+  std::vector<Observation> x_hits;
   for (auto h : hits) {
-    Eigen::Vector2d hit;
-    hit << h.x, h.y;
-    x_hits.push_back(hit);
-    angles.push_back(atan2(h.y, h.x));
+    x_hits.emplace_back(Eigen::Vector2d(h.x, h.y));
   }
+  double ms = t.GetMs();
+  printf("Took %5.3f ms to convert observations\n", ms);
 
   std::deque<ObjectState> states;
   std::mutex mutex;
@@ -100,10 +92,10 @@ void DetectionMap::ProcessObservations(const std::vector<ge::Point> &hits) {
     states.push_back(it->first);
   }
 
-  int num_threads = 32;
+  int num_threads = 48;
   std::vector<std::thread> threads;
   for (int i=0; i<num_threads; i++) {
-    threads.push_back(std::thread(&DetectionMap::ProcessObservationsWorker, this, x_hits, angles, &states, &mutex));
+    threads.push_back(std::thread(&DetectionMap::ProcessObservationsWorker, this, x_hits, &states, &mutex));
   }
 
   for (auto &thread : threads) {
@@ -118,8 +110,8 @@ bool DetectionMap::IsMaxDetection(const ObjectState &state) {
 
   int window_size = 5;
 
-  double x = state.pos.x;
-  double y = state.pos.y;
+  double x = state.GetPos()(0);
+  double y = state.GetPos()(1);
 
   for (double xm = fmax(-size_, x - window_size*res_); xm <= fmin(size_, x + window_size*res_); xm += res_) {
     for (double ym = fmax(-size_, y - window_size*res_); ym <= fmin(size_, y + window_size*res_); ym += res_) {
@@ -214,8 +206,8 @@ double DetectionMap::GetProb(const ObjectState &os) const {
   double denom = 0.0;
 
   auto it = it_os;
-  while (std::abs(it->first.pos.x - it_os->first.pos.x) < 1e-3 &&
-         std::abs(it->first.pos.y - it_os->first.pos.y) < 1e-3) {
+  while (std::abs(it->first.GetPos()(0) - it_os->first.GetPos()(0)) < 1e-3 &&
+         std::abs(it->first.GetPos()(1) - it_os->first.GetPos()(1)) < 1e-3) {
     double s = it->second - my_score;
     denom += exp(s);
     it++;
@@ -223,8 +215,8 @@ double DetectionMap::GetProb(const ObjectState &os) const {
 
   it = it_os;
   it--; // don't double count!
-  while (std::abs(it->first.pos.x - it_os->first.pos.x) < 1e-3 &&
-         std::abs(it->first.pos.y - it_os->first.pos.y) < 1e-3) {
+  while (std::abs(it->first.GetPos()(0) - it_os->first.GetPos()(0)) < 1e-3 &&
+         std::abs(it->first.GetPos()(1) - it_os->first.GetPos()(1)) < 1e-3) {
     double s = it->second - my_score;
     denom += exp(s);
     it--;

@@ -29,9 +29,9 @@ void RayModel::MarkObservation(double phi, double dist_ray, double dist_obs) {
   h.Mark(dist_obs);
 }
 
-void RayModel::MarkObservationWorldFrame(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit) {
+void RayModel::MarkObservationWorldFrame(const ObjectState &os, const Observation &x_hit) {
   double phi, dist_ray, dist_obs;
-  ConvertObservation(x_sensor_object, object_angle, x_hit, &phi, &dist_ray, &dist_obs);
+  ConvertObservation(os, x_hit, &phi, &dist_ray, &dist_obs);
 
   // TODO: Do we have to check to make sure we're not too close to the object?
   //double phi_origin, dist_ray_origin, dist_obs_origin;
@@ -40,7 +40,7 @@ void RayModel::MarkObservationWorldFrame(const Eigen::Vector2d &x_sensor_object,
   //ConvertObservations(x_sensor_object, object, x_origin, &phi_origin, &dist_ray_origin, &dist_obs_origin):
 
   // We are between object and hit
-  double range = x_hit.norm();
+  double range = x_hit.GetRange();
   if (dist_obs > range) {
     return;
   }
@@ -79,11 +79,11 @@ bool RayModel::GetLogLikelihood(double phi, double dist_ray, double dist_obs, do
   return true;
 }
 
-double RayModel::GetLikelihood(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit) const {
+double RayModel::GetLikelihood(const ObjectState &os, const Observation &x_hit) const {
   double phi, dist_ray, dist_obs;
-  ConvertObservation(x_sensor_object, object_angle, x_hit, &phi, &dist_ray, &dist_obs);
+  ConvertObservation(os, x_hit, &phi, &dist_ray, &dist_obs);
 
-  double range = x_hit.norm();
+  double range = x_hit.GetRange();
   if (dist_obs > range) {
     return -1.0;
   }
@@ -96,22 +96,20 @@ double RayModel::GetLikelihood(const Eigen::Vector2d &x_sensor_object, double ob
   return histograms_[idx].GetLikelihood(dist_obs);
 }
 
-double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles) const {
+double RayModel::EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const {
   double l_p_z = 0.0;
 
-  const double angle_to_object = atan2(x_sensor_object(1), x_sensor_object(0));
-  const double dist_to_object = x_sensor_object.norm();
+  const double angle_to_object = os.GetBearing();
+  const double dist_to_object = os.GetRange();
 
   double max_dtheta = 2*M_PI;
   if (dist_to_object > max_size_) {
     max_dtheta = asin( (max_size_ + 2 * kDistanceStep_) / dist_to_object);
   }
 
-  for (size_t i=0; i<x_hits.size(); i++) {
-    const Eigen::Vector2d &x_hit = x_hits[i];
-
+  for (const auto &x_hit : x_hits) {
     if (max_dtheta < 2*M_PI) {
-      float angle = angles[i];
+      float angle = x_hit.GetTheta();
 
       double dtheta = angle - angle_to_object;
       while (dtheta < -M_PI) dtheta += 2*M_PI;
@@ -120,10 +118,10 @@ double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, do
       if (std::abs(dtheta) > max_dtheta) {
         //// Verify
         //double phi, dist_ray, dist_obs;
-        //ConvertObservation(x_sensor_object, object_angle, x_hit, &phi, &dist_ray, &dist_obs);
+        //ConvertObservation(os, x_hit, &phi, &dist_ray, &dist_obs);
 
         //// Check for projected observations behind us
-        //double range = x_hit.norm();
+        //double range = x_hit.GetRange();
         //if (dist_obs > range) {
         //  continue;
         //}
@@ -138,10 +136,10 @@ double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, do
     }
 
     double phi, dist_ray, dist_obs;
-    ConvertObservation(x_sensor_object, object_angle, x_hit, &phi, &dist_ray, &dist_obs);
+    ConvertObservation(os, x_hit, &phi, &dist_ray, &dist_obs);
 
     // Check for projected observations behind us
-    double range = x_hit.norm();
+    double range = x_hit.GetRange();
     if (dist_obs > range) {
       continue;
     }
@@ -157,32 +155,31 @@ double RayModel::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, do
   return l_p_z;
 }
 
-void RayModel::ConvertRay(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double *phi, double *dist_ray) const {
+void RayModel::ConvertRay(const ObjectState &os, double sensor_angle, double *phi, double *dist_ray) const {
   // Compute relative angle with object
-  *phi = sensor_angle - object_angle;
+  *phi = sensor_angle - os.GetTheta();
 
   // Compute ray's distance from object center
   double a = sin(sensor_angle);
   double b = -cos(sensor_angle);
-  *dist_ray = a*x_sensor_object(0) + b*x_sensor_object(1);
+  *dist_ray = a*os.GetPos()(0) + b*os.GetPos()(1);
 }
 
-void RayModel::ConvertObservation(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit, double *phi, double *dist_ray, double *dist_obs) const {
+void RayModel::ConvertObservation(const ObjectState &os, const Observation &x_hit, double *phi, double *dist_ray, double *dist_obs) const {
   // Compute relative angle with object
-  double sensor_angle = atan2(x_hit(1), x_hit(0));
-  ConvertRay(x_sensor_object, object_angle, sensor_angle, phi, dist_ray);
+  *phi = x_hit.GetTheta() - os.GetTheta();
+
+  // Compute ray's distance from object center
+  *dist_ray = x_hit.GetSinTheta()*os.GetPos()(0) - x_hit.GetCosTheta()*os.GetPos()(1);
 
   // Compute location of ray hit relative to object
-  double a_obj = cos(sensor_angle);
-  double b_obj = sin(sensor_angle);
-  double c_obj = -(a_obj * x_sensor_object(0) + b_obj * x_sensor_object(1));
-  *dist_obs = a_obj*x_hit(0) + b_obj*x_hit(1) + c_obj;
+  *dist_obs = x_hit.GetRange() - x_hit.GetCosTheta()*os.GetPos()(0) - x_hit.GetSinTheta()*os.GetPos()(1);
 }
 
-double RayModel::GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double percentile) const {
+double RayModel::GetExpectedRange(const ObjectState &os, double sensor_angle, double percentile) const {
   // Compute relative angle with object
   double phi=0.0, dist_ray=0.0;
-  ConvertRay(x_sensor_object, object_angle, sensor_angle, &phi, &dist_ray);
+  ConvertRay(os, sensor_angle, &phi, &dist_ray);
 
   int idx = GetHistogramIndex(phi, dist_ray);
   if (idx < 0) {
@@ -200,7 +197,7 @@ double RayModel::GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double
 
   double a_obj = cos(sensor_angle);
   double b_obj = sin(sensor_angle);
-  double c_obj = -(a_obj * x_sensor_object(0) + b_obj * x_sensor_object(1));
+  double c_obj = -(a_obj * os.GetPos()(0) + b_obj * os.GetPos()(1));
   double dist_sensor = c_obj;
 
   double range = dist_obs - dist_sensor;

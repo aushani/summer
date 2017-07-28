@@ -11,18 +11,20 @@
 #include <boost/archive/text_oarchive.hpp>
 
 #include "histogram.h"
+#include "observation.h"
+#include "object_state.h"
 
 class RayModel {
  public:
   RayModel();
   RayModel(double size);
 
-  void MarkObservationWorldFrame(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit);
+  void MarkObservationWorldFrame(const ObjectState &os, const Observation &x_hit);
 
-  double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits, const std::vector<float> &angles) const;
+  double EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const;
 
-  double GetExpectedRange(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double percentile) const;
-  double GetLikelihood(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit) const;
+  double GetExpectedRange(const ObjectState &os, double sensor_angle, double percentile) const;
+  double GetLikelihood(const ObjectState &os, const Observation &x_hit) const;
 
   double GetSize() const;
 
@@ -42,8 +44,8 @@ class RayModel {
   void MarkObservation(double phi, double dist_ray, double dist_obs);
 
   int GetHistogramIndex(double phi, double dist_ray) const;
-  void ConvertRay(const Eigen::Vector2d &x_sensor_object, double object_angle, double sensor_angle, double *phi, double *dist_ray) const;
-  void ConvertObservation(const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit, double *phi, double *dist_ray, double *dist_obs) const;
+  void ConvertRay(const ObjectState &os, double sensor_angle, double *phi, double *dist_ray) const;
+  void ConvertObservation(const ObjectState &os, const Observation &x_hit, double *phi, double *dist_ray, double *dist_obs) const;
 
   bool GetLogLikelihood(double phi, double dist_ray, double dist_obs, double *res) const;
 

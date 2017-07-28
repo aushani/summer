@@ -8,13 +8,12 @@ void ModelBank::AddRayModel(const std::string &name, double size, double p_obj) 
   p_objs_[name] = p_obj;
 }
 
-void ModelBank::MarkObservation(const std::string &name, const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit) {
-  auto it = obj_models_.find(name);
+void ModelBank::MarkObservation(const ObjectState &os, const Observation &x_hit) {
+  auto it = obj_models_.find(os.GetClassname());
   if (it == obj_models_.end()) {
-    printf("No model found for %s\n", name.c_str());
+    printf("No model found for %s\n", os.GetClassname().c_str());
   } else {
-    it->second.MarkObservationWorldFrame(x_sensor_object, object_angle, x_hit);
-    //obs_model_.MarkObservationWorldFrame(x_sensor_object, object_angle, x_hit);
+    it->second.MarkObservationWorldFrame(os, x_hit);
   }
 }
 
@@ -34,11 +33,10 @@ const RayModel& ModelBank::GetModel(const std::string &name) const {
   return obj_models_.find(name)->second;
 }
 
-double ModelBank::EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits,
-    const std::vector<float> &angles, const std::string &classname) const {
+double ModelBank::EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const {
   // TODO Assume classname exists
-  auto it = obj_models_.find(classname);
-  return it->second.EvaluateObservations(x_sensor_object, object_angle, x_hits, angles);
+  auto it = obj_models_.find(os.GetClassname());
+  return it->second.EvaluateObservations(os, x_hits);
 }
 
 std::vector<std::string> ModelBank::GetClasses() const {

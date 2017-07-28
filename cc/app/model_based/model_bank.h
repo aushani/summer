@@ -12,6 +12,8 @@
 
 #include "ray_model.h"
 #include "histogram.h"
+#include "observation.h"
+#include "object_state.h"
 
 class ModelBank {
  public:
@@ -19,13 +21,12 @@ class ModelBank {
 
   void AddRayModel(const std::string &name, double size, double p_obj);
 
-  void MarkObservation(const std::string &name, const Eigen::Vector2d &x_sensor_object, double object_angle, const Eigen::Vector2d &x_hit);
+  void MarkObservation(const ObjectState &os, const Observation &x_hit);
 
   const std::map<std::string, RayModel>& GetModels() const;
   const RayModel& GetModel(const std::string &name) const;
 
-  double EvaluateObservations(const Eigen::Vector2d &x_sensor_object, double object_angle, const std::vector<Eigen::Vector2d> &x_hits,
-      const std::vector<float> &angles, const std::string &classname) const;
+  double EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const;
 
   double GetProbObj(const std::string &name) const;
 
