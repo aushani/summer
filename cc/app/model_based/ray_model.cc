@@ -100,12 +100,8 @@ double RayModel::EvaluateObservations(const ObjectState &os, const std::vector<O
   double l_p_z = 0.0;
 
   const double angle_to_object = os.GetBearing();
-  const double dist_to_object = os.GetRange();
 
-  double max_dtheta = 2*M_PI;
-  if (dist_to_object > max_size_) {
-    max_dtheta = asin( (max_size_ + 2 * kDistanceStep_) / dist_to_object);
-  }
+  double max_dtheta = os.GetMaxDtheta();
 
   for (const auto &x_hit : x_hits) {
     if (max_dtheta < 2*M_PI) {

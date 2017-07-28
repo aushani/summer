@@ -31,8 +31,8 @@ class RayModel {
   void PrintStats() const;
 
  private:
-  double kPhiStep_ = 0.05;
-  double kDistanceStep_ = 0.05;
+  double kPhiStep_ = 0.1; // 5 degrees
+  double kDistanceStep_ = 0.15; // 15 cm
   double kMaxRange_ = 100.0;
 
   double max_size_;

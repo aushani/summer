@@ -32,7 +32,7 @@ ModelBank LoadModelBank(const char *fn) {
 }
 
 DetectionMap BuildMap(const std::vector<ge::Point> &hits, const ModelBank model_bank) {
-  DetectionMap detection_map(50.0, 0.3, model_bank);
+  DetectionMap detection_map(25.0, 0.3, model_bank);
 
   library::timer::Timer t;
 

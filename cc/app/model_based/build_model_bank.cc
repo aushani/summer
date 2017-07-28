@@ -19,7 +19,7 @@ void SaveModelBank(const ModelBank &model_bank, const std::string &fn) {
 void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trials) {
   // Resolution we car about for the model
   double pos_res = 0.3; // 30 cm
-  double angle_res = 10.0 * M_PI/180.0; // 10 deg
+  double angle_res = 45.0 * M_PI/180.0; // 45 deg
 
   // Sampling positions
   double lower_bound = -20.0;
@@ -27,6 +27,10 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
   std::uniform_real_distribution<double> unif(lower_bound, upper_bound);
   //std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
   std::uniform_real_distribution<double> rand_angle(-0.01, 0.01);
+
+  std::uniform_real_distribution<double> jitter_pos(-pos_res, pos_res);
+  std::uniform_real_distribution<double> jitter_angle(-angle_res, angle_res);
+
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
@@ -42,14 +46,25 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
     sw::SimWorld *sim = data->GetSim();
     std::vector<ge::Point> *hits = data->GetHits();
 
+    // Convert hits to observations
+    std::vector<Observation> observations;
+    for (const auto& h : *hits) {
+      observations.emplace_back(Eigen::Vector2d(h.x, h.y));
+    }
+
     auto shapes = sim->GetShapes();
 
     for (auto &shape : shapes) {
-      ObjectState os(shape.GetCenter()(0), shape.GetCenter()(1), shape.GetAngle(), shape.GetName());
+      for (int i=0; i<10; i++) {
+        double dx = jitter_pos(re);
+        double dy = jitter_pos(re);
+        double dt = jitter_angle(re);
 
-      for (size_t i=0; i<hits->size(); i++) {
-        Observation x_hit(Eigen::Vector2d(hits->at(i).x, hits->at(i).y));
-        model_bank->MarkObservation(os, x_hit);
+        ObjectState os(shape.GetCenter()(0) + dx, shape.GetCenter()(1) + dy, shape.GetAngle() + dt, shape.GetName());
+
+        for (const auto& obs : observations) {
+          model_bank->MarkObservation(os, obs);
+        }
       }
     }
 

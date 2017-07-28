@@ -16,11 +16,16 @@ class ObjectState {
 
   double GetBearing() const;
 
+  double GetMaxDtheta() const;
+
   bool operator<(const ObjectState &os) const;
 
  private:
   const double kResPos_ = 0.001;
   const double kResAngle_ = 0.001;
+
+  const double max_size_ = 5.0;
+  const double kDistanceStep_ = 0.15; // 15 cm
 
   Eigen::Vector2d pos_;
   double theta_;
@@ -32,4 +37,5 @@ class ObjectState {
   double cos_theta_;
   double sin_theta_;
 
+  double max_dtheta_ = 2*M_PI;
 };
