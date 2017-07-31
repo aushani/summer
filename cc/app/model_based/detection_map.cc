@@ -21,14 +21,18 @@ DetectionMap::DetectionMap(double size, double res, const ModelBank &model_bank)
 
           double p_obj = model_bank_.GetProbObj(classname);
           double l_p = log(p_obj);
-          l_p = 0.0;
 
+          //l_p = 0.0;
           //printf("p_obj = %f\n", p_obj);
           //printf("l_p = %f\n", l_p);
 
           scores_.insert( std::pair<ObjectState, double>(s, l_p) );
         }
       }
+
+      // Empty...
+      ObjectState s(x, y, 0, "EMPTY");
+      scores_.insert( std::pair<ObjectState, double>(s, 0.0) );
     }
   }
 }
@@ -178,7 +182,7 @@ std::map<ObjectState, double> DetectionMap::GetMaxDetections(double log_odds_thr
 
   std::priority_queue<Detection, std::vector<Detection>, DetectionComparator> detections;
   for (auto it = scores_.begin(); it != scores_.end(); it++) {
-    if (it->first.GetClassname() == std::string("NOOBJ")) {
+    if (it->first.GetClassname() == std::string("EMPTY")) {
       continue;
     }
 

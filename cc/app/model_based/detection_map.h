@@ -35,7 +35,7 @@ class DetectionMap {
  private:
   double size_;
   double res_;
-  double angle_res_ = (2.0*M_PI)/8.0;
+  double angle_res_ = 15.0 * M_PI/180.0; // 15 deg
   std::map<ObjectState, double> scores_;
 
   ModelBank model_bank_;

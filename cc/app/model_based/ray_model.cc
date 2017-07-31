@@ -49,11 +49,6 @@ void RayModel::MarkObservationWorldFrame(const ObjectState &os, const Observatio
 }
 
 bool RayModel::GetLogLikelihood(double phi, double dist_ray, double dist_obs, double *res) const {
-
-  if (std::abs(dist_ray) > 8) {
-    return false;
-  }
-
   int idx = GetHistogramIndex(phi, dist_ray);
   if (idx < 0) {
     return false;
@@ -71,8 +66,8 @@ bool RayModel::GetLogLikelihood(double phi, double dist_ray, double dist_obs, do
   }
 
   double l = h.GetLikelihood(dist_obs);
-  if (l < 1e-5) {
-    l = 1e-5;
+  if (l < 1e-99) {
+    l = 1e-99;
   }
 
   *res = log(l);

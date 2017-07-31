@@ -17,6 +17,10 @@ void ModelBank::MarkObservation(const ObjectState &os, const Observation &x_hit)
   }
 }
 
+void ModelBank::MarkEmptyObservation(const ObjectState &os, const Observation &x_hit) {
+  empty_model_.MarkObservationWorldFrame(os, x_hit);
+}
+
 double ModelBank::GetProbObj(const std::string &name) const {
   auto it = p_objs_.find(name);
   if (it == p_objs_.end()) {
@@ -33,10 +37,17 @@ const RayModel& ModelBank::GetModel(const std::string &name) const {
   return obj_models_.find(name)->second;
 }
 
+const EmptyModel& ModelBank::GetEmptyModel() const {
+  return empty_model_;
+}
+
 double ModelBank::EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const {
-  // TODO Assume classname exists
   auto it = obj_models_.find(os.GetClassname());
-  return it->second.EvaluateObservations(os, x_hits);
+  if (it != obj_models_.end()) {
+    return it->second.EvaluateObservations(os, x_hits);
+  }
+
+  return empty_model_.EvaluateObservations(os, x_hits);
 }
 
 std::vector<std::string> ModelBank::GetClasses() const {
@@ -54,4 +65,8 @@ void ModelBank::PrintStats() const {
     it->second.PrintStats();
     printf("\n");
   }
+
+  printf("EMPTY\n");
+  empty_model_.PrintStats();
+  printf("\n");
 }

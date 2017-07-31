@@ -59,7 +59,7 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
     double object_angle = 0.0;
     ObjectState os(x, y, object_angle, it->first);
 
-    for (double x = -5; x<5; x+=0.05) {
+    for (double x = -7; x<7; x+=0.05) {
       for (double y = 15; y<25; y+=0.05) {
         Observation x_hit(Eigen::Vector2d(x, y));
         double likelihood = it->second.GetLikelihood(os, x_hit);
@@ -72,6 +72,28 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
     }
     model_file.close();
   }
+
+  EmptyModel model = model_bank.GetEmptyModel();
+  std::ofstream model_file;
+  model_file.open("EMPTY.csv");
+
+  double x = 0.0;
+  double y = 20.0;
+  double object_angle = 0.0;
+  ObjectState os(x, y, object_angle, "EMPTY");
+
+  for (double x = -7; x<7; x+=0.05) {
+    for (double y = 15; y<25; y+=0.05) {
+      Observation x_hit(Eigen::Vector2d(x, y));
+      double likelihood = model.GetLikelihood(os, x_hit);
+      if (likelihood < 0) {
+        likelihood = 0;
+      }
+
+      model_file << x_hit.GetX() << "," << x_hit.GetY() << "," << likelihood << std::endl;
+    }
+  }
+  model_file.close();
 }
 
 int main(int argc, char** argv) {
@@ -128,17 +150,19 @@ int main(int argc, char** argv) {
 
     DetectionMap detection_map = BuildMap(hits, model_bank);
 
-    library::timer::Timer t;
-    t.Start();
-    auto detections = detection_map.GetMaxDetections(0);
-    double ms = t.GetMs();
-    printf("Took %5.3f ms for max detectinos\n", ms);
-    for (auto it = detections.begin(); it != detections.end(); it++) {
-      auto d = it->first;
-      printf("\tMax Detection: %s, %5.3f, %5.3f at angle %5.3f ==> %5.3f\n",
-          d.GetClassname().c_str(), d.GetPos()(0), d.GetPos()(1), d.GetTheta(), it->second);
-    }
+    std::vector<std::string> classes = detection_map.GetClasses();
+    classes.emplace_back("EMPTY");
 
+    //library::timer::Timer t;
+    //t.Start();
+    //auto detections = detection_map.GetMaxDetections(0);
+    //double ms = t.GetMs();
+    //printf("Took %5.3f ms for max detectinos\n", ms);
+    //for (auto it = detections.begin(); it != detections.end(); it++) {
+    //  auto d = it->first;
+    //  printf("\tMax Detection: %s, %5.3f, %5.3f at angle %5.3f ==> %5.3f\n",
+    //      d.GetClassname().c_str(), d.GetPos()(0), d.GetPos()(1), d.GetTheta(), it->second);
+    //}
 
     // At object?
     for (auto &s : sim.GetShapes()) {
@@ -149,7 +173,7 @@ int main(int argc, char** argv) {
 
       library::timer::Timer t;
 
-      for (const auto &cn : model_bank.GetClasses()) {
+      for (const auto &cn : classes) {
         ObjectState os(c(0), c(1), angle, cn);
         t.Start();
         double score = detection_map.EvaluateObservationsForState(x_hits, os);
@@ -170,7 +194,6 @@ int main(int argc, char** argv) {
     data_file.close();
 
     // Write out result
-    const std::vector<std::string> classes = detection_map.GetClasses();
     for (const std::string &cn : classes) {
       std::ofstream res_file;
       sprintf(fn, "result_%s_%03d.csv", cn.c_str(), experiment);
@@ -193,8 +216,15 @@ int main(int argc, char** argv) {
         double angle = os.GetTheta();
 
         double score = detection_map.GetScore(os);
-        double logodds = detection_map.GetLogOdds(os);
+        //double logodds = detection_map.GetLogOdds(os);
         double prob = detection_map.GetProb(os);
+
+        double p = prob;
+        if (p < 1e-10)
+          p = 1e-10;
+        if (p > (1 - 1e-10))
+          p = 1 - 1e-10;
+        double logodds = -log(1.0/p - 1);
 
         res_file << x << "," << y << "," << angle << "," << score << "," << logodds << "," << prob << std::endl;
       }
