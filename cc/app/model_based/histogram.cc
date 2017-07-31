@@ -1,6 +1,8 @@
 #include "histogram.h"
 
 #include <math.h>
+#include <random>
+#include <chrono>
 
 Histogram::Histogram() {
 
@@ -54,6 +56,24 @@ double Histogram::GetCount(double val) const {
 
 double Histogram::GetCountsTotal() const {
   return counts_total_;
+}
+
+double Histogram::Sample() const {
+  std::uniform_real_distribution<double> rand_cdf(0.0, 1.0);
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine rand_engine(seed);
+
+  double cdf = rand_cdf(rand_engine);
+
+  double cdf_at = 0;
+  size_t idx_at = 0;
+
+  while (cdf_at < cdf && idx_at < counts_.size()) {
+    idx_at++;
+    cdf_at += counts_[idx_at]/counts_total_;
+  }
+
+  return GetValue(idx_at);
 }
 
 double Histogram::GetProbability(double val) const {

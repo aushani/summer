@@ -167,6 +167,38 @@ void RayModel::ConvertObservation(const ObjectState &os, const Observation &x_hi
   *dist_obs = x_hit.GetRange() - x_hit.GetCosTheta()*os.GetPos()(0) - x_hit.GetSinTheta()*os.GetPos()(1);
 }
 
+double RayModel::SampleRange(const ObjectState &os, double sensor_angle) const {
+  double phi, dist_ray;
+  ConvertRay(os, sensor_angle, &phi, &dist_ray);
+
+  int idx = GetHistogramIndex(phi, dist_ray);
+  if (idx < 0) {
+    //printf("\tOut of range\n");
+    return kMaxRange_;
+  }
+
+  const Histogram &h = histograms_[idx];
+  if (h.GetCountsTotal() == 0) {
+    //printf("\tNo count\n");
+    return kMaxRange_;
+  }
+
+  double dist_obs = h.Sample();
+
+  double a_obj = cos(sensor_angle);
+  double b_obj = sin(sensor_angle);
+  double c_obj = -(a_obj * os.GetPos()(0) + b_obj * os.GetPos()(1));
+  double dist_sensor = c_obj;
+
+  double range = dist_obs - dist_sensor;
+  if (range < 0) {
+    //printf("\tNegative range\n");
+    return kMaxRange_;
+  }
+
+  return range;
+}
+
 double RayModel::GetExpectedRange(const ObjectState &os, double sensor_angle, double percentile) const {
   // Compute relative angle with object
   double phi=0.0, dist_ray=0.0;

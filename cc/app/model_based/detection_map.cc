@@ -259,10 +259,10 @@ double DetectionMap::GetProb(const ObjectState &os) const {
 
 double DetectionMap::GetLogOdds(const ObjectState &os) const {
   double p = GetProb(os);
-  if (p < 1e-10)
-    p = 1e-10;
-  if (p > (1 - 1e-10))
-    p = 1 - 1e-10;
+  if (p < 1e-99)
+    p = 1e-99;
+  if (p > (1 - 1e-99))
+    p = 1 - 1e-99;
   double lo = -log(1.0/p - 1);
   return lo;
 }

@@ -7,6 +7,7 @@ import pandas
 
 def show_map(ax, x, y, z, title, points=None, vmin=None, vmax=None):
   im = ax.pcolor(x, y, z, vmin=vmin, vmax=vmax)
+  #im = ax.imshow(np.concatenate((x, y, z)))
   ax.scatter(0, 0, c='g', marker='x')
   plt.colorbar(im, ax=ax)
 
@@ -155,6 +156,7 @@ def show_model(model):
 
   #sc = ax.scatter(x, y, c=z, marker='x', s=10)
   im = ax.pcolor(x, y, z);
+  #im = ax.imshow(np.concatenate((x, y, z)))
   plt.colorbar(im, label='Likelihood')
   ax.axis('equal')
   #ax.axis((-5, 5, 0, 8))
@@ -207,7 +209,7 @@ if True:
 if True:
   box  = np.loadtxt('/home/aushani/summer/cc/BOX.csv'                         , delimiter=',')
   star  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
-  empty  = np.loadtxt('/home/aushani/summer/cc/empty.csv'                         , delimiter=',')
+  empty  = np.loadtxt('/home/aushani/summer/cc/EMPTY.csv'                         , delimiter=',')
 
   show_model(box)
   show_model(star)

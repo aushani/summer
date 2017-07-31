@@ -23,6 +23,8 @@ class Histogram {
   double GetCount(double val) const;
   double GetCountsTotal() const;
 
+  double Sample() const;
+
   double GetProbability(double val) const;
   double GetLikelihood(double val) const;
   double GetCumulativeProbability(double val) const;

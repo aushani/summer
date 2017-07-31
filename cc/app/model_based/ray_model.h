@@ -23,6 +23,7 @@ class RayModel {
 
   double EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const;
 
+  double SampleRange(const ObjectState &os, double sensor_angle) const;
   double GetExpectedRange(const ObjectState &os, double sensor_angle, double percentile) const;
   double GetLikelihood(const ObjectState &os, const Observation &x_hit) const;
 

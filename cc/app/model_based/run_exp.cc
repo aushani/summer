@@ -51,18 +51,18 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
   for (auto it = models.begin(); it != models.end(); it++) {
     printf("Generating synthetic scan for %s\n", it->first.c_str());
 
-    std::ofstream model_file;
-    model_file.open(it->first + std::string(".csv"));
+    const RayModel &model = it->second;
 
     double x = 0.0;
     double y = 20.0;
     double object_angle = 0.0;
     ObjectState os(x, y, object_angle, it->first);
 
-    for (double x = -7; x<7; x+=0.05) {
+    std::ofstream model_file(it->first + std::string(".csv"));
+    for (double x = -10; x<10; x+=0.05) {
       for (double y = 15; y<25; y+=0.05) {
         Observation x_hit(Eigen::Vector2d(x, y));
-        double likelihood = it->second.GetLikelihood(os, x_hit);
+        double likelihood = model.GetLikelihood(os, x_hit);
         if (likelihood < 0) {
           likelihood = 0;
         }
@@ -71,6 +71,26 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
       }
     }
     model_file.close();
+
+    for (int i=0; i<4; i++) {
+      std::ofstream model_file;
+      std::ostringstream ss;
+      ss << it->first;
+      ss << "_sample_" << i << ".csv";
+      model_file.open(ss.str());
+
+      for (double sensor_angle = -M_PI; sensor_angle < M_PI; sensor_angle += 0.01) {
+        double range = model.SampleRange(os, sensor_angle);
+
+        if (range < 100) {
+          double x = range * cos(sensor_angle);
+          double y = range * sin(sensor_angle);
+
+          model_file << x << "," << y << std::endl;
+        }
+      }
+      model_file.close();
+    }
   }
 
   EmptyModel model = model_bank.GetEmptyModel();
@@ -82,7 +102,7 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
   double object_angle = 0.0;
   ObjectState os(x, y, object_angle, "EMPTY");
 
-  for (double x = -7; x<7; x+=0.05) {
+  for (double x = -10; x<10; x+=0.05) {
     for (double y = 15; y<25; y+=0.05) {
       Observation x_hit(Eigen::Vector2d(x, y));
       double likelihood = model.GetLikelihood(os, x_hit);
@@ -220,10 +240,10 @@ int main(int argc, char** argv) {
         double prob = detection_map.GetProb(os);
 
         double p = prob;
-        if (p < 1e-10)
-          p = 1e-10;
-        if (p > (1 - 1e-10))
-          p = 1 - 1e-10;
+        if (p < 1e-99)
+          p = 1e-99;
+        if (p > (1 - 1e-99))
+          p = 1 - 1e-99;
         double logodds = -log(1.0/p - 1);
 
         res_file << x << "," << y << "," << angle << "," << score << "," << logodds << "," << prob << std::endl;

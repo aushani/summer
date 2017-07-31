@@ -13,9 +13,9 @@ SimWorld::SimWorld(size_t n_shapes) :
   origin_(0.0, 0.0) {
 
   std::uniform_real_distribution<double> pos(-20.0, 20.0);
-  std::uniform_real_distribution<double> width(2.0, 4.0);
-  std::uniform_real_distribution<double> length(4.0, 8.0);
-  std::uniform_real_distribution<double> rand_size(1.0, 2.0);
+  std::uniform_real_distribution<double> width(6.000, 6.001);
+  std::uniform_real_distribution<double> length(8.0, 8.001);
+  std::uniform_real_distribution<double> rand_size(2.5, 2.501);
   std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
   std::uniform_real_distribution<double> rand_shape(0.0, 1.0);
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
