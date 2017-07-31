@@ -130,13 +130,13 @@ Data* DataManager::GetData() {
 
 void DataManager::GenerateData() {
   while (!done_) {
-    Data *d = new Data(gen_random_, gen_occluded_);
-
     mutex_.lock();
     size_t sz = data_.size();
     mutex_.unlock();
 
     if (sz < kMaxData) {
+      Data *d = new Data(gen_random_, gen_occluded_);
+
       mutex_.lock();
       data_.push_back(d);
       mutex_.unlock();
