@@ -240,10 +240,10 @@ int main(int argc, char** argv) {
         double prob = detection_map.GetProb(os);
 
         double p = prob;
-        if (p < 1e-99)
-          p = 1e-99;
-        if (p > (1 - 1e-99))
-          p = 1 - 1e-99;
+        if (p < 1e-15)
+          p = 1e-15;
+        if (p > (1 - 1e-15))
+          p = 1 - 1e-15;
         double logodds = -log(1.0/p - 1);
 
         res_file << x << "," << y << "," << angle << "," << score << "," << logodds << "," << prob << std::endl;
