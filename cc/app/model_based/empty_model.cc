@@ -58,38 +58,7 @@ bool EmptyModel::GetLogLikelihood(double dist_ray, double dist_obs, double *res)
 double EmptyModel::EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const {
   double l_p_z = 0.0;
 
-  const double angle_to_object = os.GetBearing();
-
-  double max_dtheta = os.GetMaxDtheta();
-
   for (const auto &x_hit : x_hits) {
-    if (max_dtheta < 2*M_PI) {
-      float angle = x_hit.GetTheta();
-
-      double dtheta = angle - angle_to_object;
-      while (dtheta < -M_PI) dtheta += 2*M_PI;
-      while (dtheta > M_PI) dtheta -= 2*M_PI;
-
-      if (std::abs(dtheta) > max_dtheta) {
-        //// Verify
-        //double phi, dist_ray, dist_obs;
-        //ConvertObservation(os, x_hit, &phi, &dist_ray, &dist_obs);
-
-        //// Check for projected observations behind us
-        //double range = x_hit.GetRange();
-        //if (dist_obs > range) {
-        //  continue;
-        //}
-
-        //double log_l_obs_obj = 0;
-        //if ( GetLogLikelihood(phi, dist_ray, dist_obs, &log_l_obs_obj) ) {
-        //  printf("ERROR ERROR ERROR, %5.3f dtheta vs %5.3f max dtheta\n",
-        //      dtheta, max_dtheta);
-        //}
-        continue;
-      }
-    }
-
     double dist_ray, dist_obs;
     ConvertObservation(os, x_hit, &dist_ray, &dist_obs);
 

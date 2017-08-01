@@ -8,12 +8,12 @@ void ModelBank::AddRayModel(const std::string &name, double size, double p_obj) 
   p_objs_[name] = p_obj;
 }
 
-void ModelBank::MarkObservation(const ObjectState &os, const Observation &x_hit) {
+void ModelBank::MarkObservations(const ObjectState &os, const std::vector<Observation> &x_hits) {
   auto it = obj_models_.find(os.GetClassname());
   if (it == obj_models_.end()) {
     printf("No model found for %s\n", os.GetClassname().c_str());
   } else {
-    it->second.MarkObservationWorldFrame(os, x_hit);
+    it->second.MarkObservationsWorldFrame(os, x_hits);
   }
 }
 

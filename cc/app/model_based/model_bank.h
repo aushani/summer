@@ -20,7 +20,7 @@ class ModelBank {
 
   void AddRayModel(const std::string &name, double size, double p_obj);
 
-  void MarkObservation(const ObjectState &os, const Observation &x_hit);
+  void MarkObservations(const ObjectState &os, const std::vector<Observation> &x_hits);
   void MarkEmptyObservation(const ObjectState &os, const Observation &x_hit);
 
   const std::map<std::string, RayModel>& GetModels() const;

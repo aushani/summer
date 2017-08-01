@@ -16,8 +16,6 @@ class ObjectState {
 
   double GetBearing() const;
 
-  double GetMaxDtheta() const;
-
   bool operator<(const ObjectState &os) const;
 
  private:
@@ -36,6 +34,4 @@ class ObjectState {
   double range_;
   double cos_theta_;
   double sin_theta_;
-
-  double max_dtheta_ = 2*M_PI;
 };

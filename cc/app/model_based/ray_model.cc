@@ -3,69 +3,93 @@
 #include <math.h>
 
 RayModel::RayModel() :
- RayModel(10.0) {
+ RayModel(0.0) {
 }
 
 RayModel::RayModel(double size) :
  max_size_(size) {
-  phi_dim_ = ceil(2*M_PI / kPhiStep_) + 1;
-  dist_dim_ = 2*ceil(max_size_ / kDistanceStep_) + 1;
-
-  for (int i = 0; i < phi_dim_ * dist_dim_; i++) {
-    histograms_.emplace_back(-size, size, kDistanceStep_);
-  }
 }
 
 double RayModel::GetSize() const {
   return max_size_;
 }
 
-void RayModel::MarkObservation(double phi, double dist_ray, double dist_obs) {
-  int idx = GetHistogramIndex(phi, dist_ray);
-  if (idx < 0)
-    return;
-
-  Histogram &h = histograms_[idx];
-  h.Mark(dist_obs);
-}
-
-void RayModel::MarkObservationWorldFrame(const ObjectState &os, const Observation &x_hit) {
-  double phi, dist_ray, dist_obs;
-  ConvertObservation(os, x_hit, &phi, &dist_ray, &dist_obs);
-
-  // TODO: Do we have to check to make sure we're not too close to the object?
-  //double phi_origin, dist_ray_origin, dist_obs_origin;
-  //Eigen::Vector2d x_origin;
-  //x_origin << 0, 0;
-  //ConvertObservations(x_sensor_object, object, x_origin, &phi_origin, &dist_ray_origin, &dist_obs_origin):
-
-  // We are between object and hit
-  double range = x_hit.GetRange();
-  if (dist_obs > range) {
+void RayModel::MarkObservation(const ModelObservation &mo) {
+  Histogram *h = GetHistogram(mo);
+  if (h == nullptr) {
     return;
   }
 
-  MarkObservation(phi, dist_ray, dist_obs);
+  h->Mark(mo.dist_obs);
 }
 
-bool RayModel::GetLogLikelihood(double phi, double dist_ray, double dist_obs, double *res) const {
-  int idx = GetHistogramIndex(phi, dist_ray);
-  if (idx < 0) {
+void RayModel::MarkObservations(const ModelObservation &mo1, const ModelObservation &mo2) {
+  Histogram *h = GetHistogram(mo1, mo2);
+  if (h == nullptr) {
+    return;
+  }
+
+  h->Mark(mo2.dist_obs);
+}
+
+bool RayModel::InRoi(const ModelObservation &mo) const {
+  // Check if ray comes closes enough to object
+  if (std::abs(mo.dist_ray) > max_size_) {
     return false;
   }
 
-  const Histogram &h = histograms_[idx];
-  if (h.GetCountsTotal() < 10) {
-    printf("Count = %5.3f, histogram with phi = %5.3f, dist_ray = %5.3f!!!\n", h.GetCountsTotal(), phi, dist_ray);
+  // Check for projected observations behind us
+  if (!mo.in_front) {
     return false;
   }
 
-  // Occluded
-  if (dist_obs < h.GetMin()) {
+  // Check for occlusion
+  if (mo.dist_obs < -max_size_) {
     return false;
   }
 
-  double l = h.GetLikelihood(dist_obs);
+  return true;
+}
+
+void RayModel::MarkObservationsWorldFrame(const ObjectState &os, const std::vector<Observation> &x_hits) {
+  // Convert to model observations
+  std::vector<ModelObservation> obs;
+  for (const Observation &x_hit : x_hits) {
+    obs.emplace_back(os, x_hit);
+  }
+
+  // Do 1 grams
+  for (const ModelObservation &mo : obs) {
+    if (InRoi(mo)) {
+      MarkObservation(mo);
+    }
+  }
+
+  // Do 2 grams
+  for (size_t i = 0; i < obs.size(); i++) {
+    const ModelObservation &mo1 = obs[i==0 ? (obs.size()-1):(i-1)];
+    const ModelObservation &mo2 = obs[i];
+
+    if (InRoi(mo1) && InRoi(mo2)) {
+      // TODO Need to do two-sided?
+      MarkObservations(mo1, mo2);
+      MarkObservations(mo2, mo1);
+    }
+  }
+}
+
+bool RayModel::GetLogLikelihood(const ModelObservation &mo, double *res) const {
+  const Histogram *h = GetHistogram(mo);
+  if (h == nullptr) {
+    return false;
+  }
+
+  if (h->GetCountsTotal() < 10) {
+    printf("Count = %5.3f, histogram with phi = %5.3f, dist_ray = %5.3f!!!\n", h->GetCountsTotal(), mo.phi, mo.dist_ray);
+    return false;
+  }
+
+  double l = h->GetLikelihood(mo.dist_obs);
   if (l < 1e-99) {
     l = 1e-99;
   }
@@ -74,72 +98,82 @@ bool RayModel::GetLogLikelihood(double phi, double dist_ray, double dist_obs, do
   return true;
 }
 
-double RayModel::GetLikelihood(const ObjectState &os, const Observation &x_hit) const {
-  double phi, dist_ray, dist_obs;
-  ConvertObservation(os, x_hit, &phi, &dist_ray, &dist_obs);
+bool RayModel::GetLogLikelihood(const ModelObservation &mo1, const ModelObservation &mo2, double *res) const {
+  const Histogram *h = GetHistogram(mo1, mo2);
+  if (h == nullptr) {
+    return false;
+  }
 
-  double range = x_hit.GetRange();
-  if (dist_obs > range) {
+  if (h->GetCountsTotal() < 10) {
+    printf("Count = %5.3f, histogram with phi_1 = %5.3f, dist_ray_1 = %5.3f, dist_obs_1 = %5.3f, phi_2 = %5.3f, dist_ray_2 = %5.3f,!!!\n",
+        h->GetCountsTotal(), mo1.phi, mo1.dist_ray, mo1.dist_obs, mo2.phi, mo2.dist_ray);
+    return false;
+  }
+
+  double l = h->GetLikelihood(mo2.dist_obs);
+  if (l < 1e-99) {
+    l = 1e-99;
+  }
+
+  *res = log(l);
+  return true;
+}
+
+double RayModel::GetLikelihood(const ObjectState &os, const Observation &obs) const {
+  ModelObservation mo(os, obs);
+
+  if (!InRoi(mo)) {
     return -1.0;
   }
 
-  int idx = GetHistogramIndex(phi, dist_ray);
-  if (idx < 0) {
+  const Histogram *h = GetHistogram(mo);
+  if (h == nullptr) {
     return -1.0;
   }
 
-  return histograms_[idx].GetLikelihood(dist_obs);
+  return h->GetLikelihood(mo.dist_obs);
 }
 
 double RayModel::EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const {
+  // Convert to model observations
+  std::vector<ModelObservation> obs;
+  for (const Observation &x_hit : x_hits) {
+    obs.emplace_back(os, x_hit);
+  }
+
+  // Find where to start
+  // TODO
+
   double l_p_z = 0.0;
 
-  const double angle_to_object = os.GetBearing();
+  for (size_t i = 0; i < obs.size(); i++) {
+    const ModelObservation &mo = obs[i];
 
-  double max_dtheta = os.GetMaxDtheta();
-
-  for (const auto &x_hit : x_hits) {
-    if (max_dtheta < 2*M_PI) {
-      float angle = x_hit.GetTheta();
-
-      double dtheta = angle - angle_to_object;
-      while (dtheta < -M_PI) dtheta += 2*M_PI;
-      while (dtheta > M_PI) dtheta -= 2*M_PI;
-
-      if (std::abs(dtheta) > max_dtheta) {
-        //// Verify
-        //double phi, dist_ray, dist_obs;
-        //ConvertObservation(os, x_hit, &phi, &dist_ray, &dist_obs);
-
-        //// Check for projected observations behind us
-        //double range = x_hit.GetRange();
-        //if (dist_obs > range) {
-        //  continue;
-        //}
-
-        //double log_l_obs_obj = 0;
-        //if ( GetLogLikelihood(phi, dist_ray, dist_obs, &log_l_obs_obj) ) {
-        //  printf("ERROR ERROR ERROR, %5.3f dtheta vs %5.3f max dtheta\n",
-        //      dtheta, max_dtheta);
-        //}
-        continue;
-      }
-    }
-
-    double phi, dist_ray, dist_obs;
-    ConvertObservation(os, x_hit, &phi, &dist_ray, &dist_obs);
-
-    // Check for projected observations behind us
-    double range = x_hit.GetRange();
-    if (dist_obs > range) {
+    if (!InRoi(mo)) {
       continue;
     }
 
     double log_l_obs_obj = 0;
+    bool valid = false;
 
-    if ( GetLogLikelihood(phi, dist_ray, dist_obs, &log_l_obs_obj) ) {
+    if (i==0) {
+      valid = GetLogLikelihood(mo, &log_l_obs_obj);
+    } else {
+      const ModelObservation &mo2 = mo;
+      const ModelObservation &mo1 = obs[i-1];
+
+      if (InRoi(mo1)) {
+        valid = GetLogLikelihood(mo1, mo2, &log_l_obs_obj);
+        if (!valid) {
+          printf("this is weird...\n");
+        }
+      } else {
+        valid = GetLogLikelihood(mo, &log_l_obs_obj);
+      }
+    }
+
+    if (valid) {
       l_p_z += log_l_obs_obj;
-      //printf("update: %5.3f, %5.3f\n", log_l_obs_obj, log_l_obs);
     }
   }
 
@@ -156,34 +190,20 @@ void RayModel::ConvertRay(const ObjectState &os, double sensor_angle, double *ph
   *dist_ray = a*os.GetPos()(0) + b*os.GetPos()(1);
 }
 
-void RayModel::ConvertObservation(const ObjectState &os, const Observation &x_hit, double *phi, double *dist_ray, double *dist_obs) const {
-  // Compute relative angle with object
-  *phi = x_hit.GetTheta() - os.GetTheta();
-
-  // Compute ray's distance from object center
-  *dist_ray = x_hit.GetSinTheta()*os.GetPos()(0) - x_hit.GetCosTheta()*os.GetPos()(1);
-
-  // Compute location of ray hit relative to object
-  *dist_obs = x_hit.GetRange() - x_hit.GetCosTheta()*os.GetPos()(0) - x_hit.GetSinTheta()*os.GetPos()(1);
-}
-
 double RayModel::SampleRange(const ObjectState &os, double sensor_angle) const {
   double phi, dist_ray;
   ConvertRay(os, sensor_angle, &phi, &dist_ray);
 
-  int idx = GetHistogramIndex(phi, dist_ray);
-  if (idx < 0) {
-    //printf("\tOut of range\n");
-    return kMaxRange_;
+  const Histogram *h = GetHistogram(phi, dist_ray);
+  if (h == nullptr) {
+    return -1.0;
   }
 
-  const Histogram &h = histograms_[idx];
-  if (h.GetCountsTotal() == 0) {
-    //printf("\tNo count\n");
-    return kMaxRange_;
+  if (h->GetCountsTotal() == 0) {
+    return -1.0;
   }
 
-  double dist_obs = h.Sample();
+  double dist_obs = h->Sample();
 
   double a_obj = cos(sensor_angle);
   double b_obj = sin(sensor_angle);
@@ -192,80 +212,183 @@ double RayModel::SampleRange(const ObjectState &os, double sensor_angle) const {
 
   double range = dist_obs - dist_sensor;
   if (range < 0) {
-    //printf("\tNegative range\n");
-    return kMaxRange_;
+    return -1.0;
   }
 
   return range;
 }
 
-double RayModel::GetExpectedRange(const ObjectState &os, double sensor_angle, double percentile) const {
-  // Compute relative angle with object
-  double phi=0.0, dist_ray=0.0;
-  ConvertRay(os, sensor_angle, &phi, &dist_ray);
+std::vector<Observation> RayModel::SampleObservations(const ObjectState &os, const std::vector<double> &sensor_angles) const {
+  std::vector<Observation> res;
 
-  int idx = GetHistogramIndex(phi, dist_ray);
-  if (idx < 0) {
-    //printf("\tOut of range\n");
-    return kMaxRange_;
-  }
-
-  const Histogram &h = histograms_[idx];
-  if (h.GetCountsTotal() == 0) {
-    //printf("\tNo count\n");
-    return kMaxRange_;
-  }
-
-  double dist_obs = h.GetPercentile(percentile);
-
-  double a_obj = cos(sensor_angle);
-  double b_obj = sin(sensor_angle);
-  double c_obj = -(a_obj * os.GetPos()(0) + b_obj * os.GetPos()(1));
-  double dist_sensor = c_obj;
-
-  double range = dist_obs - dist_sensor;
-  if (range < 0) {
-    //printf("\tNegative range\n");
-    return kMaxRange_;
-  }
-
-  return range;
-}
-
-int RayModel::GetHistogramIndex(double phi, double dist_ray) const {
-  while (phi < 0) phi += 2*M_PI;
-  while (phi > 2*M_PI) phi -= 2*M_PI;
-  int idx_phi = round(phi / kPhiStep_);
-
-  int idx_dist = round(dist_ray / kDistanceStep_) + dist_dim_ / 2;
-  if (idx_dist < 0 || idx_dist >= dist_dim_) {
-    //printf("dist %5.3f out of range (dim: %d)\n", dist_ray, dist_dim_);
-    return -1;
-  }
-
-  return idx_phi * dist_dim_ + idx_dist;
-}
-
-void RayModel::PrintStats() const {
-  double min_l = 100000.0;
-  double max_l = -100000.0;
-  double min_count = 9999999;
-  double max_count = 0;
-  for (const auto& h : histograms_) {
-    for (double x = h.GetMin(); x <= h.GetMax(); x+=h.GetRes()) {
-      double l = h.GetLikelihood(x);
-
-      if (l == 0)
-        continue;
-
-      if (l < min_l) min_l = l;
-      if (l > max_l) max_l = l;
-
-      if (h.GetCountsTotal() > max_count) max_count = h.GetCountsTotal();
-      if (h.GetCountsTotal() < min_count) min_count = h.GetCountsTotal();
+  for (double sensor_angle : sensor_angles) {
+    double range = SampleRange(os, sensor_angle);
+    if (range > 0) {
+      res.emplace_back(range, sensor_angle);
     }
   }
 
-  printf("\tLikelihood ranges from %f to %f\n", min_l, max_l);
-  printf("\tCount ranges from %f to %f\n", min_count, max_count);
+  return res;
+}
+
+double RayModel::SampleRange(const ObjectState &os, const ModelObservation &mo1, double sensor_angle) const {
+  double phi, dist_ray;
+  ConvertRay(os, sensor_angle, &phi, &dist_ray);
+
+  const Histogram *h = GetHistogram(mo1, phi, dist_ray);
+  if (h == nullptr) {
+    return -1.0;
+  }
+
+  if (h->GetCountsTotal() == 0) {
+    return -1.0;
+  }
+
+  double dist_obs = h->Sample();
+
+  double a_obj = cos(sensor_angle);
+  double b_obj = sin(sensor_angle);
+  double c_obj = -(a_obj * os.GetPos()(0) + b_obj * os.GetPos()(1));
+  double dist_sensor = c_obj;
+
+  double range = dist_obs - dist_sensor;
+  if (range < 0) {
+    return -1.0;
+  }
+
+  return range;
+}
+
+std::vector<Observation> RayModel::SampleObservations(const ObjectState &os, const std::vector<double> &sensor_angles, std::vector<int> *n_gram) const {
+  std::vector<Observation> res;
+
+  for (size_t i=0; i < sensor_angles.size(); i++) {
+    double sensor_angle = sensor_angles[i];
+    double range = -1.0;
+    int n = 0;
+
+    double phi, dist_ray;
+    ConvertRay(os, sensor_angle, &phi, &dist_ray);
+
+    if (!res.empty()) {
+      ModelObservation mo1(os, res.back());
+      range = SampleRange(os, mo1, sensor_angle);
+      n = 2;
+    }
+
+    if (range < 0) {
+      range = SampleRange(os, sensor_angle);
+      n = 1;
+    }
+
+    if (range > 0) {
+      res.emplace_back(range, sensor_angle);
+      n_gram->push_back(n);
+    }
+  }
+
+  return res;
+}
+
+Histogram* RayModel::GetHistogram(const ModelObservation &mo) {
+  return GetHistogram(mo.phi, mo.dist_ray);
+}
+
+Histogram* RayModel::GetHistogram(double phi, double dist_ray) {
+  if (std::abs(dist_ray) > max_size_) {
+    return nullptr;
+  }
+
+  Histogram1GramKey key(phi, dist_ray, kPhiStep_, kDistanceStep_);
+
+  // insert if not there
+  if (histograms_1_gram_.count(key) == 0) {
+    Histogram hist(-max_size_, max_size_, kDistanceStep_);
+    histograms_1_gram_.insert( std::pair<Histogram1GramKey, Histogram>(key, hist) );
+  }
+
+  auto it = histograms_1_gram_.find(key);
+  return &it->second;
+}
+
+Histogram* RayModel::GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2) {
+  return GetHistogram(mo1, mo2.phi, mo2.dist_ray);
+}
+
+Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi, double dist_ray) {
+  if (std::abs(dist_ray) > max_size_) {
+    return nullptr;
+  }
+
+  if (std::abs(mo1.dist_ray) > max_size_) {
+    return nullptr;
+  }
+
+  if (std::abs(mo1.dist_obs) > max_size_) {
+    return nullptr;
+  }
+
+  Histogram2GramKey key(mo1, phi, dist_ray, kPhiStep_, kDistanceStep_);
+
+  // insert if not there
+  if (histograms_2_gram_.count(key) == 0) {
+    Histogram hist(-max_size_, max_size_, kDistanceStep_);
+    histograms_2_gram_.insert( std::pair<Histogram2GramKey, Histogram>(key, hist) );
+  }
+
+  auto it = histograms_2_gram_.find(key);
+  return &it->second;
+}
+
+const Histogram* RayModel::GetHistogram(const ModelObservation &mo) const {
+  return GetHistogram(mo.phi, mo.dist_ray);
+}
+
+const Histogram* RayModel::GetHistogram(double phi, double dist_ray) const {
+  if (std::abs(dist_ray) > max_size_) {
+    return nullptr;
+  }
+
+  Histogram1GramKey key(phi, dist_ray, kPhiStep_, kDistanceStep_);
+
+  // check if not there
+  if (histograms_1_gram_.count(key) == 0) {
+    return nullptr;
+  }
+
+  auto it = histograms_1_gram_.find(key);
+  return &it->second;
+}
+
+const Histogram* RayModel::GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2) const {
+  return GetHistogram(mo1, mo2.phi, mo2.dist_ray);
+}
+
+const Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi, double dist_ray) const {
+  if (std::abs(dist_ray) > max_size_) {
+    return nullptr;
+  }
+
+  if (std::abs(mo1.dist_ray) > max_size_) {
+    return nullptr;
+  }
+
+  if (std::abs(mo1.dist_obs) > max_size_) {
+    return nullptr;
+  }
+
+  Histogram2GramKey key(mo1, phi, dist_ray, kPhiStep_, kDistanceStep_);
+
+  // check if not there
+  if (histograms_2_gram_.count(key) == 0) {
+    return nullptr;
+  }
+
+  auto it = histograms_2_gram_.find(key);
+  return &it->second;
+}
+
+void RayModel::PrintStats() const {
+  printf("Print stats TODO\n");
+  printf("Have %ld 1-gram histograms, %ld 2-gram histograms\n", histograms_1_gram_.size(), histograms_2_gram_.size());
 }

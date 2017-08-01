@@ -8,18 +8,20 @@ namespace ge = library::geometry;
 namespace library {
 namespace sim_world {
 
+unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+std::default_random_engine rand_engine(seed);
+
 SimWorld::SimWorld(size_t n_shapes) :
   bounding_box_(Shape::CreateBox(0, 0, 1000, 1000)),
   origin_(0.0, 0.0) {
 
-  std::uniform_real_distribution<double> pos(-20.0, 20.0);
-  std::uniform_real_distribution<double> width(6.000, 6.001);
-  std::uniform_real_distribution<double> length(8.0, 8.001);
-  std::uniform_real_distribution<double> rand_size(2.5, 2.501);
+  std::uniform_real_distribution<double> x_pos(-20.0, 20.0);
+  std::uniform_real_distribution<double> y_pos(-20.0, 20.0);
+  std::uniform_real_distribution<double> width(4.0, 6.0);
+  std::uniform_real_distribution<double> length(6.0, 8.0);
+  std::uniform_real_distribution<double> rand_size(1.5, 2.0);
   std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
   std::uniform_real_distribution<double> rand_shape(0.0, 1.0);
-  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-  std::default_random_engine rand_engine(seed);
 
   // Make shapes in the world
   int attempts = 0;
@@ -27,16 +29,17 @@ SimWorld::SimWorld(size_t n_shapes) :
     if (attempts++ > 1000)
       break;
 
-    double x = pos(rand_engine);
-    double y = pos(rand_engine);
+    double x = x_pos(rand_engine);
+    double y = y_pos(rand_engine);
     double angle = rand_angle(rand_engine);
 
     bool make_box = rand_shape(rand_engine) < 0.5;
     bool make_star = !make_box;
 
     // Not too close to origin
-    if (std::abs(x) < 10 && std::abs(y) < 10)
+    if (std::abs(x) < 10 && std::abs(y) < 10) {
       continue;
+    }
 
     Shape obj = Shape::CreateBox(0, 0, 1, 1);
 

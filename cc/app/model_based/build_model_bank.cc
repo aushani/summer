@@ -57,16 +57,13 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
     auto shapes = sim->GetShapes();
 
     for (auto &shape : shapes) {
-      for (int i=0; i<100; i++) {
-        double dx = jitter_pos(re);
-        double dy = jitter_pos(re);
-        double dt = jitter_angle(re);
+      for (int i=0; i<1; i++) {
+        double dx = 0*jitter_pos(re);
+        double dy = 0*jitter_pos(re);
+        double dt = 0*jitter_angle(re);
 
         ObjectState os(shape.GetCenter()(0) + dx, shape.GetCenter()(1) + dy, shape.GetAngle() + dt, shape.GetName());
-
-        for (const auto& obs : observations) {
-          model_bank->MarkObservation(os, obs);
-        }
+        model_bank->MarkObservations(os, observations);
       }
     }
 
