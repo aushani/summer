@@ -8,6 +8,11 @@ void ModelBank::AddRayModel(const std::string &name, double size, double p_obj) 
   p_objs_[name] = p_obj;
 }
 
+void ModelBank::AddRayModel(const std::string &name, double size, double phi_step, double distance_step, double p_obj) {
+  obj_models_.insert( std::pair<std::string, RayModel>(name, RayModel(size, phi_step, distance_step)) );
+  p_objs_[name] = p_obj;
+}
+
 void ModelBank::MarkObservations(const ObjectState &os, const std::vector<Observation> &x_hits) {
   auto it = obj_models_.find(os.GetClassname());
   if (it == obj_models_.end()) {
@@ -15,10 +20,6 @@ void ModelBank::MarkObservations(const ObjectState &os, const std::vector<Observ
   } else {
     it->second.MarkObservationsWorldFrame(os, x_hits);
   }
-}
-
-void ModelBank::MarkEmptyObservation(const ObjectState &os, const Observation &x_hit) {
-  empty_model_.MarkObservationWorldFrame(os, x_hit);
 }
 
 double ModelBank::GetProbObj(const std::string &name) const {
@@ -34,11 +35,8 @@ const std::map<std::string, RayModel>& ModelBank::GetModels() const {
 }
 
 const RayModel& ModelBank::GetModel(const std::string &name) const {
+  // Assume class exists
   return obj_models_.find(name)->second;
-}
-
-const EmptyModel& ModelBank::GetEmptyModel() const {
-  return empty_model_;
 }
 
 double ModelBank::EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const {
@@ -47,7 +45,7 @@ double ModelBank::EvaluateObservations(const ObjectState &os, const std::vector<
     return it->second.EvaluateObservations(os, x_hits);
   }
 
-  return empty_model_.EvaluateObservations(os, x_hits);
+  return 0.0f;
 }
 
 std::vector<std::string> ModelBank::GetClasses() const {
@@ -65,8 +63,4 @@ void ModelBank::PrintStats() const {
     it->second.PrintStats();
     printf("\n");
   }
-
-  printf("EMPTY\n");
-  empty_model_.PrintStats();
-  printf("\n");
 }

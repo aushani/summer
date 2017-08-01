@@ -13,9 +13,11 @@ namespace ge = library::geometry;
 namespace sw = library::sim_world;
 
 void SaveModelBank(const ModelBank &model_bank, const std::string &fn) {
+  library::timer::Timer t;
   std::ofstream ofs(fn);
   boost::archive::binary_oarchive oa(ofs);
   oa << model_bank;
+  printf("Took %5.3f sec to save\n", t.GetMs()/1e3);
 }
 
 void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trials) {
@@ -57,10 +59,10 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
     auto shapes = sim->GetShapes();
 
     for (auto &shape : shapes) {
-      for (int i=0; i<1; i++) {
-        double dx = 0*jitter_pos(re);
-        double dy = 0*jitter_pos(re);
-        double dt = 0*jitter_angle(re);
+      for (int i=0; i<100; i++) {
+        double dx = jitter_pos(re);
+        double dy = jitter_pos(re);
+        double dt = jitter_angle(re);
 
         ObjectState os(shape.GetCenter()(0) + dx, shape.GetCenter()(1) + dy, shape.GetAngle() + dt, shape.GetName());
         model_bank->MarkObservations(os, observations);
@@ -73,7 +75,7 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
       double y = unif(re);
       double object_angle = 0;
 
-      ObjectState os(x, y, object_angle, "EMPTY");
+      ObjectState os(x, y, object_angle, "NOOBJ");
 
       bool too_close = false;
 
@@ -87,9 +89,7 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
       }
 
       if (!too_close) {
-        for (const auto& obs : observations) {
-          model_bank->MarkEmptyObservation(os, obs);
-        }
+        model_bank->MarkObservations(os, observations);
       }
     }
 
@@ -112,6 +112,7 @@ ModelBank LearnModelBank(int n_trials, const char *base) {
   ModelBank model_bank;
   model_bank.AddRayModel("BOX", 5.0, prior);
   model_bank.AddRayModel("STAR", 5.0, prior);
+  model_bank.AddRayModel("NOOBJ", 5.0, 2*M_PI, 0.1, 1-2*prior);
 
   std::string bs(base);
 

@@ -68,12 +68,27 @@ double Histogram::Sample() const {
   double cdf_at = 0;
   size_t idx_at = 0;
 
+  double v1 = observed_min_;
+  double cdf_left = 0;
+
   while (cdf_at < cdf && idx_at < counts_.size()) {
+    v1 = GetValue(idx_at);
+    cdf_left = (cdf - cdf_at);
+
     idx_at++;
     cdf_at += counts_[idx_at]/counts_total_;
   }
 
-  return GetValue(idx_at);
+  // Linearly interpolate?
+  double v2 = observed_max_;
+  if (idx_at < counts_.size())
+    v2 = GetValue(idx_at);
+
+  double p = counts_[idx_at]/counts_total_;
+
+  double res = v1 + (v2-v1)*(cdf_left/p);
+
+  return res;
 }
 
 double Histogram::GetProbability(double val) const {

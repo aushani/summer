@@ -124,6 +124,7 @@ class RayModel {
  public:
   RayModel();
   RayModel(double size);
+  RayModel(double size, double phi_step, double distance_step);
 
   // Assume x_hits are in order by angle
   void MarkObservationsWorldFrame(const ObjectState &os, const std::vector<Observation> &x_hits);
@@ -143,9 +144,10 @@ class RayModel {
   void PrintStats() const;
 
  private:
-  double kPhiStep_ = 0.02; // ~1 degrees
-  double kDistanceStep_ = 0.10; // 10 cm
-  double kMaxRange_ = 100.0;
+  const double kMaxRange_ = 100.0;
+
+  double phi_step_ = 0.1; // ~5 degrees
+  double distance_step_ = 0.10; // 10 cm
 
   double max_size_;
   int phi_dim_;
@@ -181,9 +183,8 @@ class RayModel {
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /* file_version */){
-    ar & kPhiStep_;
-    ar & kDistanceStep_;
-    ar & kMaxRange_;
+    ar & phi_step_;
+    ar & distance_step_;
 
     ar & max_size_;
     ar & phi_dim_;

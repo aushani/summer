@@ -115,26 +115,26 @@ def show_detection_layer(class_name, points):
   print 'Log-odds range from %5.3f to %5.3f' % (np.min(res[:, 4]), np.max(res[:, 4]))
   print 'Probs range from %5.3f to %5.3f'    % (np.min(res[:, 5]), np.max(res[:, 5]))
 
-  if class_name is "EMPTY":
+  if class_name is "NOOBJ":
     nrows = 1
     ncols = 1
   else:
     nrows = 4
     ncols = 4
 
-  f_score, axarr_score = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)
+  #f_score, axarr_score = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)
   f_logodds, axarr_logodds = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)
   f_prob, axarr_prob = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)
 
 
-  if class_name is "EMPTY":
-    show_detection(res, ax_score=axarr_score, ax_logodds=axarr_logodds, ax_prob=axarr_prob,
+  if class_name is "NOOBJ":
+    show_detection(res, ax_score=None, ax_logodds=axarr_logodds, ax_prob=axarr_prob,
         points=points, angle = 0, do_non_max = False, name=class_name)
   else:
     for i in range(nrows):
       for j in range(ncols):
         angle = i*ncols + j
-        show_detection(res, ax_score=axarr_score[i, j], ax_logodds=axarr_logodds[i, j], ax_prob=axarr_prob[i, j],
+        show_detection(res, ax_score=None, ax_logodds=axarr_logodds[i, j], ax_prob=axarr_prob[i, j],
             points=points, angle = angle, do_non_max = False, name=class_name)
 
     f_sumprob, axarr_sumprob = plt.subplots(nrows = 1, ncols = 1, sharex=True, sharey=True)
@@ -204,16 +204,16 @@ if True:
 if True:
   show_detection_layer("BOX", points)
   show_detection_layer("STAR", points)
-  show_detection_layer("EMPTY", points)
+  show_detection_layer("NOOBJ", points)
 
 if True:
   box  = np.loadtxt('/home/aushani/summer/cc/BOX.csv'                         , delimiter=',')
   star  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
-  empty  = np.loadtxt('/home/aushani/summer/cc/EMPTY.csv'                         , delimiter=',')
+  noobj  = np.loadtxt('/home/aushani/summer/cc/NOOBJ.csv'                         , delimiter=',')
 
   show_model(box)
   show_model(star)
-  show_model(empty)
+  show_model(noobj)
 
 print 'Ready to show, press Enter'
 raw_input()

@@ -121,28 +121,6 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
       model_file.close();
     }
   }
-
-  EmptyModel model = model_bank.GetEmptyModel();
-  std::ofstream model_file;
-  model_file.open("EMPTY.csv");
-
-  double x = 0.0;
-  double y = 20.0;
-  double object_angle = 0.0;
-  ObjectState os(x, y, object_angle, "EMPTY");
-
-  for (double x = -10; x<10; x+=0.05) {
-    for (double y = 10; y<20; y+=0.05) {
-      Observation x_hit(Eigen::Vector2d(x, y));
-      double likelihood = model.GetLikelihood(os, x_hit);
-      if (likelihood < 0) {
-        likelihood = 0;
-      }
-
-      model_file << x_hit.GetX() << "," << x_hit.GetY() << "," << likelihood << std::endl;
-    }
-  }
-  model_file.close();
 }
 
 int main(int argc, char** argv) {
@@ -200,7 +178,6 @@ int main(int argc, char** argv) {
     DetectionMap detection_map = BuildMap(hits, model_bank);
 
     std::vector<std::string> classes = detection_map.GetClasses();
-    classes.emplace_back("EMPTY");
 
     //library::timer::Timer t;
     //t.Start();

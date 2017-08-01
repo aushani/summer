@@ -10,6 +10,10 @@ RayModel::RayModel(double size) :
  max_size_(size) {
 }
 
+RayModel::RayModel(double size, double phi_step, double distance_step) :
+ phi_step_(phi_step), distance_step_(distance_step), max_size_(size) {
+}
+
 double RayModel::GetSize() const {
   return max_size_;
 }
@@ -105,8 +109,8 @@ bool RayModel::GetLogLikelihood(const ModelObservation &mo1, const ModelObservat
   }
 
   if (h->GetCountsTotal() < 10) {
-    printf("Count = %5.3f, histogram with phi_1 = %5.3f, dist_ray_1 = %5.3f, dist_obs_1 = %5.3f, phi_2 = %5.3f, dist_ray_2 = %5.3f,!!!\n",
-        h->GetCountsTotal(), mo1.phi, mo1.dist_ray, mo1.dist_obs, mo2.phi, mo2.dist_ray);
+    //printf("Count = %5.3f, histogram with phi_1 = %5.3f, dist_ray_1 = %5.3f, dist_obs_1 = %5.3f, phi_2 = %5.3f, dist_ray_2 = %5.3f,!!!\n",
+    //    h->GetCountsTotal(), mo1.phi, mo1.dist_ray, mo1.dist_obs, mo2.phi, mo2.dist_ray);
     return false;
   }
 
@@ -162,11 +166,8 @@ double RayModel::EvaluateObservations(const ObjectState &os, const std::vector<O
       const ModelObservation &mo2 = mo;
       const ModelObservation &mo1 = obs[i-1];
 
-      if (InRoi(mo1)) {
+      if (false && InRoi(mo1)) {
         valid = GetLogLikelihood(mo1, mo2, &log_l_obs_obj);
-        if (!valid) {
-          printf("this is weird...\n");
-        }
       } else {
         valid = GetLogLikelihood(mo, &log_l_obs_obj);
       }
@@ -299,11 +300,11 @@ Histogram* RayModel::GetHistogram(double phi, double dist_ray) {
     return nullptr;
   }
 
-  Histogram1GramKey key(phi, dist_ray, kPhiStep_, kDistanceStep_);
+  Histogram1GramKey key(phi, dist_ray, phi_step_, distance_step_);
 
   // insert if not there
   if (histograms_1_gram_.count(key) == 0) {
-    Histogram hist(-max_size_, max_size_, kDistanceStep_);
+    Histogram hist(-max_size_, max_size_, distance_step_);
     histograms_1_gram_.insert( std::pair<Histogram1GramKey, Histogram>(key, hist) );
   }
 
@@ -328,11 +329,11 @@ Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi, doubl
     return nullptr;
   }
 
-  Histogram2GramKey key(mo1, phi, dist_ray, kPhiStep_, kDistanceStep_);
+  Histogram2GramKey key(mo1, phi, dist_ray, phi_step_, distance_step_);
 
   // insert if not there
   if (histograms_2_gram_.count(key) == 0) {
-    Histogram hist(-max_size_, max_size_, kDistanceStep_);
+    Histogram hist(-max_size_, max_size_, distance_step_);
     histograms_2_gram_.insert( std::pair<Histogram2GramKey, Histogram>(key, hist) );
   }
 
@@ -349,7 +350,7 @@ const Histogram* RayModel::GetHistogram(double phi, double dist_ray) const {
     return nullptr;
   }
 
-  Histogram1GramKey key(phi, dist_ray, kPhiStep_, kDistanceStep_);
+  Histogram1GramKey key(phi, dist_ray, phi_step_, distance_step_);
 
   // check if not there
   if (histograms_1_gram_.count(key) == 0) {
@@ -377,7 +378,7 @@ const Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi,
     return nullptr;
   }
 
-  Histogram2GramKey key(mo1, phi, dist_ray, kPhiStep_, kDistanceStep_);
+  Histogram2GramKey key(mo1, phi, dist_ray, phi_step_, distance_step_);
 
   // check if not there
   if (histograms_2_gram_.count(key) == 0) {

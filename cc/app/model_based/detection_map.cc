@@ -13,27 +13,28 @@ DetectionMap::DetectionMap(double size, double res, const ModelBank &model_bank)
 
   int num_angles = ceil(2*M_PI / angle_res_);
 
-  for (double x = -size; x <= size; x += res) {
-    for (double y = -size; y <= size; y += res) {
-      for (double angle = 0; angle < 2*M_PI; angle += angle_res_) {
-        for (std::string classname : classes) {
-          ObjectState s(x, y, angle, classname);
+  for (std::string classname : classes) {
+    double angle_res = angle_res_;
+    if (classname == std::string("NOOBJ")) {
+      angle_res = 2*M_PI;
+    }
 
-          double p_obj = model_bank_.GetProbObj(classname);
-          double l_p = log(p_obj);
+    for (double x = -size; x <= size; x += res) {
+      for (double y = -size; y <= size; y += res) {
+        for (double angle = 0; angle < 2*M_PI; angle += angle_res) {
+            ObjectState s(x, y, angle, classname);
 
-          //l_p = 0.0;
-          //printf("p_obj = %f\n", p_obj);
-          //printf("l_p = %f\n", l_p);
+            double p_obj = model_bank_.GetProbObj(classname);
+            double l_p = log(p_obj);
 
-          scores_.insert( std::pair<ObjectState, double>(s, l_p) );
+            //l_p = 0.0;
+            //printf("p_obj = %f\n", p_obj);
+            //printf("l_p = %f\n", l_p);
+
+            scores_.insert( std::pair<ObjectState, double>(s, l_p) );
+          }
         }
       }
-
-      // Empty...
-      ObjectState s(x, y, 0, "EMPTY");
-      scores_.insert( std::pair<ObjectState, double>(s, 0.0) );
-    }
   }
 }
 
@@ -182,7 +183,7 @@ std::map<ObjectState, double> DetectionMap::GetMaxDetections(double log_odds_thr
 
   std::priority_queue<Detection, std::vector<Detection>, DetectionComparator> detections;
   for (auto it = scores_.begin(); it != scores_.end(); it++) {
-    if (it->first.GetClassname() == std::string("EMPTY")) {
+    if (it->first.GetClassname() == std::string("NOOBJ")) {
       continue;
     }
 
@@ -236,7 +237,9 @@ double DetectionMap::GetProb(const ObjectState &os) const {
   double denom = 0.0;
 
   auto it = it_os;
-  while (std::abs(it->first.GetPos()(0) - it_os->first.GetPos()(0)) < 1e-3 &&
+  it++;
+  while (it != scores_.end() &&
+         std::abs(it->first.GetPos()(0) - it_os->first.GetPos()(0)) < 1e-3 &&
          std::abs(it->first.GetPos()(1) - it_os->first.GetPos()(1)) < 1e-3) {
     double s = it->second - my_score;
     denom += exp(s);
@@ -244,11 +247,13 @@ double DetectionMap::GetProb(const ObjectState &os) const {
   }
 
   it = it_os;
-  it--; // don't double count!
   while (std::abs(it->first.GetPos()(0) - it_os->first.GetPos()(0)) < 1e-3 &&
          std::abs(it->first.GetPos()(1) - it_os->first.GetPos()(1)) < 1e-3) {
     double s = it->second - my_score;
     denom += exp(s);
+    if (it == scores_.begin()) {
+      break;
+    }
     it--;
   }
 
