@@ -6,10 +6,16 @@ import argparse
 import pandas
 
 def show_map(ax, x, y, z, title, points=None, vmin=None, vmax=None):
-  im = ax.pcolor(x, y, z, vmin=vmin, vmax=vmax)
-  #im = ax.imshow(np.concatenate((x, y, z)))
+  x1 = np.min(x[:])
+  x2 = np.max(x[:])
+
+  y1 = np.min(y[:])
+  y2 = np.max(y[:])
+
+  #im = ax.pcolor(x, y, z, vmin=vmin, vmax=vmax)
+  im = ax.imshow(np.transpose(z), origin='lower', extent=(x1, x2, y1, y2), vmin=vmin, vmax=vmax)
   ax.scatter(0, 0, c='g', marker='x')
-  plt.colorbar(im, ax=ax)
+  #plt.colorbar(im, ax=ax)
 
   if not points is None:
     ax.scatter(points[:, 0], points[:, 1], color='k', marker='.')
@@ -43,13 +49,13 @@ def show_detection(res, ax_score=None, ax_logodds=None, ax_prob=None, points=Non
     angle_deg = unique_angles[angle] * 180 / np.pi
 
     if not ax_score is None:
-      show_map(ax_score,   x_angle, y_angle, score_angle   , '%s at %5.1f deg (score)' % (name, angle_deg), points=points)
+      show_map(ax_score,   x_angle, y_angle, score_angle   , '%s at %5.0f deg (score)' % (name, angle_deg), points=points)
 
     if not ax_logodds is None:
-      show_map(ax_logodds, x_angle, y_angle, logodds_angle , '%s at %5.1f deg (log-odds)' % (name, angle_deg), points=points)
+      show_map(ax_logodds, x_angle, y_angle, logodds_angle , '%s at %5.0f deg (log-odds)' % (name, angle_deg), points=points, vmin=-40, vmax=40)
 
     if not ax_prob is None:
-      show_map(ax_prob,    x_angle, y_angle, prob_angle    , '%s at %5.1f deg (prob)' % (name, angle_deg), points=points, vmin=0, vmax=1)
+      show_map(ax_prob,    x_angle, y_angle, prob_angle    , '%s at %5.0f deg (prob)' % (name, angle_deg), points=points, vmin=0, vmax=1)
   else:
     x = x[:, :, 0]
     y = y[:, :, 0]
@@ -119,8 +125,8 @@ def show_detection_layer(class_name, points):
     nrows = 1
     ncols = 1
   else:
-    nrows = 4
-    ncols = 4
+    nrows = 5
+    ncols = 5
 
   #f_score, axarr_score = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)
   f_logodds, axarr_logodds = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)

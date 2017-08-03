@@ -265,7 +265,7 @@ int main(int argc, char** argv) {
 
     std::vector<ge::Point> query_points;
     std::vector<float> gt_labels;
-    sim.GenerateGrid(30.0, &query_points, &gt_labels, 0.2);
+    sim.GenerateGrid(25.0, &query_points, &gt_labels, 0.3);
 
     for (size_t i=0; i<query_points.size(); i++) {
       float x = query_points[i].x;
