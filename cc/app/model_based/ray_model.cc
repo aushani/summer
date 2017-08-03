@@ -87,20 +87,22 @@ void RayModel::MarkObservationsWorldFrame(const ObjectState &os, const std::vect
 }
 
 bool RayModel::GetLogLikelihood(const ModelObservation &mo, double *res) const {
+  double l_min = 1e-99;
+
   const Histogram *h = GetHistogram(mo);
   if (h == nullptr) {
     return false;
   }
 
   if (h->GetCountsTotal() < 10) {
-    printf("Count = %5.3f, histogram with phi = %5.3f, dist_ray = %5.3f!!!\n", h->GetCountsTotal(), mo.phi, mo.dist_ray);
+    //printf("Count = %5.3f, histogram with phi = %5.3f, dist_ray = %5.3f!!!\n", h->GetCountsTotal(), mo.phi, mo.dist_ray);
     return false;
   }
 
   double l = h->GetLikelihood(mo.dist_obs);
   //double l = h->GetProbability(mo.dist_obs);
-  if (l < 1e-99) {
-    l = 1e-99;
+  if (l < l_min) {
+    l = l_min;
   }
 
   *res = log(l);
@@ -126,8 +128,7 @@ bool RayModel::GetLogLikelihood(const ModelObservation &mo1, const ModelObservat
   double l = h->GetLikelihood(mo2.dist_obs);
   //double l = h->GetProbability(mo2.dist_obs);
   if (l < l_min) {
-    *res = log(l_min);
-    return false;
+    l = l_min;
   }
 
   *res = log(l);
@@ -202,13 +203,19 @@ double RayModel::EvaluateObservations(const ObjectState &os, const std::vector<O
 
       if (n_gram_ == 2 && InRoi(mo1) && !IsOccluded(mo1)) {
         valid = GetLogLikelihood(mo1, mo2, &log_l_obs_obj);
-      } else {
+      }
+
+      // Fall back to 1-gram
+      if (!valid) {
         valid = GetLogLikelihood(mo, &log_l_obs_obj);
       }
     }
 
     if (valid) {
       l_p_z += log_l_obs_obj;
+    } else {
+      printf("no model!\n");
+      l_p_z += log(1e-99);
     }
   }
 

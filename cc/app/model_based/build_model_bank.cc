@@ -23,6 +23,8 @@ void SaveModelBank(const ModelBank &model_bank, const std::string &fn) {
 void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trials) {
   // Resolution we car about for the model
   double pos_res = 0.3; // 30 cm
+  double pr2 = pos_res * pos_res;
+
   double angle_res = 15.0 * M_PI/180.0; // 15 deg
 
   // Sampling positions
@@ -38,13 +40,9 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine re(seed);
 
-  int step = fmax(n_trials/100, 100);
+  int n_entries_per_obj = 100;
 
   for (int trial = 0; trial < n_trials; trial++) {
-    if (trial % step == 0) {
-      //printf("\tTrial %d / %d\n", trial, n_trials);
-    }
-
     // Get sim data
     sw::Data *data = data_manager->GetData();
     sw::SimWorld *sim = data->GetSim();
@@ -59,7 +57,7 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
     auto shapes = sim->GetShapes();
 
     for (auto &shape : shapes) {
-      for (int i=0; i<100; i++) {
+      for (int i=0; i<n_entries_per_obj; i++) {
         double dx = jitter_pos(re);
         double dy = jitter_pos(re);
         double dt = jitter_angle(re);
@@ -70,7 +68,7 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
     }
 
     // Negative mining
-    for (size_t neg=0; neg<shapes.size(); neg++) {
+    for (size_t neg=0; neg<n_entries_per_obj*shapes.size(); neg++) {
       double x = unif(re);
       double y = unif(re);
       double object_angle = 0;
@@ -82,7 +80,7 @@ void RunTrials(ModelBank *model_bank, sw::DataManager *data_manager, int n_trial
       for (auto &shape : shapes) {
         const auto &center = shape.GetCenter();
 
-        if ((os.GetPos() - center).norm() < pos_res) {
+        if ((os.GetPos() - center).squaredNorm() < pr2) {
           too_close = true;
           break;
         }
