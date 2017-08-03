@@ -20,6 +20,8 @@ class ModelBank {
   void AddRayModel(const std::string &name, double size, double p_obj);
   void AddRayModel(const std::string &name, double size, double phi_step, double distance_step, double p_obj);
 
+  void UseNGram(int n_gram);
+
   void MarkObservations(const ObjectState &os, const std::vector<Observation> &x_hits);
 
   const std::map<std::string, RayModel>& GetModels() const;

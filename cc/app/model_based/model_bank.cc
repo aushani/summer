@@ -22,6 +22,12 @@ void ModelBank::MarkObservations(const ObjectState &os, const std::vector<Observ
   }
 }
 
+void ModelBank::UseNGram(int n_gram) {
+  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
+    it->second.UseNGram(n_gram);
+  }
+}
+
 double ModelBank::GetProbObj(const std::string &name) const {
   auto it = p_objs_.find(name);
   if (it == p_objs_.end()) {

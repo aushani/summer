@@ -66,14 +66,10 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
 
     std::ofstream model_file(it->first + std::string(".csv"));
     for (double x = -10; x<10; x+=0.05) {
-      for (double y = 10; y<20; y+=0.05) {
+      for (double y = 5; y<25; y+=0.05) {
         Observation x_hit(Eigen::Vector2d(x, y));
-        double likelihood = model.GetLikelihood(os, x_hit);
-        if (likelihood < 0) {
-          likelihood = 0;
-        }
-
-        model_file << x_hit.GetX() << "," << x_hit.GetY() << "," << likelihood << std::endl;
+        double prob = model.GetProbability(os, x_hit);
+        model_file << x_hit.GetX() << "," << x_hit.GetY() << "," << prob << std::endl;
       }
     }
     model_file.close();
@@ -126,18 +122,25 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
 int main(int argc, char** argv) {
   printf("Model based detector\n");
 
-  if (argc != 3) {
-    printf("Usage: detector filename n_exp\n");
+  if (argc != 4) {
+    printf("Usage: detector filename n_exp n_gram\n");
     return 1;
   }
 
   int n_exp = strtol(argv[2], NULL, 10);
+  int n_gram = strtol(argv[3], NULL, 10);
+
+  if ( (n_gram != 1) && (n_gram != 2)) {
+    printf("n_gram must be 1 or 2\n");
+    return 1;
+  }
 
   library::timer::Timer t;
   t.Start();
   ModelBank model_bank = LoadModelBank(argv[1]);
   printf("Took %5.3f sec to load model bank\n", t.GetMs()/1e3);
 
+  model_bank.UseNGram(n_gram);
   model_bank.PrintStats();
 
   GenerateSyntheticScans(model_bank);
@@ -246,10 +249,10 @@ int main(int argc, char** argv) {
         double prob = detection_map.GetProb(os);
 
         double p = prob;
-        if (p < 1e-15)
-          p = 1e-15;
-        if (p > (1 - 1e-15))
-          p = 1 - 1e-15;
+        if (p < 1e-16)
+          p = 1e-16;
+        if (p > (1 - 1e-16))
+          p = 1 - 1e-16;
         double logodds = -log(1.0/p - 1);
 
         res_file << x << "," << y << "," << angle << "," << score << "," << logodds << "," << prob << std::endl;

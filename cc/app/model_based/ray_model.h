@@ -89,13 +89,23 @@ struct Histogram2GramKey {
     idx_1(), idx_do(0), idx_2() {
   }
 
-  Histogram2GramKey(const ModelObservation &mo1, const ModelObservation &mo2, double phi_step, double distance_step) :
-    Histogram2GramKey(mo1, mo2.phi, mo2.dist_ray, phi_step, distance_step) {
+  Histogram2GramKey(const ModelObservation &mo1, const ModelObservation &mo2, double phi_step, double distance_step, double max_size) :
+    Histogram2GramKey(mo1, mo2.phi, mo2.dist_ray, phi_step, distance_step, max_size) {
   }
 
-  Histogram2GramKey(const ModelObservation &mo1, double phi, double dist_ray, double phi_step, double distance_step) :
+  Histogram2GramKey(const ModelObservation &mo1, double phi, double dist_ray, double phi_step, double distance_step, double max_size) :
    idx_1(mo1, phi_step, distance_step), idx_2(phi, dist_ray, phi_step, distance_step) {
-    idx_do = std::round(mo1.dist_obs / distance_step);
+
+    double dist_obs = mo1.dist_obs;
+    if (dist_obs > max_size) {
+      dist_obs = max_size;
+    }
+
+    if (dist_obs < -max_size) {
+      dist_obs = -max_size;
+    }
+
+    idx_do = std::round(dist_obs / distance_step);
   }
 
   bool operator<(const Histogram2GramKey &rhs) const {
@@ -138,10 +148,13 @@ class RayModel {
   std::vector<Observation> SampleObservations(const ObjectState &os, const std::vector<double> &sensor_angles, std::vector<int> *n_gram) const;
 
   double GetLikelihood(const ObjectState &os, const Observation &obs) const;
+  double GetProbability(const ObjectState &os, const Observation &obs) const;
 
   double GetSize() const;
 
   void PrintStats() const;
+
+  void UseNGram(int n_gram);
 
  private:
   const double kMaxRange_ = 100.0;
@@ -153,8 +166,8 @@ class RayModel {
   int phi_dim_;
   int dist_dim_;
 
-  //std::vector<Histogram> histograms_1_gram_;
-  //std::vector<Histogram> histograms_2_gram_;
+  int n_gram_ = 1;
+
   std::map<Histogram1GramKey, Histogram> histograms_1_gram_;
   std::map<Histogram2GramKey, Histogram> histograms_2_gram_;
 
@@ -179,6 +192,7 @@ class RayModel {
   bool GetLogLikelihood(const ModelObservation &mo1, const ModelObservation &mo2, double *res) const;
 
   bool InRoi(const ModelObservation &mo) const;
+  bool IsOccluded(const ModelObservation &mo) const;
 
   friend class boost::serialization::access;
   template<class Archive>

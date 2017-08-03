@@ -47,12 +47,16 @@ bool RayModel::InRoi(const ModelObservation &mo) const {
     return false;
   }
 
+  return true;
+}
+
+bool RayModel::IsOccluded(const ModelObservation &mo) const {
   // Check for occlusion
   if (mo.dist_obs < -max_size_) {
-    return false;
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 void RayModel::MarkObservationsWorldFrame(const ObjectState &os, const std::vector<Observation> &x_hits) {
@@ -94,6 +98,7 @@ bool RayModel::GetLogLikelihood(const ModelObservation &mo, double *res) const {
   }
 
   double l = h->GetLikelihood(mo.dist_obs);
+  //double l = h->GetProbability(mo.dist_obs);
   if (l < 1e-99) {
     l = 1e-99;
   }
@@ -103,20 +108,26 @@ bool RayModel::GetLogLikelihood(const ModelObservation &mo, double *res) const {
 }
 
 bool RayModel::GetLogLikelihood(const ModelObservation &mo1, const ModelObservation &mo2, double *res) const {
+  double l_min = 1e-99;
+
   const Histogram *h = GetHistogram(mo1, mo2);
   if (h == nullptr) {
+    *res = log(l_min);
     return false;
   }
 
   if (h->GetCountsTotal() < 10) {
     //printf("Count = %5.3f, histogram with phi_1 = %5.3f, dist_ray_1 = %5.3f, dist_obs_1 = %5.3f, phi_2 = %5.3f, dist_ray_2 = %5.3f,!!!\n",
     //    h->GetCountsTotal(), mo1.phi, mo1.dist_ray, mo1.dist_obs, mo2.phi, mo2.dist_ray);
+    *res = log(l_min);
     return false;
   }
 
   double l = h->GetLikelihood(mo2.dist_obs);
-  if (l < 1e-99) {
-    l = 1e-99;
+  //double l = h->GetProbability(mo2.dist_obs);
+  if (l < l_min) {
+    *res = log(l_min);
+    return false;
   }
 
   *res = log(l);
@@ -138,6 +149,21 @@ double RayModel::GetLikelihood(const ObjectState &os, const Observation &obs) co
   return h->GetLikelihood(mo.dist_obs);
 }
 
+double RayModel::GetProbability(const ObjectState &os, const Observation &obs) const {
+  ModelObservation mo(os, obs);
+
+  if (!InRoi(mo)) {
+    return -1.0;
+  }
+
+  const Histogram *h = GetHistogram(mo);
+  if (h == nullptr) {
+    return -1.0;
+  }
+
+  return h->GetProbability(mo.dist_obs);
+}
+
 double RayModel::EvaluateObservations(const ObjectState &os, const std::vector<Observation> &x_hits) const {
   // Convert to model observations
   std::vector<ModelObservation> obs;
@@ -146,14 +172,22 @@ double RayModel::EvaluateObservations(const ObjectState &os, const std::vector<O
   }
 
   // Find where to start
-  // TODO
+  // TODO this is hacky
+  int offset = 0;
+  if (InRoi(obs[0])) {
+    offset = obs.size()/2;
+  }
 
   double l_p_z = 0.0;
 
   for (size_t i = 0; i < obs.size(); i++) {
-    const ModelObservation &mo = obs[i];
+    const ModelObservation &mo = obs[(i+offset)%obs.size()];
 
     if (!InRoi(mo)) {
+      continue;
+    }
+
+    if (IsOccluded(mo)) {
       continue;
     }
 
@@ -164,9 +198,9 @@ double RayModel::EvaluateObservations(const ObjectState &os, const std::vector<O
       valid = GetLogLikelihood(mo, &log_l_obs_obj);
     } else {
       const ModelObservation &mo2 = mo;
-      const ModelObservation &mo1 = obs[i-1];
+      const ModelObservation &mo1 = obs[(i-1+offset)%obs.size()];
 
-      if (false && InRoi(mo1)) {
+      if (n_gram_ == 2 && InRoi(mo1) && !IsOccluded(mo1)) {
         valid = GetLogLikelihood(mo1, mo2, &log_l_obs_obj);
       } else {
         valid = GetLogLikelihood(mo, &log_l_obs_obj);
@@ -325,11 +359,11 @@ Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi, doubl
     return nullptr;
   }
 
-  if (std::abs(mo1.dist_obs) > max_size_) {
-    return nullptr;
-  }
+  //if (std::abs(mo1.dist_obs) > max_size_) {
+  //  return nullptr;
+  //}
 
-  Histogram2GramKey key(mo1, phi, dist_ray, phi_step_, distance_step_);
+  Histogram2GramKey key(mo1, phi, dist_ray, phi_step_, distance_step_, max_size_);
 
   // insert if not there
   if (histograms_2_gram_.count(key) == 0) {
@@ -374,11 +408,11 @@ const Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi,
     return nullptr;
   }
 
-  if (std::abs(mo1.dist_obs) > max_size_) {
-    return nullptr;
-  }
+  //if (std::abs(mo1.dist_obs) > max_size_) {
+  //  return nullptr;
+  //}
 
-  Histogram2GramKey key(mo1, phi, dist_ray, phi_step_, distance_step_);
+  Histogram2GramKey key(mo1, phi, dist_ray, phi_step_, distance_step_, max_size_);
 
   // check if not there
   if (histograms_2_gram_.count(key) == 0) {
@@ -392,4 +426,8 @@ const Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi,
 void RayModel::PrintStats() const {
   printf("Print stats TODO\n");
   printf("Have %ld 1-gram histograms, %ld 2-gram histograms\n", histograms_1_gram_.size(), histograms_2_gram_.size());
+}
+
+void RayModel::UseNGram(int n_gram) {
+  n_gram_ = n_gram;
 }
