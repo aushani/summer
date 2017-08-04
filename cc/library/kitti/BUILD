@@ -3,5 +3,5 @@ cc_library(
     srcs = glob(['*.cc']),
     hdrs = glob(['*.h']),
     visibility = ["//visibility:public"],
-    deps = ["@boost//:boost_serialization"]
+    deps = ["@eigen//:eigen", "@boost//:boost_serialization"]
 )
