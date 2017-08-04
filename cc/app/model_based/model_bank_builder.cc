@@ -28,6 +28,18 @@ ModelBankBuilder::ModelBankBuilder() :
   }
 }
 
+ModelBankBuilder::ModelBankBuilder(const ModelBank &mb) :
+  data_manager_(32, false, false),
+  model_bank_(mb) {
+  for (const auto &cn : model_bank_.GetClasses()) {
+    if (cn == "NOOBJ") {
+      threads_.emplace_back(&ModelBankBuilder::RunNegativeMiningTrials, this);
+    } else {
+      threads_.emplace_back(&ModelBankBuilder::RunClassTrials, this, cn);
+    }
+  }
+}
+
 ModelBankBuilder::~ModelBankBuilder() {
   Finish();
 
@@ -154,7 +166,7 @@ void ModelBankBuilder::SaveModelBank(const std::string &fn) {
   t.Start();
   ModelBank mb_cp(model_bank_);
   mb_mutex_.unlock();
-  printf("Took %5.3f sec to make a copy of the model bank\n", t.GetMs());
+  printf("Took %5.3f sec to make a copy of the model bank\n", t.GetMs()/1e3);
 
   // Save model bank copy
   t.Start();

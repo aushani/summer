@@ -16,6 +16,7 @@ namespace sw = library::sim_world;
 class ModelBankBuilder {
  public:
   ModelBankBuilder();
+  ModelBankBuilder(const ModelBank &mb);
   ~ModelBankBuilder();
 
   void Finish();
