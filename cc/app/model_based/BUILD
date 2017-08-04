@@ -6,9 +6,10 @@ cc_library(
             "ray_model.cc", "ray_model.h",
             "observation.cc", "observation.h",
             "object_state.cc", "object_state.h",
+            "model_bank_builder.cc", "model_bank_builder.h",
             ],
     linkopts = ["-pthread"],
-    deps = ["@eigen//:eigen", "//library/sim_world", "//library/timer", "@boost//:boost_serialization"]
+    deps = ["@eigen//:eigen", "//library/sim_world", "//library/timer", "@boost//:boost_serialization", "@boost//:boost_thread"]
 )
 
 cc_binary(

@@ -12,9 +12,29 @@ cc_library(
 )
 
 cc_library(
+    name = "boost_system",
+    srcs = ["boost_1_63_0/libs/system/src/error_code.cpp"],
+    copts = ["-fvisibility=hidden"],
+    deps = [":boost_headers"],
+)
+
+cc_library(
     name = "boost_serialization",
     srcs = glob(["boost_1_63_0/libs/serialization/src/*.cpp"]),
     hdrs = glob(["boost_1_63_0/libs/serialization/src/*.ipp"]),
     copts = ["-fvisibility=hidden"],
     deps = [":boost_headers"],
+)
+
+cc_library(
+    name = "boost_thread",
+    srcs = [
+            "boost_1_63_0/libs/thread/src/pthread/once.cpp",
+            "boost_1_63_0/libs/thread/src/pthread/thread.cpp",
+           ],
+    hdrs = [
+            "boost_1_63_0/libs/thread/src/pthread/once_atomic.cpp",
+           ],
+    copts = ["-fvisibility=hidden"],
+    deps = [":boost_headers", ":boost_system"],
 )

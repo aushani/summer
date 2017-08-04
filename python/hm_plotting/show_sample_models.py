@@ -29,7 +29,9 @@ def show_model(model):
   ax.set_title('Observation Model')
 
 
-nrows = 6
+classes = ['BOX', 'STAR', 'NOOBJ']
+
+nrows = 2*len(classes)
 ncols = 4
 
 f, axarr = plt.subplots(nrows = nrows, ncols = ncols, sharex = True, sharey = True)
@@ -37,41 +39,23 @@ f, axarr = plt.subplots(nrows = nrows, ncols = ncols, sharex = True, sharey = Tr
 for j in range(ncols):
   idx = j
 
-  box_ind    = np.loadtxt('/home/aushani/summer/cc/BOX_sample_%d.csv' % idx , delimiter=',')
-  box_dep    = np.loadtxt('/home/aushani/summer/cc/BOX_sample_dependent_%d.csv' % idx , delimiter=',')
+  for i, c in enumerate(classes):
+    ind = np.loadtxt('/home/aushani/summer/cc/%s_sample_%d.csv' % (c, idx) , delimiter=',')
+    dep = np.loadtxt('/home/aushani/summer/cc/%s_sample_dependent_%d.csv' % (c, idx) , delimiter=',')
 
-  star_ind    = np.loadtxt('/home/aushani/summer/cc/STAR_sample_%d.csv' % idx , delimiter=',')
-  star_dep    = np.loadtxt('/home/aushani/summer/cc/STAR_sample_dependent_%d.csv' % idx , delimiter=',')
+    sc = axarr[2*i + 0, j].scatter(ind[:, 0], ind[:, 1], c = ind[:, 2])
+    plt.colorbar(sc, ax=axarr[2*i + 0, j])
+    axarr[2*i + 0, j].axis("equal")
+    axarr[2*i + 0, j].axis((-5, 5, 10, 20))
+    axarr[2*i + 0, j].grid(True)
+    axarr[2*i + 0, j].set_title('%s sample (1-gram)' % (c))
 
-  noobj_ind  = np.loadtxt('/home/aushani/summer/cc/NOOBJ_sample_%d.csv' % idx , delimiter=',')
-  noobj_dep  = np.loadtxt('/home/aushani/summer/cc/NOOBJ_sample_dependent_%d.csv' % idx , delimiter=',')
-
-  data = [box_ind, box_dep, star_ind, star_dep, noobj_ind, noobj_dep]
-
-  for i in range(nrows):
-    a = axarr[i, j]
-    d = data[i]
-    sc = a.scatter(d[:, 0], d[:, 1], c=d[:, 2])
-    plt.colorbar(sc, ax = a)
-    a.axis("equal")
-    a.axis((-5, 5, 10, 20))
-    a.grid(True)
-
-for i in range(nrows):
-  for j in range(ncols):
-    a = axarr[i, j]
-
-    if i < 2:
-      c = "BOX"
-    else:
-      c = "STAR"
-
-    if i % 2 == 0:
-      d = "independent"
-    else:
-      d = "dependent"
-
-    a.set_title('%s sample (%s model)' % (c, d))
+    cs = axarr[2*i + 1, j].scatter(dep[:, 0], dep[:, 1], c = dep[:, 2])
+    plt.colorbar(sc, ax=axarr[2*i + 1, j])
+    axarr[2*i + 1, j].axis("equal")
+    axarr[2*i + 1, j].axis((-5, 5, 10, 20))
+    axarr[2*i + 1, j].grid(True)
+    axarr[2*i + 1, j].set_title('%s sample (2-gram)' % (c))
 
 box    = pandas.read_csv('/home/aushani/summer/cc/BOX.csv'   , header=None).values
 star   = pandas.read_csv('/home/aushani/summer/cc/STAR.csv'  , header=None).values

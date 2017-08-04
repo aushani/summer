@@ -110,6 +110,7 @@ void DataManager::Finish() {
 
 Data* DataManager::GetData() {
   Data *res = NULL;
+  bool waited = false;
   while(res == NULL) {
     mutex_.lock();
     if (!data_.empty()) {
@@ -121,7 +122,10 @@ Data* DataManager::GetData() {
 
     if (res == NULL) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      //printf("\tNeed to wait...\n");
+      if (!waited) {
+        printf("\tWARNING: Need to wait...\n");
+        waited = true;
+      }
     }
   }
 
