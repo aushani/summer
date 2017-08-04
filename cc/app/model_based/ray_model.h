@@ -135,6 +135,7 @@ class RayModel {
   RayModel();
   RayModel(double size);
   RayModel(double size, double phi_step, double distance_step);
+  RayModel(const RayModel &rm);
 
   // Assume x_hits are in order by angle
   void MarkObservationsWorldFrame(const ObjectState &os, const std::vector<Observation> &x_hits);

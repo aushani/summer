@@ -3,6 +3,11 @@
 ModelBank::ModelBank() {
 }
 
+ModelBank::ModelBank(const ModelBank &mb) :
+  obj_models_(mb.obj_models_),
+  p_objs_(mb.p_objs_) {
+}
+
 void ModelBank::AddRayModel(const std::string &name, double size, double p_obj) {
   obj_models_.emplace(name, size);
   p_objs_[name] = p_obj;

@@ -16,10 +16,10 @@ int main(int argc, char** argv) {
   char fn[1000];
 
   while (true) {
-    sprintf(fn, "%s_%06d", argv[2], step++);
-
     std::this_thread::sleep_for(std::chrono::minutes(n_min));
 
+    printf("Saving step %d\n", step);
+    sprintf(fn, "%s_%06d", argv[2], step++);
     mbb.SaveModelBank(std::string(fn));
   }
 }

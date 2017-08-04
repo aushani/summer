@@ -16,6 +16,7 @@
 class ModelBank {
  public:
   ModelBank();
+  ModelBank(const ModelBank &mb);
 
   void AddRayModel(const std::string &name, double size, double p_obj);
   void AddRayModel(const std::string &name, double size, double phi_step, double distance_step, double p_obj);

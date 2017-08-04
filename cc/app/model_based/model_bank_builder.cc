@@ -147,27 +147,28 @@ void ModelBankBuilder::RunNegativeMiningTrials() {
 }
 
 void ModelBankBuilder::SaveModelBank(const std::string &fn) {
-  printf("Saving...\n");
-
-  std::ofstream ofs(fn);
-  boost::archive::binary_oarchive oa(ofs);
-
   library::timer::Timer t;
 
+  // Make a copy of the model bank we have so far
   mb_mutex_.lock();
   t.Start();
-  oa << model_bank_;
+  ModelBank mb_cp(model_bank_);
+  mb_mutex_.unlock();
+  printf("Took %5.3f sec to make a copy of the model bank\n", t.GetMs());
 
+  // Save model bank copy
+  t.Start();
+  std::ofstream ofs(fn);
+  boost::archive::binary_oarchive oa(ofs);
+  oa << mb_cp;
   printf("\tTook %5.3f sec to save\n", t.GetMs()/1e3);
+
+  // Print some stats
   for (auto it = samples_per_class_.begin(); it != samples_per_class_.end(); it++) {
     printf("\t\tClass %s has %d samples\n", it->first.c_str(), it->second);
   }
 
-  model_bank_.PrintStats();
-
-  mb_mutex_.unlock();
-
-  printf("\tTook %5.3f sec total away from learning\n", t.GetMs()/1e3);
+  mb_cp.PrintStats();
 }
 
 void ModelBankBuilder::Finish() {

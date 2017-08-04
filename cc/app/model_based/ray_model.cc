@@ -14,6 +14,17 @@ RayModel::RayModel(double size, double phi_step, double distance_step) :
  phi_step_(phi_step), distance_step_(distance_step), max_size_(size) {
 }
 
+RayModel::RayModel(const RayModel &rm) :
+  phi_step_(rm.phi_step_),
+  distance_step_(rm.distance_step_),
+  max_size_(rm.max_size_),
+  phi_dim_(rm.phi_dim_),
+  dist_dim_(rm.dist_dim_),
+  n_gram_(rm.n_gram_),
+  histograms_1_gram_(rm.histograms_1_gram_),
+  histograms_2_gram_(rm.histograms_2_gram_) {
+}
+
 double RayModel::GetSize() const {
   return max_size_;
 }
