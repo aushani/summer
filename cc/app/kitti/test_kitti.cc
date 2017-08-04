@@ -10,18 +10,18 @@ int main() {
 
   kt::Tracklets t;
 
-  std::string fn("/home/aushani/data/kittidata/extracted/tracklet_labels.xml");
-  bool success = t.loadFromFile(fn);
+  bool success = t.loadFromFile("/home/aushani/data/kittidata/extracted/2011_09_26/2011_09_26_drive_0001_sync/tracklet_labels.xml");
 
-  printf("Loaded tracklets from %s: %s\n", fn.c_str(), success ? "SUCCESS":"FAIL");
-
+  printf("Loaded tracklets: %s\n", success ? "SUCCESS":"FAIL");
   printf("Have %d tracklets\n", t.numberOfTracklets());
+
+  for (int i=0; i<t.numberOfTracklets(); i++) {
+    auto *tt = t.getTracklet(i);
+    printf("Have %s (size %5.3f x %5.3f x %5.3f) for %ld frames\n",
+        tt->objectType.c_str(), tt->h, tt->w, tt->l, tt->poses.size());
+  }
 
   kt::VelodyneScan vs("/home/aushani/data/kittidata/extracted/2011_09_26/2011_09_26_drive_0001_sync/velodyne_points/data/0000000000.bin");
 
   printf("Loaded %ld hits\n", vs.GetHits().size());
-
-  for (const auto &h : vs.GetHits()) {
-    printf("%5.3f, %5.3f, %5.3f\n", h(0), h(1), h(2));
-  }
 }
