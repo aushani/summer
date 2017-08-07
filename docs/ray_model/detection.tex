@@ -1,14 +1,14 @@
 \section{Detection}
 
-We want to build a map that represents the probability that a object exists at
-any particular position $(x, y)$ and orientation $\theta$:
+We want to build a map that represents the probability that a object of a
+particular class exists at any particular position $(x, y)$ and orientation
+$\theta$:
 %
 \begin{align}
-  p(\text{ object at $(x, y)$ and orientation $\theta$ } | \mathbf{Z})
+  p(\text{ object of class $c$ at $(x, y)$ and orientation $\theta$ } | \mathbf{Z})
   \text{.}
 \end{align}
 %
-We call this the local map. To build this map for every given $(x, y)$ and
-$\theta$, we compute \eqref{eq:detection_prob}. Additionally, we can perform
-non-maximal suppression to produce just a list of detections and their positions
-and orientations.
+We call this the local map. To build this map for every class $c$, position $(x,
+y)$ and $\theta$, we compute \eqref{eq:p_obj_z} using the 2-gram model as
+described by \eqref{eq:2gram_model}.

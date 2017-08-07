@@ -24,6 +24,7 @@ different classes. We compromise by creating a "2-gram" model:
   p( \mathbf{Z} | obj_c ) &= \left( \prod_{i=2}^{n} { p( z_i | obj_c, z_{i-1}) }
   \right) p( z_1 | obj_c)
   \text{,}
+  \label{eq:2gram_model}
 \end{align}
 %
 where each observation depends only on the one directly preceding it (note that
@@ -32,20 +33,14 @@ Generally speaking, we can construct this sort of $n$-gram model for any $n$,
 but as $n$ grows the distribution quickly becomes more challenging to capture
 with simulated training data.
 
+We can visualize the result of these observation models by sampling them to
+generate potential LIDAR scans of objects. Several samples for both 1-gram and
+2-gram models are depicted in \figref{fig:sample_models}.
+%
 \begin{figure*}
   \centering
-  \includegraphics[width=\textwidth]{figures/star_model.png}
-  \caption{Simulation. On the left is the simular LIDAR scan of the environment.
-    The right figure depicts the ground truth position of all objects in the
-    scene.}
-  \label{fig:star_model}
-\end{figure*}
-
-\begin{figure*}
-  \centering
-  \includegraphics[width=\textwidth]{figures/box_model.png}
-  \caption{Simulation. On the left is the simular LIDAR scan of the environment.
-    The right figure depicts the ground truth position of all objects in the
-    scene.}
-  \label{fig:box_model}
+  \includegraphics[width=\textwidth]{figures/sample_models.png}
+  \caption{Log probability of potential LIDAR observations from (0, 0) with a
+    star placed at (0, 15). This is implemented as a lookup table of histograms.}
+  \label{fig:sample_models}
 \end{figure*}

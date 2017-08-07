@@ -29,7 +29,8 @@ def show_model(model):
   ax.set_title('Observation Model')
 
 
-classes = ['BOX', 'STAR', 'NOOBJ']
+#classes = ['BOX', 'STAR', 'NOOBJ']
+classes = ['BOX', 'STAR']
 
 nrows = 2*len(classes)
 ncols = 4
@@ -44,14 +45,14 @@ for j in range(ncols):
     dep = np.loadtxt('/home/aushani/summer/cc/%s_sample_dependent_%d.csv' % (c, idx) , delimiter=',')
 
     sc = axarr[2*i + 0, j].scatter(ind[:, 0], ind[:, 1], c = ind[:, 2])
-    plt.colorbar(sc, ax=axarr[2*i + 0, j])
+    #plt.colorbar(sc, ax=axarr[2*i + 0, j])
     axarr[2*i + 0, j].axis("equal")
     axarr[2*i + 0, j].axis((-5, 5, 10, 20))
     axarr[2*i + 0, j].grid(True)
     axarr[2*i + 0, j].set_title('%s sample (1-gram)' % (c))
 
     cs = axarr[2*i + 1, j].scatter(dep[:, 0], dep[:, 1], c = dep[:, 2])
-    plt.colorbar(sc, ax=axarr[2*i + 1, j])
+    #plt.colorbar(sc, ax=axarr[2*i + 1, j])
     axarr[2*i + 1, j].axis("equal")
     axarr[2*i + 1, j].axis((-5, 5, 10, 20))
     axarr[2*i + 1, j].grid(True)

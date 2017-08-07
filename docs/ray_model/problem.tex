@@ -19,9 +19,12 @@ Using Bayes' rule and assuming conditionally independent observations given the
 object, we have:
 %
 \begin{align}
-  p( obj_c | \mathbf{Z} ) &= \frac{p(\mathbf{Z} | obj_c) p(obj_c)}{p(\mathbf{Z})} \\
-    &= \frac{p(obj_c) \prod_{i=1}^{n} { p( z_i | obj_c) }} {p(\mathbf{Z})}
-    \label{eq:cond_ind}
+  p( obj_c | \mathbf{Z} ) &= \frac{p(\mathbf{Z} | obj_c)
+    p(obj_c)}{p(\mathbf{Z})} \label{eq:p_obj_z} \\
+    &= \frac
+      {p(obj_c) \prod_{i=1}^{n} { p( z_i | obj_c) }}
+      {p(\mathbf{Z})
+      } \label{eq:cond_ind}
   \text{.}
 \end{align}
 %

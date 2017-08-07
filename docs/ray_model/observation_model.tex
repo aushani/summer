@@ -45,8 +45,9 @@ object's location. (Note that these can be positive or negative). So, we have
 
 We maintain a two-dimensional array of histograms, parameterized by $(\phi,
 d_{\text{ray}})$. We discretize $\phi$ at \unit{0.10}{\rad} and
-$d_{\text{ray}}$ at \unit{0.10}{\m}. For each $z_i$, we find the appropriate
-histogram and update it with $d_{\text{obs}}$.
+$d_{\text{ray}}$ at \unit{0.10}{\m}. When building the observation model, for
+each $z_i$, we find the appropriate histogram and update it with
+$d_{\text{obs}}$.
 
 Thus, \eqnref{eq:obj_model} becomes:
 %
@@ -69,3 +70,24 @@ across all classes (including the no object class) and orientations:
 %
 Thus, we can compute $\log \eta$ and then $p(obj_c | \mathbf{Z})$ for all
 classes and orientations.
+
+We can visualize the result of these histograms by querying the log probability
+of a potential LIDAR observation given a object of a certain class with a
+certain state. This is depicted in \figref{fig:star_model} and
+\figref{fig:box_model}.
+%
+\begin{figure*}
+  \centering
+  \includegraphics[width=\textwidth]{figures/star_model.png}
+  \caption{Log probability of potential LIDAR observations from (0, 0) with a
+    star placed at (0, 15). This is implemented as a lookup table of histograms.}
+  \label{fig:star_model}
+\end{figure*}
+%
+\begin{figure*}
+  \centering
+  \includegraphics[width=\textwidth]{figures/box_model.png}
+  \caption{Log probability of potential LIDAR observations from (0, 0) with a
+    box placed at (0, 15). This is implemented as a lookup table of histograms.}
+  \label{fig:box_model}
+\end{figure*}
