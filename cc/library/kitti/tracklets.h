@@ -1,3 +1,5 @@
+// Adapted from KITTI dev kit
+
 #pragma once
 
 #include <string>
