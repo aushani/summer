@@ -8,10 +8,12 @@
 
 #include <boost/serialization/map.hpp>
 
-#include "ray_model.h"
-#include "histogram.h"
-#include "observation.h"
-#include "object_state.h"
+#include "app/model_based/ray_model.h"
+#include "app/model_based/observation.h"
+#include "app/model_based/object_state.h"
+
+namespace app {
+namespace model_based {
 
 class ModelBank {
  public:
@@ -49,3 +51,6 @@ class ModelBank {
     ar & p_objs_;
   }
 };
+
+} // namespace model_based
+} // namespace app

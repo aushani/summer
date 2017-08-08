@@ -2,6 +2,9 @@
 
 #include <Eigen/Core>
 
+namespace app {
+namespace model_based {
+
 class ObjectState {
  public:
   ObjectState(double x, double y, double a, const std::string &cn);
@@ -32,3 +35,6 @@ class ObjectState {
   double cos_theta_;
   double sin_theta_;
 };
+
+} // namespace model_based
+} // namespace app

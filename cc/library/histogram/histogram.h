@@ -7,6 +7,9 @@
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 
+namespace library {
+namespace histogram {
+
 class Histogram {
  public:
   Histogram();
@@ -60,3 +63,6 @@ class Histogram {
     ar & counts_total_;
   }
 };
+
+} // namespace histogram
+} // namespace library

@@ -1,8 +1,11 @@
-#include "histogram.h"
+#include "library/histogram/histogram.h"
 
 #include <math.h>
 #include <random>
 #include <chrono>
+
+namespace library {
+namespace histogram {
 
 Histogram::Histogram() {
 
@@ -151,3 +154,6 @@ double Histogram::GetValue(size_t idx) const {
 
   return (idx-1)*res_ + min_ + res_/2;
 }
+
+} // namespace histogram
+} // namespace library

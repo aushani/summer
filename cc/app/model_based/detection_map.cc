@@ -1,4 +1,4 @@
-#include "detection_map.h"
+#include "app/model_based/detection_map.h"
 
 #include <thread>
 #include <queue>
@@ -7,11 +7,12 @@
 
 #include "library/timer/timer.h"
 
+namespace app {
+namespace model_based {
+
 DetectionMap::DetectionMap(double size, double res, const ModelBank &model_bank) :
  size_(size), res_(res), model_bank_(model_bank) {
   auto classes = GetClasses();
-
-  int num_angles = ceil(2*M_PI / angle_res_);
 
   for (std::string classname : classes) {
     double angle_res = angle_res_;
@@ -280,3 +281,6 @@ double DetectionMap::GetScore(const ObjectState &os) const {
   }
   return it->second;
 }
+
+} // namespace model_based
+} // namespace app

@@ -16,16 +16,18 @@
 #include "library/sim_world/sim_world.h"
 #include "library/sim_world/data.h"
 
-#include "model_bank.h"
-#include "ray_model.h"
-#include "detection_map.h"
-#include "observation.h"
+#include "app/model_based/model_bank.h"
+#include "app/model_based/ray_model.h"
+#include "app/model_based/detection_map.h"
+#include "app/model_based/observation.h"
 
 namespace ge = library::geometry;
 namespace sw = library::sim_world;
 
-ModelBank LoadModelBank(const char *fn) {
-  ModelBank model_bank;
+namespace mb = app::model_based;
+
+mb::ModelBank LoadModelBank(const char *fn) {
+  mb::ModelBank model_bank;
   std::ifstream ifs(fn);
   boost::archive::binary_iarchive ia(ifs);
   ia >> model_bank;
@@ -33,8 +35,8 @@ ModelBank LoadModelBank(const char *fn) {
   return model_bank;
 }
 
-DetectionMap BuildMap(const std::vector<ge::Point> &hits, const ModelBank &model_bank) {
-  DetectionMap detection_map(25.0, 0.3, model_bank);
+mb::DetectionMap BuildMap(const std::vector<ge::Point> &hits, const mb::ModelBank &model_bank) {
+  mb::DetectionMap detection_map(25.0, 0.3, model_bank);
 
   library::timer::Timer t;
 
@@ -82,14 +84,14 @@ void SaveGroundTruth(const sw::SimWorld &sim, const char *fn) {
   gt_file.close();
 }
 
-void SaveResult(const DetectionMap &detection_map, const std::string &cn, const char *fn) {
+void SaveResult(const mb::DetectionMap &detection_map, const std::string &cn, const char *fn) {
   std::ofstream res_file(fn);
 
   printf("Saving %s map...\n", cn.c_str());
 
   auto map = detection_map.GetScores();
   for (auto it = map.begin(); it != map.end(); it++) {
-    const ObjectState &os = it->first;
+    const mb::ObjectState &os = it->first;
 
     // Check class
     if (os.GetClassname() != cn) {
@@ -117,7 +119,7 @@ void SaveResult(const DetectionMap &detection_map, const std::string &cn, const 
   res_file.close();
 }
 
-void GenerateSyntheticScans(const ModelBank &model_bank) {
+void GenerateSyntheticScans(const mb::ModelBank &model_bank) {
 
   std::vector<double> angles;
   for (double sensor_angle = M_PI/4; sensor_angle < 3*M_PI/4; sensor_angle += 0.01) {
@@ -128,17 +130,17 @@ void GenerateSyntheticScans(const ModelBank &model_bank) {
   for (auto it = models.begin(); it != models.end(); it++) {
     printf("Generating synthetic scan for %s\n", it->first.c_str());
 
-    const RayModel &model = it->second;
+    const mb::RayModel &model = it->second;
 
     double x = 0.0;
     double y = 15.0;
     double object_angle = 0;
-    ObjectState os(x, y, object_angle, it->first);
+    mb::ObjectState os(x, y, object_angle, it->first);
 
     std::ofstream model_file(it->first + std::string(".csv"));
     for (double x = -10; x<10; x+=0.05) {
       for (double y = 5; y<25; y+=0.05) {
-        Observation x_hit(Eigen::Vector2d(x, y));
+        mb::Observation x_hit(Eigen::Vector2d(x, y));
         double prob = model.GetProbability(os, x_hit);
         model_file << x_hit.GetX() << "," << x_hit.GetY() << "," << prob << std::endl;
       }
@@ -202,7 +204,7 @@ int main(int argc, char** argv) {
 
   library::timer::Timer t;
   t.Start();
-  ModelBank model_bank = LoadModelBank(argv[1]);
+  mb::ModelBank model_bank = LoadModelBank(argv[1]);
   printf("Took %5.3f sec to load model bank\n", t.GetMs()/1e3);
 
   model_bank.PrintStats();
@@ -242,7 +244,7 @@ int main(int argc, char** argv) {
 
       // Build Map
       model_bank.UseNGram(n_gram);
-      DetectionMap detection_map = BuildMap(hits, model_bank);
+      mb::DetectionMap detection_map = BuildMap(hits, model_bank);
       std::vector<std::string> classes = detection_map.GetClasses();
 
       // Eval at object locations
@@ -255,7 +257,7 @@ int main(int argc, char** argv) {
         library::timer::Timer t;
 
         for (const auto &cn : classes) {
-          ObjectState os(c(0), c(1), angle, cn);
+          mb::ObjectState os(c(0), c(1), angle, cn);
           t.Start();
           double score = detection_map.EvaluateObservationsForState(x_hits, os);
           double t_ms = t.GetMs();

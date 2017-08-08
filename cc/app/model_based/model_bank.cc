@@ -1,4 +1,7 @@
-#include "model_bank.h"
+#include "app/model_based/model_bank.h"
+
+namespace app {
+namespace model_based {
 
 ModelBank::ModelBank() {
 }
@@ -75,3 +78,6 @@ void ModelBank::PrintStats() const {
     printf("\n");
   }
 }
+
+} // namespace model_based
+} // namespace app

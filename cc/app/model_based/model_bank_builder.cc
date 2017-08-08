@@ -1,4 +1,4 @@
-#include "model_bank_builder.h"
+#include "app/model_based/model_bank_builder.h"
 
 #include <boost/archive/binary_oarchive.hpp>
 
@@ -6,6 +6,9 @@
 #include <fstream>
 
 #include "library/timer/timer.h"
+
+namespace app {
+namespace model_based {
 
 ModelBankBuilder::ModelBankBuilder() :
   data_manager_(32, false, false), model_bank_() {
@@ -186,3 +189,6 @@ void ModelBankBuilder::SaveModelBank(const std::string &fn) {
 void ModelBankBuilder::Finish() {
   done_ = true;
 }
+
+} // namespace model_based
+} // namespace app

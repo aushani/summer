@@ -1,12 +1,14 @@
-#include "model_bank_builder.h"
-
 #include <iostream>
 #include <fstream>
 
 #include <boost/archive/binary_iarchive.hpp>
 
-ModelBank LoadModelBank(const char *fn) {
-  ModelBank model_bank;
+#include "app/model_based/model_bank_builder.h"
+
+namespace mb = app::model_based;
+
+mb::ModelBank LoadModelBank(const char *fn) {
+  mb::ModelBank model_bank;
   std::ifstream ifs(fn);
   boost::archive::binary_iarchive ia(ifs);
   ia >> model_bank;
@@ -24,15 +26,15 @@ int main(int argc, char** argv) {
 
   int n_min = strtol(argv[1], NULL, 10);
 
-  ModelBankBuilder *mbb;
+  mb::ModelBankBuilder *mbb;
 
   if (argc == 4) {
     printf("\tLoading %s\n", argv[3]);
 
-    ModelBank mb = LoadModelBank(argv[3]);
-    mbb = new ModelBankBuilder(mb);
+    mb::ModelBank mb = LoadModelBank(argv[3]);
+    mbb = new mb::ModelBankBuilder(mb);
   } else {
-    mbb = new ModelBankBuilder();
+    mbb = new mb::ModelBankBuilder();
   }
 
   int step = 0;

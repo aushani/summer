@@ -1,4 +1,7 @@
-#include "object_state.h"
+#include "app/model_based/object_state.h"
+
+namespace app {
+namespace model_based {
 
 ObjectState::ObjectState(double x, double y, double a, const std::string &cn) :
  pos_(x, y), theta_(a), classname_(cn),
@@ -45,3 +48,6 @@ bool ObjectState::operator<(const ObjectState &os) const {
 
   return classname_ < os.classname_;
 }
+
+} // namespace model_based
+} // namespace app

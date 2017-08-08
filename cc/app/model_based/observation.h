@@ -2,6 +2,9 @@
 
 #include <Eigen/Core>
 
+namespace app {
+namespace model_based {
+
 // assume origin at (0, 0) for now
 class Observation {
  public:
@@ -26,3 +29,6 @@ class Observation {
   double cos_theta_;
   double sin_theta_;
 };
+
+} // namespace model_based
+} // namespace app

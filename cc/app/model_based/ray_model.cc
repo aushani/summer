@@ -1,6 +1,9 @@
-#include "ray_model.h"
+#include "app/model_based/ray_model.h"
 
 #include <math.h>
+
+namespace app {
+namespace model_based {
 
 RayModel::RayModel() :
  RayModel(0.0) {
@@ -30,7 +33,7 @@ double RayModel::GetSize() const {
 }
 
 void RayModel::MarkObservation(const ModelObservation &mo) {
-  Histogram *h = GetHistogram(mo);
+  library::histogram::Histogram *h = GetHistogram(mo);
   if (h == nullptr) {
     return;
   }
@@ -39,7 +42,7 @@ void RayModel::MarkObservation(const ModelObservation &mo) {
 }
 
 void RayModel::MarkObservations(const ModelObservation &mo1, const ModelObservation &mo2) {
-  Histogram *h = GetHistogram(mo1, mo2);
+  library::histogram::Histogram *h = GetHistogram(mo1, mo2);
   if (h == nullptr) {
     return;
   }
@@ -100,7 +103,7 @@ void RayModel::MarkObservationsWorldFrame(const ObjectState &os, const std::vect
 bool RayModel::GetLogLikelihood(const ModelObservation &mo, double *res) const {
   double l_min = 1e-99;
 
-  const Histogram *h = GetHistogram(mo);
+  const library::histogram::Histogram *h = GetHistogram(mo);
   if (h == nullptr) {
     return false;
   }
@@ -123,7 +126,7 @@ bool RayModel::GetLogLikelihood(const ModelObservation &mo, double *res) const {
 bool RayModel::GetLogLikelihood(const ModelObservation &mo1, const ModelObservation &mo2, double *res) const {
   double l_min = 1e-99;
 
-  const Histogram *h = GetHistogram(mo1, mo2);
+  const library::histogram::Histogram *h = GetHistogram(mo1, mo2);
   if (h == nullptr) {
     *res = log(l_min);
     return false;
@@ -153,7 +156,7 @@ double RayModel::GetLikelihood(const ObjectState &os, const Observation &obs) co
     return -1.0;
   }
 
-  const Histogram *h = GetHistogram(mo);
+  const library::histogram::Histogram *h = GetHistogram(mo);
   if (h == nullptr) {
     return -1.0;
   }
@@ -168,7 +171,7 @@ double RayModel::GetProbability(const ObjectState &os, const Observation &obs) c
     return -1.0;
   }
 
-  const Histogram *h = GetHistogram(mo);
+  const library::histogram::Histogram *h = GetHistogram(mo);
   if (h == nullptr) {
     return -1.0;
   }
@@ -247,7 +250,7 @@ double RayModel::SampleRange(const ObjectState &os, double sensor_angle) const {
   double phi, dist_ray;
   ConvertRay(os, sensor_angle, &phi, &dist_ray);
 
-  const Histogram *h = GetHistogram(phi, dist_ray);
+  const library::histogram::Histogram *h = GetHistogram(phi, dist_ray);
   if (h == nullptr) {
     return -1.0;
   }
@@ -288,7 +291,7 @@ double RayModel::SampleRange(const ObjectState &os, const ModelObservation &mo1,
   double phi, dist_ray;
   ConvertRay(os, sensor_angle, &phi, &dist_ray);
 
-  const Histogram *h = GetHistogram(mo1, phi, dist_ray);
+  const library::histogram::Histogram *h = GetHistogram(mo1, phi, dist_ray);
   if (h == nullptr) {
     return -1.0;
   }
@@ -343,11 +346,11 @@ std::vector<Observation> RayModel::SampleObservations(const ObjectState &os, con
   return res;
 }
 
-Histogram* RayModel::GetHistogram(const ModelObservation &mo) {
+library::histogram::Histogram* RayModel::GetHistogram(const ModelObservation &mo) {
   return GetHistogram(mo.phi, mo.dist_ray);
 }
 
-Histogram* RayModel::GetHistogram(double phi, double dist_ray) {
+library::histogram::Histogram* RayModel::GetHistogram(double phi, double dist_ray) {
   if (std::abs(dist_ray) > max_size_) {
     return nullptr;
   }
@@ -356,19 +359,19 @@ Histogram* RayModel::GetHistogram(double phi, double dist_ray) {
 
   // insert if not there
   if (histograms_1_gram_.count(key) == 0) {
-    Histogram hist(-max_size_, max_size_, distance_step_);
-    histograms_1_gram_.insert( std::pair<Histogram1GramKey, Histogram>(key, hist) );
+    library::histogram::Histogram hist(-max_size_, max_size_, distance_step_);
+    histograms_1_gram_.insert( std::pair<Histogram1GramKey, library::histogram::Histogram>(key, hist) );
   }
 
   auto it = histograms_1_gram_.find(key);
   return &it->second;
 }
 
-Histogram* RayModel::GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2) {
+library::histogram::Histogram* RayModel::GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2) {
   return GetHistogram(mo1, mo2.phi, mo2.dist_ray);
 }
 
-Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi, double dist_ray) {
+library::histogram::Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi, double dist_ray) {
   if (std::abs(dist_ray) > max_size_) {
     return nullptr;
   }
@@ -385,19 +388,19 @@ Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi, doubl
 
   // insert if not there
   if (histograms_2_gram_.count(key) == 0) {
-    Histogram hist(-max_size_, max_size_, distance_step_);
-    histograms_2_gram_.insert( std::pair<Histogram2GramKey, Histogram>(key, hist) );
+    library::histogram::Histogram hist(-max_size_, max_size_, distance_step_);
+    histograms_2_gram_.insert( std::pair<Histogram2GramKey, library::histogram::Histogram>(key, hist) );
   }
 
   auto it = histograms_2_gram_.find(key);
   return &it->second;
 }
 
-const Histogram* RayModel::GetHistogram(const ModelObservation &mo) const {
+const library::histogram::Histogram* RayModel::GetHistogram(const ModelObservation &mo) const {
   return GetHistogram(mo.phi, mo.dist_ray);
 }
 
-const Histogram* RayModel::GetHistogram(double phi, double dist_ray) const {
+const library::histogram::Histogram* RayModel::GetHistogram(double phi, double dist_ray) const {
   if (std::abs(dist_ray) > max_size_) {
     return nullptr;
   }
@@ -413,11 +416,11 @@ const Histogram* RayModel::GetHistogram(double phi, double dist_ray) const {
   return &it->second;
 }
 
-const Histogram* RayModel::GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2) const {
+const library::histogram::Histogram* RayModel::GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2) const {
   return GetHistogram(mo1, mo2.phi, mo2.dist_ray);
 }
 
-const Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi, double dist_ray) const {
+const library::histogram::Histogram* RayModel::GetHistogram(const ModelObservation &mo1, double phi, double dist_ray) const {
   if (std::abs(dist_ray) > max_size_) {
     return nullptr;
   }
@@ -449,3 +452,6 @@ void RayModel::PrintStats() const {
 void RayModel::UseNGram(int n_gram) {
   n_gram_ = n_gram;
 }
+
+} // namespace model_based
+} // namespace app

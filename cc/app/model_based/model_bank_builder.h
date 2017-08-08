@@ -3,15 +3,19 @@
 #include <thread>
 
 #include <boost/thread/shared_mutex.hpp>
-//#include <boost/noncopyable.hpp>
 
 #include "library/timer/timer.h"
 #include "library/sim_world/sim_world.h"
 #include "library/sim_world/data.h"
 
-#include "model_bank.h"
+#include "app/model_based/model_bank.h"
 
-namespace sw = library::sim_world;
+namespace {
+  namespace sw = library::sim_world;
+}
+
+namespace app {
+namespace model_based {
 
 class ModelBankBuilder {
  public:
@@ -42,3 +46,6 @@ class ModelBankBuilder {
   void RunClassTrials(const std::string &cn);
   void RunNegativeMiningTrials();
 };
+
+} // namespace model_based
+} // namespace app

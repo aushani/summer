@@ -1,4 +1,7 @@
-#include "observation.h"
+#include "app/model_based/observation.h"
+
+namespace app {
+namespace model_based {
 
 Observation::Observation(const Eigen::Vector2d &x) :
  pos_(x),
@@ -45,3 +48,6 @@ double Observation::GetY() const {
 const Eigen::Vector2d& Observation::GetPos() const {
   return pos_;
 }
+
+} // namespace model_based
+} // namespace app

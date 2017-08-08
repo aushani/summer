@@ -10,9 +10,13 @@
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 
-#include "histogram.h"
-#include "observation.h"
-#include "object_state.h"
+#include "library/histogram/histogram.h"
+
+#include "app/model_based/observation.h"
+#include "app/model_based/object_state.h"
+
+namespace app {
+namespace model_based {
 
 struct ModelObservation {
   double phi;       // Angle of relative relative to object
@@ -169,23 +173,23 @@ class RayModel {
 
   int n_gram_ = 1;
 
-  std::map<Histogram1GramKey, Histogram> histograms_1_gram_;
-  std::map<Histogram2GramKey, Histogram> histograms_2_gram_;
+  std::map<Histogram1GramKey, library::histogram::Histogram> histograms_1_gram_;
+  std::map<Histogram2GramKey, library::histogram::Histogram> histograms_2_gram_;
 
   void MarkObservation(const ModelObservation &mo);
   void MarkObservations(const ModelObservation &mo1, const ModelObservation &mo2);
 
-  Histogram* GetHistogram(const ModelObservation &mo);
-  Histogram* GetHistogram(double phi, double dist_ray);
+  library::histogram::Histogram* GetHistogram(const ModelObservation &mo);
+  library::histogram::Histogram* GetHistogram(double phi, double dist_ray);
 
-  Histogram* GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2);
-  Histogram* GetHistogram(const ModelObservation &mo1, double phi, double dist_ray);
+  library::histogram::Histogram* GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2);
+  library::histogram::Histogram* GetHistogram(const ModelObservation &mo1, double phi, double dist_ray);
 
-  const Histogram* GetHistogram(const ModelObservation &mo) const;
-  const Histogram* GetHistogram(double phi, double dist_ray) const;
+  const library::histogram::Histogram* GetHistogram(const ModelObservation &mo) const;
+  const library::histogram::Histogram* GetHistogram(double phi, double dist_ray) const;
 
-  const Histogram* GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2) const;
-  const Histogram* GetHistogram(const ModelObservation &mo1, double phi, double dist_ray) const;
+  const library::histogram::Histogram* GetHistogram(const ModelObservation &mo1, const ModelObservation &mo2) const;
+  const library::histogram::Histogram* GetHistogram(const ModelObservation &mo1, double phi, double dist_ray) const;
 
   void ConvertRay(const ObjectState &os, double sensor_angle, double *phi, double *dist_ray) const;
 
@@ -209,3 +213,6 @@ class RayModel {
     ar & histograms_2_gram_;
   }
 };
+
+} // namespace model_based
+} // namespace app
