@@ -5,30 +5,36 @@ each $z_i$ represents a ray at angle $\theta_i$ with range $r_i$. We
 want to evaluate
 %
 \begin{align}
-  p( obj | \mathbf{Z} )
+  p( obj_c | \mathbf{Z} )
   \text{,}
 \end{align}
 %
-where $obj$ represents an object of a some class that exists at some position $(x,
+where $obj_c$ represents an object of class $c$ that exists at some position $(x,
 y)$ and at some angle $\theta_{\text{object}}$. For this experiment, we will use
-stars of variable size as our object.
+stars and boxes of variable size as our objects. Additionally, we model $p(
+obj_{\text{no obj.}} | \mathbf{Z})$, the probability that no object exists at $(x,
+y)$.
 
 Using Bayes' rule and assuming conditionally independent observations given the
 object, we have:
 %
 \begin{align}
-  p( obj | \mathbf{Z} ) &= \frac{p(\mathbf{Z} | obj) p(obj)}{p(\mathbf{Z})} \\
-    &= \frac{p(obj) \prod_{i=1}^{n} { p( z_i | obj) }} {p(\mathbf{Z})}
+  p( obj_c | \mathbf{Z} ) &= \frac{p(\mathbf{Z} | obj_c)
+    p(obj_c)}{p(\mathbf{Z})} \label{eq:p_obj_z} \\
+    &= \frac
+      {p(obj_c) \prod_{i=1}^{n} { p( z_i | obj_c) }}
+      {p(\mathbf{Z})
+      } \label{eq:cond_ind}
   \text{.}
 \end{align}
 %
-For now, we assume an uninformative prior $p(obj) = p(\lnot obj) = 0.5$. Taking
-the log probability, we have:
+Taking the log probability, we have:
 %
 \begin{align}
-  \log p( obj | \mathbf{Z} ) &= \log{\eta} + \sum_{i=1}^{n} { \log p( z_i | obj) }
+  \log p( obj_c | \mathbf{Z} ) &= \log{\eta} + \sum_{i=1}^{n} { \log p( z_i |
+    obj_c) } + \log p ( obj_c )
   \text{,}
   \label{eq:obj_model}
 \end{align}
 %
-where $\eta = \frac{p(obj)}{p(\mathbf{Z})}$.
+where $\eta = \frac{1}{p(\mathbf{Z})}$ is a normalization constant.

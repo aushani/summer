@@ -1,20 +1,16 @@
 \section{Results}
 
-We train on 10000 simulated worlds with star objects of variable size placed at
-random positions with random orientations. In each simulated world used for
-training, we place only one object per world. We build our observation model
-from simulated LIDAR scans from these worlds and the ground truth position and
-orientation of the objects.
+To build our observation model \eqref{eq:2gram_model}, we build simulated
+worlds with randomly placed objects, generate LIDAR scans from these worlds, and
+populate a lookup table of histograms.
 
 Then, we generate a LIDAR scan from an unseen simulated world with multiple
-objects. This is shown in \figref{fig:sim_world}. We run our detector on this
-LIDAR data. Because of the symmetry of the star, we test only orientations
-between $\unit{0}{\degree}$ and $\unit{72}{\degree}$. The result of the detector
-is shown in \figref{fig:detector}.
+objects. This is shown in \figref{fig:sim_world}.
 
-In \figref{fig:pr_curve}, we show the PR curve for the detections (after
-non-maximal suppression) over 100 experiments with simulated world with 5
-randomly placed objects each.
+We run our detector on this LIDAR data. Detections accumulated across all
+orientations using the 1-gram model are shown in \figref{fig:star_1gram} and
+\figref{fig:box_1gram}, and using the 2-gram model in \figref{fig:star_2gram}
+and \figref{fig:box_2gram}.
 %
 \begin{figure}
   \centering
@@ -25,17 +21,38 @@ randomly placed objects each.
   \label{fig:sim_world}
 \end{figure}
 %
-\begin{figure*}
+\begin{figure}
   \centering
-  \includegraphics[width=\textwidth]{figures/detections.png}
-  \caption{Result of detector. Non-maximal suppression results in detections
-    marked with red x's}
-  \label{fig:detector}
-\end{figure*}
+  \includegraphics[width=\columnwidth]{figures/star_1gram.png}
+  \caption{Star detections across all orientations for 1-gram model. Red x
+    depicts ground truth. Green x depicts the location of the LIDAR sensor, and
+    the black dots are the LIDAR observations.}
+  \label{fig:star_1gram}
+\end{figure}
 %
 \begin{figure}
   \centering
-  \includegraphics[width=\columnwidth]{figures/pr_curve.png}
-  \caption{PR curve for detections}.
-  \label{fig:pr_curve}
+  \includegraphics[width=\columnwidth]{figures/box_1gram.png}
+  \caption{Box detections across all orientations for 1-gram model. Red x
+    depicts ground truth. Green x depicts the location of the LIDAR sensor, and
+    the black dots are the LIDAR observations.}
+  \label{fig:box_1gram}
+\end{figure}
+%
+\begin{figure}
+  \centering
+  \includegraphics[width=\columnwidth]{figures/star_2gram.png}
+  \caption{Star detections across all orientations for 2-gram model. Red x
+    depicts ground truth. Green x depicts the location of the LIDAR sensor, and
+    the black dots are the LIDAR observations.}
+  \label{fig:star_2gram}
+\end{figure}
+%
+\begin{figure}
+  \centering
+  \includegraphics[width=\columnwidth]{figures/box_2gram.png}
+  \caption{Box detections across all orientations for 2-gram model. Red x
+    depicts ground truth. Green x depicts the location of the LIDAR sensor, and
+    the black dots are the LIDAR observations.}
+  \label{fig:box_2gram}
 \end{figure}

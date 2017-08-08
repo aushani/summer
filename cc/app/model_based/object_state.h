@@ -2,6 +2,9 @@
 
 #include <Eigen/Core>
 
+namespace app {
+namespace model_based {
+
 class ObjectState {
  public:
   ObjectState(double x, double y, double a, const std::string &cn);
@@ -16,16 +19,11 @@ class ObjectState {
 
   double GetBearing() const;
 
-  double GetMaxDtheta() const;
-
   bool operator<(const ObjectState &os) const;
 
  private:
   double kResPos_ = 0.001;
   double kResAngle_ = 0.001;
-
-  double max_size_ = 5.0;
-  double kDistanceStep_ = 0.15; // 15 cm
 
   Eigen::Vector2d pos_;
   double theta_;
@@ -36,6 +34,7 @@ class ObjectState {
   double range_;
   double cos_theta_;
   double sin_theta_;
-
-  double max_dtheta_ = 2*M_PI;
 };
+
+} // namespace model_based
+} // namespace app

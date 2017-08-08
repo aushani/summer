@@ -5,21 +5,32 @@ import os.path
 import argparse
 import pandas
 
-def show_map(ax, x, y, z, title, points=None, vmin=None, vmax=None):
-  im = ax.pcolor(x, y, z, vmin=vmin, vmax=vmax)
-  #im = ax.imshow(np.concatenate((x, y, z)))
+def show_map(ax, x, y, z, title, points=None, vmin=None, vmax=None, cb=False, gt_shapes=None):
+  x1 = np.min(x[:])
+  x2 = np.max(x[:])
+
+  y1 = np.min(y[:])
+  y2 = np.max(y[:])
+
+  #im = ax.pcolor(x, y, z, vmin=vmin, vmax=vmax)
+  im = ax.imshow(np.transpose(z), origin='lower', extent=(x1, x2, y1, y2), vmin=vmin, vmax=vmax)
   ax.scatter(0, 0, c='g', marker='x')
-  plt.colorbar(im, ax=ax)
+
+  for shape in gt_shapes:
+    ax.scatter(shape[0], shape[1], c='r', marker='x')
+
+  if cb:
+    plt.colorbar(im, ax=ax)
 
   if not points is None:
     ax.scatter(points[:, 0], points[:, 1], color='k', marker='.')
 
-  ax.axis('equal')
-  ax.axis((np.min(x[:]), np.max(x[:]), np.min(y[:]), np.max(y[:])))
+  #ax.axis('equal')
+  ax.axis((x1, x2, y1, y2))
 
   ax.set_title(title)
 
-def show_detection(res, ax_score=None, ax_logodds=None, ax_prob=None, points=None, angle=0, do_non_max=True, name=''):
+def show_detection(res, ax_score=None, ax_logodds=None, ax_prob=None, points=None, angle=0, do_non_max=True, name='', cb=False, gt_shapes=None):
   unique_xs = np.unique(np.round(res[:, 0], decimals=2))
   unique_ys = np.unique(np.round(res[:, 1], decimals=2))
   unique_angles = np.unique(np.round(res[:, 2], decimals=2))
@@ -42,21 +53,37 @@ def show_detection(res, ax_score=None, ax_logodds=None, ax_prob=None, points=Non
 
     angle_deg = unique_angles[angle] * 180 / np.pi
 
+    shapes = []
+    for s in gt_shapes:
+      a = s[2]
+      da = unique_angles[angle] - a
+      while da < -np.pi:
+        da += 2*np.pi
+      while da > np.pi:
+        da -= 2*np.pi
+
+      if np.abs(da) < np.mean(np.diff(unique_angles))/2:
+        shapes.append(s)
+
     if not ax_score is None:
-      show_map(ax_score,   x_angle, y_angle, score_angle   , '%s at %5.1f deg (score)' % (name, angle_deg), points=points)
+      show_map(ax_score,   x_angle, y_angle, score_angle   , '%s at %5.0f deg (score)' % (name, angle_deg),
+          points=points, cb=cb, gt_shapes = shapes)
 
     if not ax_logodds is None:
-      show_map(ax_logodds, x_angle, y_angle, logodds_angle , '%s at %5.1f deg (log-odds)' % (name, angle_deg), points=points)
+      show_map(ax_logodds, x_angle, y_angle, logodds_angle , '%s at %5.0f deg (log-odds)' % (name, angle_deg),
+          points=points, vmin=-40, vmax=40, cb=cb, gt_shapes = shapes)
 
     if not ax_prob is None:
-      show_map(ax_prob,    x_angle, y_angle, prob_angle    , '%s at %5.1f deg (prob)' % (name, angle_deg), points=points, vmin=0, vmax=1)
+      show_map(ax_prob,    x_angle, y_angle, prob_angle    , '%s at %5.0f deg (prob)' % (name, angle_deg),
+          points=points, vmin=0, vmax=1, cb=cb, gt_shapes = shapes)
+
   else:
     x = x[:, :, 0]
     y = y[:, :, 0]
     prob = np.sum(prob, axis=-1)
 
     if not ax_prob is None:
-      show_map(ax_prob, x, y, prob, '%s (prob)' % (name), points=points, vmin=0, vmax=1)
+      show_map(ax_prob, x, y, prob, '%s (prob)' % (name), points=points, vmin=0, vmax=1, cb=cb, gt_shapes = gt_shapes)
 
 
   # Non maximal supression
@@ -105,68 +132,50 @@ def show_detection(res, ax_score=None, ax_logodds=None, ax_prob=None, points=Non
           if ax_prob:
             ax_prob.scatter(x[i, j, angle], y[i, j, angle], c='r', marker='x', s=50)
 
-def show_detection_layer(class_name, points):
+def show_detection_layer(class_name, n_gram, points, gt_shapes):
   print 'Plotting', class_name
-  filename = '/home/aushani/summer/cc/result_%s_%03d.csv' % (class_name, experiment)
+  filename = '/home/aushani/summer/cc/result_%s_%02dgram_%03d.csv' % (class_name, n_gram, experiment)
   df = pandas.read_csv(filename, header=None)
   res = df.values
+
+  shapes = []
+  for s in gt_shapes:
+    if s[3].strip() == class_name:
+      shapes.append(s)
 
   print 'Scores range from %5.3f to %5.3f'   % (np.min(res[:, 3]), np.max(res[:, 3]))
   print 'Log-odds range from %5.3f to %5.3f' % (np.min(res[:, 4]), np.max(res[:, 4]))
   print 'Probs range from %5.3f to %5.3f'    % (np.min(res[:, 5]), np.max(res[:, 5]))
 
-  if class_name is "EMPTY":
+  if class_name is "NOOBJ":
     nrows = 1
     ncols = 1
   else:
-    nrows = 4
-    ncols = 4
+    nrows = 5
+    ncols = 5
 
-  f_score, axarr_score = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)
+  #f_score, axarr_score = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)
   f_logodds, axarr_logodds = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)
   f_prob, axarr_prob = plt.subplots(nrows = nrows, ncols = ncols, sharex=True, sharey=True)
 
-
-  if class_name is "EMPTY":
-    show_detection(res, ax_score=axarr_score, ax_logodds=axarr_logodds, ax_prob=axarr_prob,
-        points=points, angle = 0, do_non_max = False, name=class_name)
+  if class_name is "NOOBJ":
+    show_detection(res, ax_score=None, ax_logodds=axarr_logodds, ax_prob=axarr_prob,
+        points=points, angle = 0, do_non_max = False, name=class_name, cb=True, gt_shapes=shapes)
   else:
     for i in range(nrows):
       for j in range(ncols):
         angle = i*ncols + j
-        show_detection(res, ax_score=axarr_score[i, j], ax_logodds=axarr_logodds[i, j], ax_prob=axarr_prob[i, j],
-            points=points, angle = angle, do_non_max = False, name=class_name)
+        show_detection(res, ax_score=None, ax_logodds=axarr_logodds[i, j], ax_prob=axarr_prob[i, j],
+            points=points, angle = angle, do_non_max = False, name=class_name, cb=True, gt_shapes=shapes)
 
     f_sumprob, axarr_sumprob = plt.subplots(nrows = 1, ncols = 1, sharex=True, sharey=True)
-    show_detection(res, ax_prob=axarr_sumprob, points=points, angle = -1, do_non_max = False, name=class_name)
+    show_detection(res, ax_prob=axarr_sumprob, points=points, angle = -1, do_non_max = False, name=class_name, cb=True, gt_shapes=shapes)
 
-def show_model(model):
-  f, ax = plt.subplots(nrows = 1, ncols = 1)
-
-  unique_xs = np.unique(np.round(model[:, 0], decimals=2))
-  unique_ys = np.unique(np.round(model[:, 1], decimals=2))
-  grid_shape = (len(unique_xs), len(unique_ys))
-
-  x = np.reshape(model[:, 0], grid_shape)
-  y = np.reshape(model[:, 1], grid_shape)
-  z = np.reshape(model[:, 2], grid_shape);
-
-  #z = np.clip(z, 1e-10, None)
-  #z = np.log(z)
-
-  #sc = ax.scatter(x, y, c=z, marker='x', s=10)
-  im = ax.pcolor(x, y, z);
-  #im = ax.imshow(np.concatenate((x, y, z)))
-  plt.colorbar(im, label='Likelihood')
-  ax.axis('equal')
-  #ax.axis((-5, 5, 0, 8))
-  ax.grid(True)
-  ax.set_title('Observation Model')
 
 parser = argparse.ArgumentParser(description="Make some plots")
 parser.add_argument('exp', metavar = 'exp', nargs='+', help='experiment number')
+parser.add_argument('n_gram', metavar = 'n_gram', nargs='+', help='n gram')
 args = parser.parse_args()
-
 
 params = {'legend.fontsize': 'x-large',
           'figure.figsize': (15, 5),
@@ -178,12 +187,15 @@ params = {'legend.fontsize': 'x-large',
 pylab.rcParams.update(params)
 
 experiment = int(args.exp[0])
+n_gram = int(args.n_gram[0])
 
-print 'Plotting...'
+print 'Plotting experiment %d running with %d-gram...' % (experiment, n_gram)
+
+points = pandas.read_csv('/home/aushani/summer/cc/data_%03d.csv'         % (experiment), header=None).values
+gt_shapes = pandas.read_csv('/home/aushani/summer/cc/shapes_%03d.csv' % (experiment), header=None).values
 
 if True:
-  points = np.loadtxt('/home/aushani/summer/cc/data_%03d.csv'         % (experiment), delimiter=',')
-  gt     = np.loadtxt('/home/aushani/summer/cc/ground_truth_%03d.csv' % (experiment), delimiter=',')
+  gt     = pandas.read_csv('/home/aushani/summer/cc/ground_truth_%03d.csv' % (experiment), header=None).values
 
   f, axarr = plt.subplots(nrows = 1, ncols = 2)
 
@@ -202,18 +214,9 @@ if True:
   axarr[1].set_title('Ground Truth')
 
 if True:
-  show_detection_layer("BOX", points)
-  show_detection_layer("STAR", points)
-  show_detection_layer("EMPTY", points)
-
-if True:
-  box  = np.loadtxt('/home/aushani/summer/cc/BOX.csv'                         , delimiter=',')
-  star  = np.loadtxt('/home/aushani/summer/cc/STAR.csv'                         , delimiter=',')
-  empty  = np.loadtxt('/home/aushani/summer/cc/EMPTY.csv'                         , delimiter=',')
-
-  show_model(box)
-  show_model(star)
-  show_model(empty)
+  show_detection_layer("BOX", n_gram, points, gt_shapes)
+  show_detection_layer("STAR", n_gram, points, gt_shapes)
+  show_detection_layer("NOOBJ", n_gram, points, gt_shapes)
 
 print 'Ready to show, press Enter'
 raw_input()

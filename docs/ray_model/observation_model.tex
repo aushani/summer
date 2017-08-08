@@ -1,7 +1,7 @@
 \section{Observation Model}
 
-Consider $p( z_i | obj)$. We will assume that $\theta_i$ is known, and thus we
-just need to model $p( r_i | obj, \theta_i)$. We will do this by building a
+Consider $p( z_i | obj_c)$. We will assume that $\theta_i$ is known, and thus we
+just need to model $p( r_i | obj_c, \theta_i)$. We will do this by building a
 lookup table of histograms from simulated data.
 
 We generate a number of simulated environments with objects placed in random
@@ -36,72 +36,59 @@ considering, and $d_{\text{obs}}$ represents the observation, relative to the
 object's location. (Note that these can be positive or negative). So, we have
 %
 \begin{align}
-  p( r_i | obj, \theta_i) &=
-    p_{obj}( d_{\text{obs}} | \phi, d_{\text{ray}} )
+  p( r_i | obj_c, \theta_i) &=
+    p_{obj_c}( d_{\text{obs}} | \phi, d_{\text{ray}} )
   \text{.}
 \end{align}
 %
-(Note that for the change of variables, $\frac{d}{d d_{\text{obj}}} r_i = 1$)
+(Note that for the change of variables, $\frac{d}{d d_{\text{obs}}} r_i = 1$)
 
 We maintain a two-dimensional array of histograms, parameterized by $(\phi,
-d_{\text{ray}})$. We discretize $\phi$ at \unit{0.05}{\rad} and
-$d_{\text{ray}}$ at \unit{0.05}{\m}. For each $z_i$, we find the appropriate
-histogram and update it with $d_{\text{obs}}$.
+d_{\text{ray}})$. We discretize $\phi$ at \unit{0.10}{\rad} and
+$d_{\text{ray}}$ at \unit{0.10}{\m}. When building the observation model, for
+each $z_i$, we find the appropriate histogram and update it with
+$d_{\text{obs}}$.
 
-Additionally, we use negative mining in a similar fashion to estimate
-$p( r_i | \lnot obj, \theta_i) = p_{\lnot obj} ( d_{\text{obs}} | \phi, d_{\text{ray}}) $.
+We can visualize the result of these histograms by querying the log probability
+of a potential LIDAR observation given a object of a certain class with a
+certain state. This is depicted in \figref{fig:star_model} and
+\figref{fig:box_model}.
+%
+\begin{figure*}
+  \centering
+  \includegraphics[width=\textwidth]{figures/star_model.png}
+  \caption{Log probability of potential LIDAR observations from (0, 0) with a
+    star placed at (0, 15). This is implemented as a lookup table of histograms.}
+  \label{fig:star_model}
+\end{figure*}
+%
+\begin{figure*}
+  \centering
+  \includegraphics[width=\textwidth]{figures/box_model.png}
+  \caption{Log probability of potential LIDAR observations from (0, 0) with a
+    box placed at (0, 15). This is implemented as a lookup table of histograms.}
+  \label{fig:box_model}
+\end{figure*}
 
 Thus, \eqnref{eq:obj_model} becomes:
 %
 \begin{align}
-  \log p( obj | \mathbf{Z} ) &=
-   \log{\eta} + \sum_{i=1}^{n} { \log p_{obj}( d_{\text{obs}} | \phi, d_{\text{ray}}) }
+  \log p( obj_c | \mathbf{Z} ) &=
+   \log{\eta} + \sum_{i=1}^{n} { \log p_{obj_c}( d_{\text{obs}} | \phi, d_{\text{ray}}) }
+   + \log p(obj_c)
    \text{,}
    \label{eq:obj_model_pos}
 \end{align}
-%
-and we also have:
+
+We assume that at any given location $(x, y)$, there can only be one object
+across all classes (including the no object class) and orientations:
 %
 \begin{align}
-  \log p( \lnot obj | \mathbf{Z} ) &=
-   \log{\eta} + \sum_{i=1}^{n} { \log p_{\lnot obj} ( d_{\text{obs}} | \phi, d_{\text{ray}}) }
-   \text{.}
-   \label{eq:obj_model_neg}
+  \sum_{ \text{class $c$, orientation $\theta_{\text{object}}$} }
+  p(obj_c | \mathbf{Z})
+  &= 1
 \end{align}
+%
+Thus, we can compute $\log \eta$ and then $p(obj_c | \mathbf{Z})$ for all
+classes and orientations.
 
-So, by leveraging these observation models, we can compute:
-%
-\begin{align}
-  s_{ \text{obj} }     &=
-    \sum_{i=1}^{n} { \log p_{obj}( d_{\text{obs}} | \phi, d_{\text{ray}}) } \\
-  s_{\lnot \text{obj}} &=
-    \sum_{i=1}^{n} { \log p_{\lnot obj} ( d_{\text{obs}} | \phi, d_{\text{ray}}) } \\
-  p ( obj | \mathbf{Z} ) &=
-    \frac{1}{1 + \exp{(s_{\lnot \text{obj}} - s_{\text{obj}})}}
-  \text{.}
-  \label{eq:detection_prob}
-\end{align}
-
-To visualize our observation model and verify that it is capturing the right
-thing, we can use it to generated a synthetic LIDAR scan of a object. We place
-an object at $(0.0, 5.0)$ with $\theta = \unit{18}{\degree}$. For a range of
-sensor angles $\theta_i$, we can evaluate $p( r_i | obj, \theta_i ) $ and thus
-generate a synthetic scan that represents what we might expect to see. We depict
-this in \figref{fig:synthetic_scan} evaluated at different percentiles (e.g., at
-50\% we have the median observation we would expect). We do the same for
-$p_{\lnot \text{obj}}$ in \figref{fig:synthetic_scan_noobj}.
-%
-\begin{figure}
-  \centering
-  \includegraphics[width=\columnwidth]{figures/synthetic_scan.png}
-  \caption{Synthetic scan created for an object at $(0.0, 5.0)$ with $\theta =
-    \unit{18}{\degree}$.}
-  \label{fig:synthetic_scan}
-\end{figure}
-%
-\begin{figure}
-  \centering
-  \includegraphics[width=\columnwidth]{figures/synthetic_scan_noobj.png}
-  \caption{Synthetic scan created for $p_{\lnot \text{obj}}$.}
-  \label{fig:synthetic_scan_noobj}
-\end{figure}

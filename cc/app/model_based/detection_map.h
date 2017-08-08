@@ -6,12 +6,17 @@
 
 #include "library/geometry/point.h"
 
-#include "ray_model.h"
-#include "model_bank.h"
-#include "observation.h"
-#include "object_state.h"
+#include "app/model_based/ray_model.h"
+#include "app/model_based/model_bank.h"
+#include "app/model_based/observation.h"
+#include "app/model_based/object_state.h"
 
-namespace ge = library::geometry;
+namespace app {
+namespace model_based {
+
+namespace {
+  namespace ge = library::geometry;
+}
 
 class DetectionMap {
  public:
@@ -46,3 +51,6 @@ class DetectionMap {
   void GetMaxDetectionsWorker(std::deque<ObjectState> *states, std::map<ObjectState, double> *result, std::mutex *mutex);
   bool IsMaxDetection(const ObjectState &state);
 };
+
+} // namespace model_based
+} // namespace app

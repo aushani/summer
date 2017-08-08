@@ -1,12 +1,11 @@
-#include "object_state.h"
+#include "app/model_based/object_state.h"
+
+namespace app {
+namespace model_based {
 
 ObjectState::ObjectState(double x, double y, double a, const std::string &cn) :
  pos_(x, y), theta_(a), classname_(cn),
  bearing_(atan2(y, x)), range_(pos_.norm()), cos_theta_(cos(theta_)), sin_theta_(sin(theta_)) {
-
-  if (GetRange() > max_size_) {
-    max_dtheta_ = asin((max_size_ + 2 * kDistanceStep_) / GetRange());
-  }
 }
 
 const Eigen::Vector2d& ObjectState::GetPos() const {
@@ -37,10 +36,6 @@ double ObjectState::GetBearing() const {
   return bearing_;
 }
 
-double ObjectState::GetMaxDtheta() const {
-  return max_dtheta_;
-}
-
 bool ObjectState::operator<(const ObjectState &os) const {
   if (std::abs(pos_(0) - os.pos_(0)) > kResPos_)
     return pos_(0) < os.pos_(0);
@@ -53,3 +48,6 @@ bool ObjectState::operator<(const ObjectState &os) const {
 
   return classname_ < os.classname_;
 }
+
+} // namespace model_based
+} // namespace app

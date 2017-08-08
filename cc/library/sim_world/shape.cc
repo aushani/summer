@@ -88,6 +88,8 @@ double Shape::GetHit(const Eigen::Vector2d &origin, const Eigen::Vector2d &ray, 
 }
 
 bool Shape::IsInside(double x, double y) const {
+  // TODO prone to errors on corners
+
   // Count intersections
   Eigen::Vector2d origin(x, y);
   Eigen::Vector2d ray(0, 1);
