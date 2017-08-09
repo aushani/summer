@@ -157,16 +157,17 @@ class RayModel {
 
   void MarkObservations(const ObjectState &os, const std::vector<ModelObservation> &obs);
 
+  std::map<std::pair<double, double>, int> GetHistogramCountsByAngle() const;
   void PrintStats() const;
 
   double SampleRange(const ObjectState &os, double sensor_theta, double sensor_phi) const;
 
  private:
-  const double kAngleRes = 0.01;    // ~0.5  degrees
-  const double kDistRes = 0.10;     // ~10 cm
+  double kAngleRes = 0.01;    // ~0.5  degrees
+  double kDistRes = 0.10;     // ~10 cm
 
   double max_size_xy_ = 5.0;
-  double max_size_z_ = 5.0;
+  double max_size_z_ = 2.5;
 
   //std::map<HistogramNGramKey, library::histogram::Histogram> histograms_;
   std::map<Histogram1GramKey, library::histogram::Histogram> histograms_;
@@ -178,6 +179,18 @@ class RayModel {
 
   library::histogram::Histogram* GetHistogram(const ModelObservation &mo);
   const library::histogram::Histogram* GetHistogram(const ModelObservation &mo) const;
+
+  friend class boost::serialization::access;
+  template<class Archive>
+  void serialize(Archive & ar, const unsigned int /* file_version */){
+    ar & kAngleRes;
+    ar & kDistRes;
+
+    ar & max_size_xy_;
+    ar & max_size_z_;
+
+    ar & histograms_;
+  }
 
 };
 

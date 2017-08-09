@@ -1,5 +1,9 @@
 #include "app/kitti/ray_model.h"
 
+#include "library/util/angle.h"
+
+namespace ut = library::util;
+
 namespace app {
 namespace kitti {
 
@@ -106,16 +110,22 @@ double RayModel::SampleRange(const ObjectState &os, double sensor_theta, double 
   return range;
 }
 
+std::map<std::pair<double, double>, int> RayModel::GetHistogramCountsByAngle() const {
+  std::map<std::pair<double, double>, int> counts;
+
+  for (auto it = histograms_.begin(); it != histograms_.end(); it++) {
+    const Histogram1GramKey &key = it->first;
+
+    double theta = key.idx_theta * kAngleRes;
+    double phi = key.idx_phi * kAngleRes;
+    counts[std::pair<double, double>(theta, phi)]++;
+  }
+
+  return counts;
+}
+
 void RayModel::PrintStats() const {
   printf("\tHave %ld histograms\n", histograms_.size());
-  //printf("\t\t\n");
-  //for (auto it = histograms_.begin(); it != histograms_.end(); it++) {
-  //  const Histogram1GramKey &key = it->first;
-
-  //  double theta = key.idx_theta * kAngleRes;
-  //  double phi = key.idx_phi * kAngleRes;
-
-  //}
 }
 
 } // namespace kitti

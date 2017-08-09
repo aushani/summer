@@ -18,6 +18,7 @@ class ModelBank {
   void MarkObservations(const ObjectState &os, const std::vector<Observation> &x_hits);
 
   const RayModel& GetModel(const std::string &name) const;
+  const std::map<std::string, RayModel>& GetModels() const;
 
   void PrintStats() const;
 

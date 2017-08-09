@@ -30,6 +30,10 @@ const RayModel& ModelBank::GetModel(const std::string &name) const {
   return obj_models_.find(name)->second;
 }
 
+const std::map<std::string, RayModel>& ModelBank::GetModels() const {
+  return obj_models_;
+}
+
 void ModelBank::PrintStats() const {
   for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
     printf("Class %s\n", it->first.c_str());
