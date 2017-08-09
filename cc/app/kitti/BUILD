@@ -1,6 +1,11 @@
 cc_binary(
     name = "test-kitti",
-    srcs = ["test_kitti.cc"],
+    srcs = glob(["*.cc", "*.h"]),
     linkopts = ["-lm"],
-    deps = ["//library/kitti", "@eigen//:eigen"]
+    deps = [
+          "//library/kitti",
+          "//library/histogram",
+          "//library/util",
+          "@eigen//:eigen"
+        ]
 )

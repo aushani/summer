@@ -5,10 +5,19 @@
 #include <Eigen/Geometry>
 #include <Eigen/Dense>
 
+#include "library/util/angle.h"
 #include "library/kitti/tracklets.h"
 #include "library/kitti/velodyne_scan.h"
 
+#include "app/kitti/model_observation.h"
+#include "app/kitti/model_bank.h"
+#include "app/kitti/observation.h"
+#include "app/kitti/object_state.h"
+
 namespace kt = library::kitti;
+namespace ut = library::util;
+
+using namespace app::kitti;
 
 inline bool FileExists(const char* fn) {
   struct stat buffer;
@@ -26,6 +35,8 @@ int main() {
   printf("Testing KITTI...\n");
 
   kt::Tracklets t;
+
+  ModelBank mb;
 
   double z_offset = 0.8; // ???
 
@@ -60,7 +71,7 @@ int main() {
       kt::Tracklets::tPose* pose;
       t.getPose(t_id, scan_id, pose);
       printf("\tTrack %d (%s) at %5.3f, %5.3f, %5.3f, rot %5.3f, %5.3f, %5.3f\n",
-          t_id, tt->objectType.c_str(), pose->tx, pose->ty, pose->tz, pose->rx, pose->ry, pose->rz);
+          t_id, tt->objectType.c_str(), pose->tx, pose->ty, pose->tz + z_offset, pose->rx, pose->ry, pose->rz);
 
       // Find points within this track
       Eigen::Affine3d r = CreateRotationMatrix(pose->rx, pose->ry, pose->rz);
@@ -70,6 +81,7 @@ int main() {
       auto hits = scans[scan_id].GetHits();
 
       std::vector<Eigen::Vector3d> hits_t;
+      std::vector<Eigen::Vector3d> hits_world_t;
       for (const auto &h : hits) {
         Eigen::Vector4d h_h = h.homogeneous();
         Eigen::Vector3d h_t = (m * h_h).hnormalized();
@@ -78,8 +90,29 @@ int main() {
             std::abs(h_t.y()) < tt->w/2 &&
             std::abs(h_t.z()) < tt->h/2) {
           hits_t.push_back(h_t);
+          hits_world_t.push_back(h);
         }
       }
+
+      // Test with model?
+      ObjectState os(Eigen::Vector3d(pose->tx, pose->ty, pose->tz + z_offset), pose->rz, tt->objectType);
+      std::vector<Observation> obs;
+      for (const auto &h_t : hits_world_t) {
+        obs.emplace_back(h_t);
+      }
+
+      mb.MarkObservations(os, obs);
+
+      //for (const auto &x_hit : obs) {
+      //  double range = mb.GetModel(os.classname).SampleRange(os, x_hit.theta, x_hit.phi);
+      //  printf("for theta = %5.3f, phi = %5.3f, range is %5.3f vs sampled at %5.3f\n",
+      //      ut::RadiansToDegrees(x_hit.theta), ut::RadiansToDegrees(x_hit.phi), x_hit.range, range);
+      ////  //printf("\t\t (x, y, z) = %5.3f, %5.3f, %5.3f ", x_hit.pos.x(), x_hit.pos.y(), x_hit.pos.z());
+      ////  //printf("\t theta = %5.3f, phi = %5.3f\n", x_hit.theta * 180.0 / M_PI, x_hit.phi * 180.0 / M_PI);
+      ////  //ModelObservation mo(os, x_hit);
+      ////  //printf("\t\tTheta: %07.1f,\t Phi : %07.1f,\t dist_ray: %07.1f,\t dist_z: %07.1f,\t dist_obs: %07.1f \t(in front %s)\n",
+      ////  //        mo.theta * 180.0 / M_PI, mo.phi * 180.0 / M_PI, mo.dist_ray, mo.dist_z, mo.dist_obs, mo.in_front ? "T":"F");
+      //}
 
       if (hits_t.size() > 0) {
         sprintf(fn, "track_%03d_frame_%03d.csv", t_id, scan_id);
@@ -90,8 +123,30 @@ int main() {
         }
       }
 
+      if (obs.size() > 0) {
+        sprintf(fn, "track_%03d_frame_%03d_synth.csv", t_id, scan_id);
+        std::ofstream model_file(fn);
+
+        for (const auto &x_hit : obs) {
+          double range = mb.GetModel(os.classname).SampleRange(os, x_hit.theta, x_hit.phi);
+
+          if (range < 100 && range > 0) {
+            double x = range * ( cos(x_hit.phi)  * cos(x_hit.theta));
+            double y = range * ( cos(x_hit.phi)  * sin(x_hit.theta));
+            double z = range * ( sin(x_hit.phi) );
+            Eigen::Vector3d h(x, y, z);
+
+            Eigen::Vector4d h_h = h.homogeneous();
+            Eigen::Vector3d h_t = (m * h_h).hnormalized();
+
+            model_file << h_t.x() << ", " << h_t.y() << ", " << h_t.z() << std::endl;
+          }
+        }
+      }
     }
 
     scan_id++;
   }
+
+  mb.PrintStats();
 }
