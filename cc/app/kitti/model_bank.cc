@@ -1,5 +1,7 @@
 #include "app/kitti/model_bank.h"
 
+#include "library/timer/timer.h"
+
 namespace app {
 namespace kitti {
 
@@ -39,6 +41,16 @@ void ModelBank::PrintStats() const {
     printf("Class %s\n", it->first.c_str());
     it->second.PrintStats();
   }
+}
+
+void ModelBank::Blur() {
+  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
+    printf("Blurring class %s\n", it->first.c_str());
+    library::timer::Timer t;
+    it->second.Blur();
+    printf("Took %5.3f sec to blur\n", t.GetSeconds());
+  }
+
 }
 
 } // namespace kitti

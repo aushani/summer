@@ -11,6 +11,7 @@ class Timer {
 
   void Start();
   double GetMs();
+  double GetSeconds();
 
  private:
   std::chrono::time_point<std::chrono::steady_clock> tic_;

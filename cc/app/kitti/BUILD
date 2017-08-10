@@ -12,6 +12,7 @@ cc_library(
           "//library/kitti",
           "//library/histogram",
           "//library/util",
+          "//library/timer",
           "@eigen//:eigen"
         ]
 )
@@ -23,7 +24,13 @@ cc_binary(
 )
 
 cc_binary(
+    name = "blur_model_bank",
+    srcs = ["blur_model_bank.cc"],
+    deps = ["kitti_app_lib"],
+)
+
+cc_binary(
     name = "test_kitti",
     srcs = ["test_kitti.cc"],
-    deps = ["kitti_app_lib", "//library/timer"],
+    deps = ["kitti_app_lib"],
 )

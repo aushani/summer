@@ -17,5 +17,11 @@ double Timer::GetMs() {
   return t_us.count()/1000.0;
 }
 
+double Timer::GetSeconds() {
+  auto toc = std::chrono::steady_clock::now();
+  auto t_us = std::chrono::duration_cast<std::chrono::microseconds>(toc - tic_);
+  return t_us.count()/(1000.0 * 1000.0);
+}
+
 }
 }

@@ -22,6 +22,8 @@ class ModelBank {
 
   void PrintStats() const;
 
+  void Blur();
+
  private:
   // These are the object models across different classes
   std::map<std::string, RayModel> obj_models_;

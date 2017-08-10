@@ -1,5 +1,8 @@
 #include "app/kitti/ray_model.h"
 
+#include <Eigen/Core>
+#include <Eigen/Dense>
+
 #include "library/util/angle.h"
 
 namespace ut = library::util;
@@ -126,6 +129,63 @@ std::map<std::pair<double, double>, int> RayModel::GetHistogramCountsByAngle() c
 
 void RayModel::PrintStats() const {
   printf("\tHave %ld histograms\n", histograms_.size());
+}
+
+void RayModel::Blur() {
+  std::map<Histogram1GramKey, library::histogram::Histogram> blurred_histograms;
+
+  double theta_std = ut::DegreesToRadians(10.0);
+  double phi_std = ut::DegreesToRadians(5.0);
+  double dist_ray_std = 0.30;
+  double dist_z_std = 0.30;
+  int range_std = 3;
+
+  Eigen::Matrix<double, 4, 4> sigma;
+  sigma.setZero();
+  sigma.diagonal()[0] = theta_std*theta_std;
+  sigma.diagonal()[1] = phi_std*phi_std;
+  sigma.diagonal()[2] = dist_ray_std*dist_ray_std;
+  sigma.diagonal()[3] = dist_z_std*dist_z_std;
+
+  auto sigma_inv = sigma.inverse();
+
+  for (auto it = histograms_.cbegin(); it != histograms_.cend(); it++) {
+    const auto &key = it->first;
+    const auto &hist = it->second;
+
+    double theta = key.idx_theta * kAngleRes;
+    double phi = key.idx_phi * kAngleRes;
+    double dist_ray = key.idx_dist_ray * kDistRes;
+    double dist_z = key.idx_dist_z * kDistRes;
+
+    for (double dtheta = -theta_std*range_std; dtheta <= theta_std*range_std; dtheta += kAngleRes) {
+      for (double dphi = -phi_std*range_std; dphi <= phi_std*range_std; dphi += kAngleRes) {
+        for (double ddr = -dist_ray_std*range_std; ddr <= dist_ray_std*range_std; ddr += kDistRes) {
+          for (double ddz = -dist_z_std*range_std; ddz <= dist_z_std*range_std; ddz += kDistRes) {
+
+            Histogram1GramKey blurred_key(theta + dtheta, phi + dphi, dist_ray + ddr, dist_z + ddz,
+                                          kDistRes, kAngleRes, max_size_xy_, max_size_z_);
+
+            if (!blurred_key.InRange()) {
+              continue;
+            }
+
+            // Create histogram if it's not there
+            if (blurred_histograms.count(key) == 0) {
+              library::histogram::Histogram blurred_hist(-max_size_xy_, max_size_xy_, kDistRes);
+              blurred_histograms[key] = blurred_hist;
+            }
+
+            Eigen::Vector4d d_key(dtheta, dphi, ddr, ddz);
+            double weight = d_key.transpose() * sigma_inv * d_key;
+            blurred_histograms[key].Add(hist, weight);
+          }
+        }
+      }
+    }
+  }
+
+  histograms_ = blurred_histograms;
 }
 
 } // namespace kitti

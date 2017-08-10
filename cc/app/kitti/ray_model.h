@@ -28,19 +28,32 @@ struct Histogram1GramKey {
   Histogram1GramKey() {
   }
 
-  Histogram1GramKey(const ModelObservation &mo, double dist_res, double angle_res,
-      double max_size_xy, double max_size_z) {
-    idx_theta = std::round( util::MinimizeAngle(mo.theta) / angle_res );
-    idx_phi = std::round( util::MinimizeAngle(mo.phi) / angle_res );
+  Histogram1GramKey(const Histogram1GramKey &key) :
+    idx_theta(key.idx_theta),
+    idx_phi(key.idx_phi),
+    idx_dist_ray(key.idx_dist_ray),
+    dist_ray_in_range(key.dist_ray_in_range),
+    idx_dist_z(key.idx_dist_z),
+    dist_z_in_range(key.dist_z_in_range) {
+  }
 
-    if (std::abs(mo.dist_ray) < max_size_xy) {
+  Histogram1GramKey(const ModelObservation &mo, double dist_res, double angle_res, double max_size_xy, double max_size_z) :
+    Histogram1GramKey(mo.theta, mo.phi, mo.dist_ray, mo.dist_z, dist_res, angle_res, max_size_xy, max_size_z) {
+  }
+
+  Histogram1GramKey(double theta, double phi, double dist_ray, double dist_z,
+                    double dist_res, double angle_res, double max_size_xy, double max_size_z) {
+    idx_theta = std::round( util::MinimizeAngle(theta) / angle_res );
+    idx_phi = std::round( util::MinimizeAngle(phi) / angle_res );
+
+    if (std::abs(dist_ray) < max_size_xy) {
       dist_ray_in_range = true;
-      idx_dist_ray = std::round(mo.dist_ray / dist_res);
+      idx_dist_ray = std::round(dist_ray / dist_res);
     }
 
-    if (std::abs(mo.dist_z) < max_size_z) {
+    if (std::abs(dist_z) < max_size_z) {
       dist_z_in_range = true;
-      idx_dist_z = std::round(mo.dist_z / dist_res);
+      idx_dist_z = std::round(dist_z / dist_res);
     }
   }
 
@@ -49,7 +62,7 @@ struct Histogram1GramKey {
   }
 
   bool operator<(const Histogram1GramKey &rhs) const {
-    // CHeck to make sure both are in range
+    // Check to make sure both are in range
     if (!InRange()) {
       return rhs.InRange();
     }
@@ -162,6 +175,8 @@ class RayModel {
 
   std::map<std::pair<double, double>, int> GetHistogramCountsByAngle() const;
   void PrintStats() const;
+
+  void Blur();
 
   double SampleRange(const ObjectState &os, double sensor_theta, double sensor_phi) const;
 
