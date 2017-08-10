@@ -123,14 +123,35 @@ double Histogram::GetCumulativeProbability(double val) const {
 }
 
 double Histogram::GetPercentile(double percentile) const {
-  double count = 0;
-  size_t bin_idx = 0;
-  for (; bin_idx<=counts_.size(); bin_idx++) {
-    count += counts_[bin_idx];
-    if (count >= counts_total_ * percentile)
-      break;
+  if (percentile <= 0) {
+    return min_;
   }
-  return GetValue(bin_idx);
+
+  if (percentile >= 1) {
+    return max_;
+  }
+
+  double count_at = 0;
+  double target_count = percentile * counts_total_;
+
+  for (size_t i=0; i < counts_.size(); i++) {
+    double count_i = counts_[i];
+    double count_left = target_count - count_at;
+
+    if (count_i < count_left) {
+      count_at += count_i;
+      continue;
+    }
+
+    double frac = count_left/count_i;
+
+    double v1 = GetValue(i);
+    double v2 = GetValue(i+1);
+
+    return v1 + (v2 - v1)*frac;
+  }
+
+  return max_;
 }
 
 double Histogram::GetMedian() const {
@@ -143,7 +164,7 @@ size_t Histogram::GetIndex(double val) const {
   if (val >= max_)
     return counts_.size() - 1;
 
-  return round((val - min_) / res_) + 1;
+  return floor((val - min_) / res_) + 1;
 }
 
 double Histogram::GetValue(size_t idx) const {
@@ -152,7 +173,7 @@ double Histogram::GetValue(size_t idx) const {
   if (idx >= counts_.size()-1)
     return max_;
 
-  return (idx-1)*res_ + min_ + res_/2;
+  return (idx-1)*res_ + min_;
 }
 
 } // namespace histogram
