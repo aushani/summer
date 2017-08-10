@@ -1,12 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-classes = ["Car", "Cyclist", "Pedestrian"]
+#classes = ["Car", "Cyclist", "Pedestrian"]
+classes = ["Car", "Cyclist"]
+
+log_num = 1
 
 f, axarr = plt.subplots(nrows = len(classes), ncols = 1, sharex=True, sharey=True)
 
 for ax, classname in zip(axarr, classes):
-  fn = '/home/aushani/summer/cc/%s.csv' % (classname)
+  fn = '/home/aushani/summer/cc/%s_%02d.csv' % (classname, log_num)
 
   counts = np.loadtxt(fn, delimiter=",")
 

@@ -25,6 +25,9 @@ struct Histogram1GramKey {
   int idx_dist_z=0;
   bool dist_z_in_range = false;
 
+  Histogram1GramKey() {
+  }
+
   Histogram1GramKey(const ModelObservation &mo, double dist_res, double angle_res,
       double max_size_xy, double max_size_z) {
     idx_theta = std::round( util::MinimizeAngle(mo.theta) / angle_res );
