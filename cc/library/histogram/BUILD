@@ -7,7 +7,7 @@ cc_library(
 
 cc_test(
     name = "histogram_test",
-    size = "small",
+    size = "medium",
     srcs = glob(["test/**/*.cc"]),
     deps = [
             ":histogram",
