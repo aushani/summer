@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(IndexTest) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(PercentileTest) {
+BOOST_AUTO_TEST_CASE(CDFTest) {
   double min = 0;
   double max = 100;
   double res = 1.0;
@@ -53,6 +53,9 @@ BOOST_AUTO_TEST_CASE(PercentileTest) {
     double p = percentile/100.0;
     double val = h.GetPercentile(p);
     BOOST_CHECK_SMALL(percentile - val, res/(max - min) + 1e-3);
+
+    double cdf = h.GetCumulativeProbability(val);
+    BOOST_CHECK_SMALL(cdf - p, res/(max - min) + 1e-3);
   }
 }
 
@@ -72,4 +75,21 @@ BOOST_AUTO_TEST_CASE(ClearTest) {
   h.Clear();
 
   BOOST_CHECK_SMALL(h.GetCountsTotal(), 1e-5);
+}
+
+BOOST_AUTO_TEST_CASE(LikelihoodTest) {
+  double min = 0;
+  double max = 100;
+  double res = 0.001;
+
+  ht::Histogram h(min, max, res);
+
+  for (double x = min + res; x <= max - res; x += res/1000.0) {
+    h.Mark(x, 1.0);
+  }
+
+  for (double x = min; x < max; x += res/10.0) {
+    BOOST_TEST(h.GetLikelihood(x) == 1.0/(max - min), tt::tolerance(1e-2));
+  }
+
 }

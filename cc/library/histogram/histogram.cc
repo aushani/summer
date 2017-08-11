@@ -104,11 +104,19 @@ double Histogram::GetProbability(double val) const {
 
 double Histogram::GetLikelihood(double val) const {
   if (val <= min_) {
-    return GetProbability(val)/(min_ - observed_min_);
+    double denom = min_ - observed_min_;
+    if (denom < res_) {
+      denom = res_;
+    }
+    return GetProbability(val)/denom;
   }
 
   if (val >= max_) {
-    return GetProbability(val)/(observed_max_ - max_);
+    double denom = min_ - observed_min_;
+    if (denom < res_) {
+      denom = res_;
+    }
+    return GetProbability(val)/denom;
   }
 
   return GetProbability(val)/res_;
