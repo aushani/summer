@@ -1,5 +1,9 @@
 #include "app/kitti/ray_model.h"
 
+#include <tuple>
+
+#include <boost/assert.hpp>
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
@@ -133,97 +137,107 @@ void RayModel::PrintStats() const {
 }
 
 void RayModel::Blur() {
-  std::map<Histogram1GramKey, library::histogram::Histogram> blurred_histograms;
+  // Blur filter
+  const double theta_std = ut::DegreesToRadians(5.0);
+  const double phi_std = ut::DegreesToRadians(5.0);
+  const double dist_ray_std = 0.10;
+  const double dist_z_std = 0.10;
+  const double std_dim[4] = {theta_std, phi_std, dist_ray_std, dist_z_std};
+  const int range_std = 3;
 
-  double theta_std = ut::DegreesToRadians(5.0);
-  double phi_std = ut::DegreesToRadians(5.0);
-  double dist_ray_std = 0.10;
-  double dist_z_std = 0.10;
-  int range_std = 3;
-
-  Eigen::Matrix<double, 4, 4> sigma;
-  sigma.setZero();
-  sigma.diagonal()[0] = theta_std*theta_std;
-  sigma.diagonal()[1] = phi_std*phi_std;
-  sigma.diagonal()[2] = dist_ray_std*dist_ray_std;
-  sigma.diagonal()[3] = dist_z_std*dist_z_std;
-
-  auto sigma_inv = sigma.inverse();
+  double res_dim[4] = {kAngleRes, kAngleRes, kDistRes, kDistRes};
 
   // Make lookup table for weights
+  library::timer::Timer t;
   std::map< std::tuple<int, int, int, int>, double> weights;
-  int n_theta = std::floor( theta_std     * range_std / kAngleRes );
-  int n_phi   = std::floor( phi_std       * range_std / kAngleRes );
-  int n_dr    = std::floor( dist_ray_std  * range_std / kDistRes  );
-  int n_dz    = std::floor( dist_z_std    * range_std / kDistRes  );
 
-  for (int x1 = -n_theta; x1 <= n_theta; x1++) {
-    double dtheta = x1 * kAngleRes;
+  int n_dim[4] = {0, 0, 0, 0};
 
-    for (int x2 = -n_phi; x2 <= n_phi; x2++) {
-      double dphi = x2 * kAngleRes;
+  for (size_t dim = 0; dim < 4; dim++) {
+    n_dim[dim] = std::floor(std_dim[dim] * range_std / res_dim[dim]);
 
-      for (int x3 = -n_dr; x3 <= n_dr; x3++) {
-        double ddr = x3 * kDistRes;
+    for (int xd = -n_dim[dim]; xd <= n_dim[dim]; xd++) {
+      int d_key[4] = {0, 0, 0, 0};
+      d_key[dim] = xd;
 
-        for (int x4 = -n_dz; x4 <= n_dz; x4++) {
-          double ddz = x4 * kDistRes;
+      double dist = xd * res_dim[dim];
+      double mahal_dist = dist / ( std_dim[dim] * std_dim[dim] );
 
-          Eigen::Vector4d d_key(dtheta, dphi, ddr, ddz);
-          double dist = d_key.transpose() * sigma_inv * d_key;
+      auto weights_key = std::make_tuple(d_key[0], d_key[1], d_key[2], d_key[3]);
 
-          weights[std::tie(x1, x2, x3, x4)] = exp(-dist);
-        }
-      }
+      // Gaussian filter
+      weights[weights_key] = exp(-0.5*mahal_dist);
     }
   }
+  printf("\tTook %5.3f sec to make %ld weight lookup table\n", t.GetSeconds(), weights.size());
 
-  size_t count = 0;
-  library::timer::Timer t_total;
-  library::timer::Timer t_step;
+  // Separable filter, blur each dimension individually
+  std::map<Histogram1GramKey, library::histogram::Histogram> blurred_histograms;
+  std::map<Histogram1GramKey, library::histogram::Histogram> prev_histograms(histograms_);
 
-  for (auto it = histograms_.cbegin(); it != histograms_.cend(); it++) {
-    if (t_step.GetSeconds() > 10) {
-      printf("\tProcessing histogram %ld / %ld, %5.3f sec / histogram\n",
-          count + 1, histograms_.size(), t_total.GetSeconds() / count);
-      t_step.Start();
-    }
+  // Go through each dim
+  for (size_t dim = 0; dim < 4; dim++) {
+    size_t count = 0;
+    library::timer::Timer t_total;
+    library::timer::Timer t_step;
 
-    const auto &key = it->first;
-    const auto &hist = it->second;
-
-    for (int x1 = -n_theta; x1 <= n_theta; x1++) {
-      for (int x2 = -n_phi; x2 <= n_phi; x2++) {
-        for (int x3 = -n_dr; x3 <= n_dr; x3++) {
-          for (int x4 = -n_dz; x4 <= n_dz; x4++) {
-
-            Histogram1GramKey blurred_key(key.idx_theta    + x1,
-                                          key.idx_phi      + x2,
-                                          key.idx_dist_ray + x3,
-                                          key.idx_dist_z   + x4,
-                                          kDistRes, kAngleRes, max_size_xy_, max_size_z_);
-
-            if (!blurred_key.InRange()) {
-              continue;
-            }
-
-            // Create histogram if it's not there
-            if (blurred_histograms.count(key) == 0) {
-              library::histogram::Histogram blurred_hist(-max_size_xy_, max_size_xy_, kDistRes);
-              blurred_histograms[key] = blurred_hist;
-            }
-
-            double weight = weights[std::tie(x1, x2, x3, x4)];
-            blurred_histograms[key].Add(hist, weight);
-          }
-        }
+    // Go through each element of previous blurred histogram result
+    for (auto ph_it = prev_histograms.cbegin(); ph_it != prev_histograms.cend(); ph_it++) {
+      if (t_step.GetSeconds() > 60) {
+        printf("\t  Processing dim %ld / %ld histogram %ld / %ld, %5.3f ms / histogram\n",
+            dim, 4L, count + 1, prev_histograms.size(), t_total.GetMs() / count);
+        t_step.Start();
       }
+
+      const auto &key = ph_it->first;
+      const auto &hist = ph_it->second;
+
+      // Only blur along the dim we're considering
+      for (int xd = -n_dim[dim]; xd < n_dim[dim]; xd++) {
+        int d_key[4] = {0, 0, 0, 0};
+        d_key[dim] = xd;
+
+        Histogram1GramKey blurred_key(key.idx_theta    + d_key[0],
+                                      key.idx_phi      + d_key[1],
+                                      key.idx_dist_ray + d_key[2],
+                                      key.idx_dist_z   + d_key[3],
+                                      kDistRes, kAngleRes, max_size_xy_, max_size_z_);
+
+        // If we're out of range, don't blur
+        if (!blurred_key.InRange()) {
+          continue;
+        }
+
+        // Get histogram to add to
+        auto blurred_histograms_it = blurred_histograms.find(blurred_key);
+
+        // Create histogram if it's not there
+        if (blurred_histograms_it == blurred_histograms.end()) {
+          library::histogram::Histogram blurred_hist(-max_size_xy_, max_size_xy_, kDistRes);
+          blurred_histograms.insert( std::pair<Histogram1GramKey, library::histogram::Histogram>(blurred_key, blurred_hist) );
+
+          blurred_histograms_it = blurred_histograms.find(blurred_key);
+          BOOST_ASSERT(blurred_histograms_it != blurred_histograms.end());
+        }
+
+        auto weights_key = std::make_tuple(d_key[0], d_key[1], d_key[2], d_key[3]);
+        auto weights_it = weights.find(weights_key);
+        BOOST_ASSERT(weights_it != weights.end());
+
+        blurred_histograms_it->second.Add(hist, weights_it->second);
+      }
+
+      count++;
     }
 
-    count++;
+    prev_histograms = blurred_histograms;
+    blurred_histograms.clear();
+
+    printf("\tBlurred dim %ld in %5.3f seconds\n", dim, t_total.GetSeconds());
   }
 
-  histograms_ = blurred_histograms;
+  // Now we're done, save result
+  histograms_ = prev_histograms;
 }
 
 } // namespace kitti
