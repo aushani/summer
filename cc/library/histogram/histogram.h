@@ -1,9 +1,9 @@
 #pragma once
 
-#include <vector>
+#include <map>
 #include <cstddef>
 
-#include <boost/serialization/vector.hpp>
+#include <boost/serialization/map.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 
@@ -43,7 +43,8 @@ class Histogram {
   double observed_min_ = 0.0;
   double observed_max_ = 0.0;
 
-  std::vector<double> counts_;
+  std::map<size_t, double> counts_;
+  size_t counts_index_max_ = 0;
   double counts_total_ = 0.0f;
 
   size_t GetIndex(double val) const;
@@ -60,6 +61,7 @@ class Histogram {
     ar & observed_max_;
 
     ar & counts_;
+    ar & counts_index_max_;
     ar & counts_total_;
   }
 };
