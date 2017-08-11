@@ -26,11 +26,16 @@ inline ModelBank LoadModelBank(const char *fn) {
   return mb;
 }
 
-int main() {
+int main(int argc, char** argv) {
   printf("Blurring model bank\n");
 
+  if (argc != 3) {
+    printf("Usage: blur_model_bank input_file output_file\n");
+    return 1;
+  }
+
   library::timer::Timer t;
-  ModelBank mb = LoadModelBank("model_bank_13");
+  ModelBank mb = LoadModelBank(argv[1]);
   printf("Took %5.3f sec to load model bank\n", t.GetSeconds());
 
   mb.PrintStats();
@@ -40,6 +45,8 @@ int main() {
   printf("Took %5.3f sec to blur model bank\n", t.GetSeconds());
 
   t.Start();
-  SaveModelBank(mb, "model_bank_13_blurred");
+  SaveModelBank(mb, argv[2]);
   printf("Took %5.3f sec to save model bank\n", t.GetSeconds());
+
+  return 0;
 }

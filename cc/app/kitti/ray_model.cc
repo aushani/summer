@@ -135,10 +135,10 @@ void RayModel::PrintStats() const {
 void RayModel::Blur() {
   std::map<Histogram1GramKey, library::histogram::Histogram> blurred_histograms;
 
-  double theta_std = ut::DegreesToRadians(10.0);
+  double theta_std = ut::DegreesToRadians(5.0);
   double phi_std = ut::DegreesToRadians(5.0);
-  double dist_ray_std = 0.30;
-  double dist_z_std = 0.30;
+  double dist_ray_std = 0.10;
+  double dist_z_std = 0.10;
   int range_std = 3;
 
   Eigen::Matrix<double, 4, 4> sigma;
@@ -150,31 +150,57 @@ void RayModel::Blur() {
 
   auto sigma_inv = sigma.inverse();
 
+  // Make lookup table for weights
+  std::map< std::tuple<int, int, int, int>, double> weights;
+  int n_theta = std::floor( theta_std     * range_std / kAngleRes );
+  int n_phi   = std::floor( phi_std       * range_std / kAngleRes );
+  int n_dr    = std::floor( dist_ray_std  * range_std / kDistRes  );
+  int n_dz    = std::floor( dist_z_std    * range_std / kDistRes  );
+
+  for (int x1 = -n_theta; x1 <= n_theta; x1++) {
+    double dtheta = x1 * kAngleRes;
+
+    for (int x2 = -n_phi; x2 <= n_phi; x2++) {
+      double dphi = x2 * kAngleRes;
+
+      for (int x3 = -n_dr; x3 <= n_dr; x3++) {
+        double ddr = x3 * kDistRes;
+
+        for (int x4 = -n_dz; x4 <= n_dz; x4++) {
+          double ddz = x4 * kDistRes;
+
+          Eigen::Vector4d d_key(dtheta, dphi, ddr, ddz);
+          double dist = d_key.transpose() * sigma_inv * d_key;
+
+          weights[std::tie(x1, x2, x3, x4)] = exp(-dist);
+        }
+      }
+    }
+  }
+
   size_t count = 0;
   library::timer::Timer t_total;
   library::timer::Timer t_step;
 
   for (auto it = histograms_.cbegin(); it != histograms_.cend(); it++) {
-    if (t_step.GetSeconds() > 60) {
+    if (t_step.GetSeconds() > 10) {
       printf("\tProcessing histogram %ld / %ld, %5.3f sec / histogram\n",
           count + 1, histograms_.size(), t_total.GetSeconds() / count);
-
+      t_step.Start();
     }
 
     const auto &key = it->first;
     const auto &hist = it->second;
 
-    double theta = key.idx_theta * kAngleRes;
-    double phi = key.idx_phi * kAngleRes;
-    double dist_ray = key.idx_dist_ray * kDistRes;
-    double dist_z = key.idx_dist_z * kDistRes;
+    for (int x1 = -n_theta; x1 <= n_theta; x1++) {
+      for (int x2 = -n_phi; x2 <= n_phi; x2++) {
+        for (int x3 = -n_dr; x3 <= n_dr; x3++) {
+          for (int x4 = -n_dz; x4 <= n_dz; x4++) {
 
-    for (double dtheta = -theta_std*range_std; dtheta <= theta_std*range_std; dtheta += kAngleRes) {
-      for (double dphi = -phi_std*range_std; dphi <= phi_std*range_std; dphi += kAngleRes) {
-        for (double ddr = -dist_ray_std*range_std; ddr <= dist_ray_std*range_std; ddr += kDistRes) {
-          for (double ddz = -dist_z_std*range_std; ddz <= dist_z_std*range_std; ddz += kDistRes) {
-
-            Histogram1GramKey blurred_key(theta + dtheta, phi + dphi, dist_ray + ddr, dist_z + ddz,
+            Histogram1GramKey blurred_key(key.idx_theta    + x1,
+                                          key.idx_phi      + x2,
+                                          key.idx_dist_ray + x3,
+                                          key.idx_dist_z   + x4,
                                           kDistRes, kAngleRes, max_size_xy_, max_size_z_);
 
             if (!blurred_key.InRange()) {
@@ -187,8 +213,7 @@ void RayModel::Blur() {
               blurred_histograms[key] = blurred_hist;
             }
 
-            Eigen::Vector4d d_key(dtheta, dphi, ddr, ddz);
-            double weight = d_key.transpose() * sigma_inv * d_key;
+            double weight = weights[std::tie(x1, x2, x3, x4)];
             blurred_histograms[key].Add(hist, weight);
           }
         }
