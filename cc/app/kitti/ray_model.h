@@ -191,7 +191,7 @@ class RayModel {
   double SampleRange(const ObjectState &os, double sensor_theta, double sensor_phi) const;
 
  private:
-  double kAngleRes = 0.01;    // ~0.5  degrees
+  double kAngleRes = 0.10;    // ~ 5  degrees
   double kDistRes = 0.10;     // ~10 cm
 
   double max_size_xy_ = 5.0;
