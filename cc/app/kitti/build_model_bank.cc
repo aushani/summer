@@ -22,12 +22,6 @@ inline bool FileExists(const char* fn) {
   return stat(fn, &buffer) == 0;
 }
 
-inline void SaveModelBank(const ModelBank &mb, const char *fn) {
-  std::ofstream ofs(fn);
-  boost::archive::binary_oarchive oa(ofs);
-  oa << mb;
-}
-
 bool ProcessFrame(ModelBank *mb, kt::Tracklets *tracklets, int log_num, int frame) {
   char fn[1000];
   sprintf(fn, "/home/aushani/data/kittidata/extracted/2011_09_26/2011_09_26_drive_%04d_sync/velodyne_points/data/%010d.bin", log_num, frame);
@@ -97,22 +91,6 @@ bool ProcessLog(ModelBank *mb, int log_num) {
 
   mb->PrintStats();
 
-  auto models = mb->GetModels();
-  for (auto it = models.begin(); it != models.end(); it++) {
-    const auto& model = it->second;
-
-    auto counts = model.GetHistogramCountsByAngle();
-
-    sprintf(fn, "%s_%02d.csv", it->first.c_str(), log_num);
-    std::ofstream stats_file(fn);
-    for (auto it = counts.begin(); it != counts.end(); it++) {
-      double theta = it->first.first;
-      double phi = it->first.second;
-      stats_file << theta << ", " << phi << ", " << it->second << std::endl;
-    }
-    stats_file.close();
-  }
-
   return true;
 }
 
@@ -130,6 +108,6 @@ int main() {
 
     char fn[1000];
     sprintf(fn, "model_bank_%02d", log_num);
-    SaveModelBank(mb, fn);
+    mb.SaveModelBank(fn);
   }
 }

@@ -43,6 +43,10 @@ struct Histogram1GramKey {
    idx_phi      (i_phi),
    idx_dist_ray (i_dist_ray),
    idx_dist_z   (i_dist_z) {
+    int n_angle = std::round(M_PI / angle_res);
+    while (idx_theta < -n_angle) idx_theta += 2*n_angle;
+    while (idx_theta >  n_angle) idx_theta -= 2*n_angle;
+
     dist_ray_in_range = (idx_dist_ray * dist_res < max_size_xy);
     dist_z_in_range = (idx_dist_z * dist_res < max_size_z);
   }
@@ -183,7 +187,7 @@ class RayModel {
 
   void MarkObservations(const ObjectState &os, const std::vector<ModelObservation> &obs);
 
-  std::map<std::pair<double, double>, int> GetHistogramCountsByAngle() const;
+  std::map<std::pair<double, double>, double> GetHistogramFillinByAngle() const;
   void PrintStats() const;
 
   void Blur();

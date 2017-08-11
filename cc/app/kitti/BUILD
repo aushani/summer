@@ -7,7 +7,7 @@ cc_library(
             "observation.h",
             "ray_model.cc", "ray_model.h",
           ],
-    linkopts = ["-lm"],
+    linkopts = ["-lm", "-pthread"],
     deps = [
           "//library/kitti",
           "//library/histogram",
@@ -26,6 +26,12 @@ cc_binary(
 cc_binary(
     name = "blur_model_bank",
     srcs = ["blur_model_bank.cc"],
+    deps = ["kitti_app_lib"],
+)
+
+cc_binary(
+    name = "save_model_bank_coverage",
+    srcs = ["save_model_bank_coverage.cc"],
     deps = ["kitti_app_lib"],
 )
 

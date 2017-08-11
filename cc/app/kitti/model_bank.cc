@@ -1,5 +1,12 @@
 #include "app/kitti/model_bank.h"
 
+#include <iostream>
+#include <fstream>
+#include <thread>
+
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+
 #include "library/timer/timer.h"
 
 namespace app {
@@ -43,14 +50,44 @@ void ModelBank::PrintStats() const {
   }
 }
 
-void ModelBank::Blur() {
-  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
-    printf("Blurring class %s\n", it->first.c_str());
-    library::timer::Timer t;
-    it->second.Blur();
-    printf("Took %5.3f sec to blur\n", t.GetSeconds());
+void ModelBank::BlurClass(const std::string &classname) {
+  auto it = obj_models_.find(classname);
+  if (it == obj_models_.end()) {
+    printf("Class %s not found!\n", classname.c_str());
   }
 
+  printf("Blurring class %s\n", it->first.c_str());
+  library::timer::Timer t;
+  it->second.Blur();
+  printf("Took %5.3f sec to blur %s\n", t.GetSeconds(), it->first.c_str());
+}
+
+void ModelBank::Blur() {
+  std::vector<std::thread> threads;
+  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
+    threads.emplace_back(&ModelBank::BlurClass, this, it->first);
+  }
+
+  for (auto &thread : threads) {
+    thread.join();
+  }
+}
+
+void ModelBank::SaveModelBank(const char *fn) const {
+  std::ofstream ofs(fn);
+  boost::archive::binary_oarchive oa(ofs);
+  oa << (*this);
+}
+
+
+ModelBank ModelBank::LoadModelBank(const char *fn) {
+  ModelBank mb;
+
+  std::ifstream ifs(fn);
+  boost::archive::binary_iarchive ia(ifs);
+  ia >> mb;
+
+  return mb;
 }
 
 } // namespace kitti

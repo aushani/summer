@@ -24,9 +24,14 @@ class ModelBank {
 
   void Blur();
 
+  void SaveModelBank(const char *fn) const;
+  static ModelBank LoadModelBank(const char *fn);
+
  private:
   // These are the object models across different classes
   std::map<std::string, RayModel> obj_models_;
+
+  void BlurClass(const std::string &classname);
 
   friend class boost::serialization::access;
   template<class Archive>

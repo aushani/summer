@@ -118,8 +118,14 @@ double RayModel::SampleRange(const ObjectState &os, double sensor_theta, double 
   return range;
 }
 
-std::map<std::pair<double, double>, int> RayModel::GetHistogramCountsByAngle() const {
-  std::map<std::pair<double, double>, int> counts;
+std::map<std::pair<double, double>, double> RayModel::GetHistogramFillinByAngle() const {
+  std::map<std::pair<double, double>, double> counts;
+
+  for (double theta = -M_PI; theta < M_PI; theta += kAngleRes) {
+    for (double phi = -M_PI; phi < M_PI; phi += kAngleRes) {
+      counts[std::pair<double, double>(theta, phi)] = 0;
+    }
+  }
 
   for (auto it = histograms_.begin(); it != histograms_.end(); it++) {
     const Histogram1GramKey &key = it->first;
@@ -127,6 +133,14 @@ std::map<std::pair<double, double>, int> RayModel::GetHistogramCountsByAngle() c
     double theta = key.idx_theta * kAngleRes;
     double phi = key.idx_phi * kAngleRes;
     counts[std::pair<double, double>(theta, phi)]++;
+  }
+
+  int n_xy = 2*std::ceil(max_size_xy_ / kDistRes);
+  int n_z = 2*std::ceil(max_size_z_ / kDistRes);
+  int n_denom = n_xy * n_z;
+
+  for (auto it = counts.begin(); it != counts.end(); it++) {
+    it->second /= n_denom;
   }
 
   return counts;
@@ -169,7 +183,7 @@ void RayModel::Blur() {
       weights[weights_key] = exp(-0.5*mahal_dist);
     }
   }
-  printf("\tTook %5.3f sec to make %ld weight lookup table\n", t.GetSeconds(), weights.size());
+  //printf("\tTook %5.3f sec to make %ld weight lookup table\n", t.GetSeconds(), weights.size());
 
   // Separable filter, blur each dimension individually
   std::map<Histogram1GramKey, library::histogram::Histogram> blurred_histograms;
@@ -177,23 +191,13 @@ void RayModel::Blur() {
 
   // Go through each dim
   for (size_t dim = 0; dim < 4; dim++) {
-    size_t count = 0;
-    library::timer::Timer t_total;
-    library::timer::Timer t_step;
-
     // Go through each element of previous blurred histogram result
     for (auto ph_it = prev_histograms.cbegin(); ph_it != prev_histograms.cend(); ph_it++) {
-      if (t_step.GetSeconds() > 60) {
-        printf("\t  Processing dim %ld / %ld histogram %ld / %ld, %5.3f ms / histogram\n",
-            dim, 4L, count + 1, prev_histograms.size(), t_total.GetMs() / count);
-        t_step.Start();
-      }
-
       const auto &key = ph_it->first;
       const auto &hist = ph_it->second;
 
       // Only blur along the dim we're considering
-      for (int xd = -n_dim[dim]; xd < n_dim[dim]; xd++) {
+      for (int xd = -n_dim[dim]; xd <= n_dim[dim]; xd++) {
         int d_key[4] = {0, 0, 0, 0};
         d_key[dim] = xd;
 
@@ -226,14 +230,10 @@ void RayModel::Blur() {
 
         blurred_histograms_it->second.Add(hist, weights_it->second);
       }
-
-      count++;
     }
 
     prev_histograms = blurred_histograms;
     blurred_histograms.clear();
-
-    printf("\tBlurred dim %ld in %5.3f seconds\n", dim, t_total.GetSeconds());
   }
 
   // Now we're done, save result
