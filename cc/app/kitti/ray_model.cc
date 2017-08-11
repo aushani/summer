@@ -3,6 +3,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
+#include "library/timer/timer.h"
 #include "library/util/angle.h"
 
 namespace ut = library::util;
@@ -149,7 +150,17 @@ void RayModel::Blur() {
 
   auto sigma_inv = sigma.inverse();
 
+  size_t count = 0;
+  library::timer::Timer t_total;
+  library::timer::Timer t_step;
+
   for (auto it = histograms_.cbegin(); it != histograms_.cend(); it++) {
+    if (t_step.GetSeconds() > 60) {
+      printf("\tProcessing histogram %ld / %ld, %5.3f sec / histogram\n",
+          count + 1, histograms_.size(), t_total.GetSeconds() / count);
+
+    }
+
     const auto &key = it->first;
     const auto &hist = it->second;
 
@@ -183,6 +194,8 @@ void RayModel::Blur() {
         }
       }
     }
+
+    count++;
   }
 
   histograms_ = blurred_histograms;

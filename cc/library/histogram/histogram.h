@@ -3,6 +3,7 @@
 #include <map>
 #include <cstddef>
 
+#include <boost/assert.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
@@ -34,6 +35,9 @@ class Histogram {
 
   double GetMedian() const;
   double GetPercentile(double percentile) const;
+
+  bool IsCompatibleWith(const Histogram &hist) const;
+  void Add(const Histogram &hist, double weight);
 
  private:
   double min_ = 0.0;

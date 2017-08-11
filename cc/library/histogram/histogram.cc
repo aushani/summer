@@ -179,5 +179,39 @@ double Histogram::GetValue(size_t idx) const {
   return (idx-1)*res_ + min_;
 }
 
+bool Histogram::IsCompatibleWith(const Histogram &hist) const {
+  if (GetMin() != hist.GetMin()) {
+    return false;
+  }
+
+  if (GetMax() != hist.GetMax()) {
+    return false;
+  }
+
+  if (GetRes() != hist.GetRes()) {
+    return false;
+  }
+
+  return true;
+}
+
+void Histogram::Add(const Histogram &hist, double weight) {
+  BOOST_ASSERT(IsCompatibleWith(hist));
+
+  for (auto it = hist.counts_.cbegin(); it != hist.counts_.cend(); it++) {
+    counts_[it->first] += weight * it->second;
+  }
+
+  counts_total_ += weight * hist.GetCountsTotal();
+
+  if (hist.observed_min_ < observed_min_) {
+    observed_min_ = hist.observed_min_;
+  }
+
+  if (hist.observed_max_ > observed_max_) {
+    observed_max_ = hist.observed_max_;
+  }
+}
+
 } // namespace histogram
 } // namespace library
