@@ -64,20 +64,20 @@ bool ProcessFrame(ModelBank *mb, kt::Tracklets *tracklets, int log_num, int fram
   return true;
 }
 
-void ProcessLog(ModelBank *mb, int log_num) {
+bool ProcessLog(ModelBank *mb, int log_num) {
   // Load Tracklets
   char fn[1000];
   sprintf(fn, "/home/aushani/data/kittidata/extracted/2011_09_26/2011_09_26_drive_%04d_sync/tracklet_labels.xml", log_num);
   if (!FileExists(fn)) {
     // log doesn't exist
-    return;
+    return false;
   }
 
   kt::Tracklets tracklets;
   bool success = tracklets.loadFromFile(fn);
 
   if (!success) {
-    return;
+    return false;
   }
 
   printf("Loaded %d tracklets for log %d\n", tracklets.numberOfTracklets(), log_num);
@@ -112,6 +112,8 @@ void ProcessLog(ModelBank *mb, int log_num) {
     }
     stats_file.close();
   }
+
+  return true;
 }
 
 int main() {
@@ -120,8 +122,14 @@ int main() {
   ModelBank mb;
 
   for (int log_num = 1; log_num <= 93; log_num++) {
-    ProcessLog(&mb, log_num);
-  }
+    bool res = ProcessLog(&mb, log_num);
 
-  SaveModelBank(mb, "model_bank_all");
+    if (!res) {
+      continue;
+    }
+
+    char fn[1000];
+    sprintf(fn, "model_bank_%02d", log_num);
+    SaveModelBank(mb, fn);
+  }
 }
