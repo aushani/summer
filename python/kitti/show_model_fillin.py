@@ -21,19 +21,22 @@ for i, classname in enumerate(classes):
     thetas = np.unique(np.round(counts[:, 0] * 180 / np.pi, decimals = 2))
     phis   = np.unique(np.round(counts[:, 1] * 180 / np.pi, decimals = 2))
 
-    surface = np.zeros((len(thetas), len(phis)))
-    for idx in range(counts.shape[1]):
-      theta = counts[idx, 0]
-      phi = counts[idx, 1]
-      val = counts[idx, 2]
+    print thetas
+    print phis
 
-      surface_i = np.argmin(np.abs(theta - thetas))
-      surface_j = np.argmin(np.abs(phi - phis))
-      print surface_i, surface_j
-      surface[surface_i, surface_j] = val
+    x1 = np.min(thetas[:])
+    x2 = np.max(thetas[:])
 
-    im = ax.imshow(surface, origin='lower', extent=(np.min(thetas), np.max(thetas), np.min(phis), np.max(phis)),
-          vmin=0, vmax=100)
+    y1 = np.min(phis[:])
+    y2 = np.max(phis[:])
+
+    shape = (len(thetas), len(phis))
+    print shape, len(thetas)*len(phis)
+    print counts.shape
+
+    fillin = np.reshape(counts[:, 2], shape)
+
+    im = ax.imshow(fillin, origin='lower', extent=(x1, x2, y1, y2), vmin=0, vmax=100)
     ax.set_title(classname)
     ax.set_xlabel('Theta (relative to laser beam)')
     ax.set_xlim((-180, 180))

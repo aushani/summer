@@ -121,8 +121,11 @@ double RayModel::SampleRange(const ObjectState &os, double sensor_theta, double 
 std::map<std::pair<double, double>, double> RayModel::GetHistogramFillinByAngle() const {
   std::map<std::pair<double, double>, double> counts;
 
-  for (double theta = -M_PI; theta < M_PI; theta += kAngleRes) {
-    for (double phi = -M_PI; phi < M_PI; phi += kAngleRes) {
+ int n_angle = std::round(M_PI / kAngleRes) + 1;
+  for (int i_theta = -n_angle; i_theta <= n_angle; i_theta++) {
+    for (int i_phi = -n_angle; i_phi <= n_angle; i_phi++) {
+      double theta = i_theta * kAngleRes;
+      double phi = i_phi * kAngleRes;
       counts[std::pair<double, double>(theta, phi)] = 0;
     }
   }
