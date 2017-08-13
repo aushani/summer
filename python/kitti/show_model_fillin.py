@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os.path
 
-classes = ["Car", "Cyclist", "Pedestrian", "Tram", "Truck"]
+#classes = ["Car", "Cyclist", "Pedestrian", "Tram", "Truck"]
+classes = ["Car", "Cyclist", "Pedestrian"]
 prefixes = ["raw", "blurred"]
 
 f, axarr = plt.subplots(nrows = len(classes), ncols = len(prefixes), sharex=True, sharey=True)

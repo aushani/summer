@@ -185,7 +185,7 @@ class RayModel {
  public:
   RayModel();
 
-  void MarkObservations(const ObjectState &os, const std::vector<ModelObservation> &obs);
+  void MarkObservations(const std::vector<ModelObservation> &obs);
 
   std::map<std::pair<double, double>, double> GetHistogramFillinByAngle() const;
   void PrintStats() const;
@@ -193,6 +193,10 @@ class RayModel {
   void Blur();
 
   double SampleRange(const ObjectState &os, double sensor_theta, double sensor_phi) const;
+
+  double EvaluateObservations(const std::vector<ModelObservation> &obs) const;
+
+  bool IsRelevant(const ModelObservation &mo) const;
 
  private:
   double kAngleRes = 0.10;    // ~ 5  degrees
@@ -208,6 +212,8 @@ class RayModel {
 
   bool InRoi(const ModelObservation &mo) const;
   bool IsOccluded(const ModelObservation &mo) const;
+
+  double GetLogLikelihood(const ModelObservation &mo) const;
 
   library::histogram::Histogram* GetHistogram(const ModelObservation &mo);
   const library::histogram::Histogram* GetHistogram(const ModelObservation &mo) const;

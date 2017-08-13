@@ -20,6 +20,8 @@ class ModelBank {
   const RayModel& GetModel(const std::string &name) const;
   const std::map<std::string, RayModel>& GetModels() const;
 
+  std::vector<ModelObservation> GetRelevantModelObservations(const std::vector<ModelObservation> &mos);
+
   void PrintStats() const;
 
   void Blur();

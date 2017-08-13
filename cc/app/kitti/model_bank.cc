@@ -31,7 +31,7 @@ void ModelBank::MarkObservations(const ObjectState &os, const std::vector<Observ
   }
 
   auto it = obj_models_.find(cn);
-  it->second.MarkObservations(os, mos);
+  it->second.MarkObservations(mos);
 }
 
 const RayModel& ModelBank::GetModel(const std::string &name) const {
@@ -41,6 +41,24 @@ const RayModel& ModelBank::GetModel(const std::string &name) const {
 
 const std::map<std::string, RayModel>& ModelBank::GetModels() const {
   return obj_models_;
+}
+
+std::vector<ModelObservation> ModelBank::GetRelevantModelObservations(const std::vector<ModelObservation> &mos) {
+  std::vector<ModelObservation> relevant_mos;
+  for (const auto &mo : mos) {
+    bool is_relevant = true;
+    for (auto it = obj_models_.begin(); is_relevant && it != obj_models_.end(); it++) {
+      if (!it->second.IsRelevant(mo)) {
+        is_relevant = false;
+      }
+    }
+
+    if (is_relevant) {
+      relevant_mos.push_back(mo);
+    }
+  }
+
+  return relevant_mos;
 }
 
 void ModelBank::PrintStats() const {

@@ -42,6 +42,10 @@ bool RayModel::IsOccluded(const ModelObservation &mo) const {
   return false;
 }
 
+bool RayModel::IsRelevant(const ModelObservation &mo) const {
+  return InRoi(mo) && !IsOccluded(mo);
+}
+
 void RayModel::MarkObservation(const ModelObservation &mo) {
   library::histogram::Histogram *h = GetHistogram(mo);
   if (h == nullptr) {
@@ -53,7 +57,7 @@ void RayModel::MarkObservation(const ModelObservation &mo) {
   Histogram1GramKey key(mo, kDistRes, kAngleRes, max_size_xy_, max_size_z_);
 }
 
-void RayModel::MarkObservations(const ObjectState &os, const std::vector<ModelObservation> &obs) {
+void RayModel::MarkObservations(const std::vector<ModelObservation> &obs) {
   // Do 1 grams
   for (const ModelObservation &mo : obs) {
     if (InRoi(mo)) {
@@ -116,6 +120,41 @@ double RayModel::SampleRange(const ObjectState &os, double sensor_theta, double 
   }
 
   return range;
+}
+
+double RayModel::GetLogLikelihood(const ModelObservation &mo) const {
+  double l_min = 1e-99;
+
+  const library::histogram::Histogram *h = GetHistogram(mo);
+  if (h == nullptr) {
+    return false;
+  }
+
+  double l = h->GetLikelihood(mo.dist_obs);
+
+  if (h->GetCountsTotal() < 10) {
+    l = l_min;
+  }
+
+  if (l < l_min) {
+    l = l_min;
+  }
+
+  return log(l);
+}
+
+double RayModel::EvaluateObservations(const std::vector<ModelObservation> &obs) const {
+  double l_p_z = 0.0;
+
+  for (const auto &mo : obs) {
+    if (!IsRelevant(mo)) {
+      continue;
+    }
+
+    l_p_z += GetLogLikelihood(mo);
+  }
+
+  return l_p_z;
 }
 
 std::map<std::pair<double, double>, double> RayModel::GetHistogramFillinByAngle() const {
