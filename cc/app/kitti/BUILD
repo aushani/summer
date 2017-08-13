@@ -36,6 +36,12 @@ cc_binary(
 )
 
 cc_binary(
+    name = "generate_sample_scans",
+    srcs = ["generate_sample_scans.cc"],
+    deps = ["kitti_app_lib"],
+)
+
+cc_binary(
     name = "test_kitti",
     srcs = ["test_kitti.cc"],
     deps = ["kitti_app_lib"],
