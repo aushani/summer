@@ -199,8 +199,8 @@ class RayModel {
   bool IsRelevant(const ModelObservation &mo) const;
 
  private:
-  double kAngleRes = 0.10;    // ~ 5  degrees
-  double kDistRes = 0.10;     // ~10 cm
+  double kAngleRes = 0.20;    // ~10 degrees
+  double kDistRes = 0.20;     // ~20 cm
 
   double max_size_xy_ = 5.0;
   double max_size_z_ = 2.5;
