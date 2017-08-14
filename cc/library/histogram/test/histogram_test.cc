@@ -91,5 +91,29 @@ BOOST_AUTO_TEST_CASE(LikelihoodTest) {
   for (double x = min; x < max; x += res/10.0) {
     BOOST_TEST(h.GetLikelihood(x) == 1.0/(max - min), tt::tolerance(1e-2));
   }
+}
 
+BOOST_AUTO_TEST_CASE(BlurTest) {
+  double min = -1.231;
+  double max =  91.231;
+  double res = 0.231;
+
+  ht::Histogram h(min, max, res);
+
+  double x = (max - min) * 0.121 + min;
+  h.Mark(x);
+
+  double std = 3.0;
+
+  BOOST_TEST(h.GetCountsTotal() > 0);
+  BOOST_TEST(h.GetLikelihood(x) > 0);
+  BOOST_TEST(h.GetLikelihood(x + std) == 0);
+  BOOST_TEST(h.GetLikelihood(x + 10*std) == 0);
+
+  h.Blur(std);
+
+  BOOST_TEST(h.GetCountsTotal() > 0);
+  BOOST_TEST(h.GetLikelihood(x) > 0);
+  BOOST_TEST(h.GetLikelihood(x + std) > 0);
+  BOOST_TEST(h.GetLikelihood(x + 10*std) == 0);
 }

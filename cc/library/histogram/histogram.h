@@ -39,6 +39,8 @@ class Histogram {
   bool IsCompatibleWith(const Histogram &hist) const;
   void Add(const Histogram &hist, double weight);
 
+  void Blur(double std);
+
  private:
   double min_ = 0.0;
   double max_ = 0.0;

@@ -18,7 +18,14 @@ fn = '/home/aushani/summer/cc/%s_%02d.csv' % (classname, num)
 
 points = np.loadtxt(fn, delimiter=',')
 
-ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=points[:, 2])
+x = points[:, 0]
+y = points[:, 1]
+z = points[:, 2]
+
+r = (x**2 + y**2)**0.5
+idx_show = (r < 18) & (r > 12)
+
+ax.scatter(x[idx_show], y[idx_show], z[idx_show], c=z[idx_show])
 
 ax.set_xlim(-7.5, 7.5)
 ax.set_ylim(5, 20)

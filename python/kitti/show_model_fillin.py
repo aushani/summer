@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 import os.path
 
 #classes = ["Car", "Cyclist", "Pedestrian", "Tram", "Truck"]
-classes = ["Car", "Cyclist", "Pedestrian"]
+classes = ["Car", "Cyclist", "Pedestrian", "NOOBJ"]
 prefixes = ["raw", "blurred"]
 
-f, axarr = plt.subplots(nrows = len(classes), ncols = len(prefixes), sharex=True, sharey=True)
+f1, ax1 = plt.subplots(nrows = len(classes), ncols = len(prefixes), sharex=True, sharey=True)
+f2, ax2 = plt.subplots(nrows = len(classes), ncols = len(prefixes), sharex=True, sharey=True)
 
 for i, classname in enumerate(classes):
   for j, prefix in enumerate(prefixes):
@@ -14,8 +15,6 @@ for i, classname in enumerate(classes):
 
     if not os.path.isfile(fn):
       continue
-
-    ax = axarr[i, j]
 
     counts = np.loadtxt(fn, delimiter=",")
 
@@ -33,20 +32,29 @@ for i, classname in enumerate(classes):
     idx_zero = counts[:, 2] == 0
     #counts[idx_zero, 2] = np.nan
     fillin = np.reshape(100*counts[:, 2], shape)
+    median_weight = np.log(np.reshape(counts[:, 3], shape))
 
-    im = ax.imshow(np.transpose(fillin), origin='lower',
-        extent=(x1, x2, y1, y2), vmin=0, vmax=100)
-    ax.set_title(classname)
-    ax.set_xlim((-180, 180))
-    ax.set_ylim((-20, 5))
-    ax.grid(True)
+    im1 = ax1[i, j].imshow(np.transpose(fillin), origin='lower', extent=(x1, x2, y1, y2), vmin=0, vmax=100)
+    ax1[i, j].set_title(classname)
+    ax1[i, j].set_xlim((-180, 180))
+    ax1[i, j].set_ylim((-20, 5))
+    ax1[i, j].grid(True)
+
+    im2 = ax2[i, j].imshow(np.transpose(median_weight), origin='lower', extent=(x1, x2, y1, y2))
+    ax2[i, j].set_title(classname)
+    ax2[i, j].set_xlim((-180, 180))
+    ax2[i, j].set_ylim((-20, 5))
+    ax2[i, j].grid(True)
 
     if i==len(classes)-1:
-      ax.set_xlabel('Theta (relative to laser beam)')
+      ax1[i, j].set_xlabel('Theta (relative to laser beam)')
+      ax2[i, j].set_xlabel('Theta (relative to laser beam)')
 
     if j==0:
-      ax.set_ylabel('Phi')
+      ax1[i, j].set_ylabel('Phi')
+      ax2[i, j].set_ylabel('Phi')
 
-    plt.colorbar(im, ax=ax, label='Fill-in %')
+    plt.colorbar(im1, ax=ax1[i, j], label='Fill-in %')
+    plt.colorbar(im2, ax=ax2[i, j], label='Log Median Weight')
 
 plt.show()

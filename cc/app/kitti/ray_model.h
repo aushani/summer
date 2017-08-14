@@ -187,6 +187,7 @@ class RayModel {
 
   void MarkObservations(const std::vector<ModelObservation> &obs);
 
+  std::map<std::pair<double, double>, double> GetHistogramMedianWeight() const;
   std::map<std::pair<double, double>, double> GetHistogramFillinByAngle() const;
   void PrintStats() const;
 

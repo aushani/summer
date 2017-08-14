@@ -29,6 +29,7 @@ int main(int argc, char** argv) {
     const auto& model = it->second;
 
     auto counts = model.GetHistogramFillinByAngle();
+    auto median_weight = model.GetHistogramMedianWeight();
 
     char fn[1000];
     sprintf(fn, "%s%s%s.csv",
@@ -37,7 +38,8 @@ int main(int argc, char** argv) {
     for (auto it = counts.begin(); it != counts.end(); it++) {
       double theta = it->first.first;
       double phi = it->first.second;
-      stats_file << theta << ", " << phi << ", " << it->second << std::endl;
+      double mw = median_weight[it->first];
+      stats_file << theta << ", " << phi << ", " << it->second << ", " << mw << std::endl;
     }
     stats_file.close();
   }

@@ -213,5 +213,52 @@ void Histogram::Add(const Histogram &hist, double weight) {
   }
 }
 
+void Histogram::Blur(double std) {
+  double std_range = 3;
+
+  double scale = 1 / sqrt(2 * M_PI * std*std);
+
+  std::map<size_t, double> blurred_counts;
+
+  for (auto it = counts_.begin(); it != counts_.end(); it++) {
+
+    if (it->first == GetIndex(min_)) {
+      blurred_counts[it->first] = it->second;
+      continue;
+    } else if (it->first == GetIndex(max_)) {
+      blurred_counts[it->first] = it->second;
+      continue;
+    }
+
+    double v = GetValue(it->first);
+    double v_min = v - std_range * std;
+    double v_max = v + std_range * std;
+
+    size_t i0 = GetIndex(v_min);
+    size_t i1 = GetIndex(v_max);
+
+    if (i0 <= GetIndex(min_)) {
+      i0 = GetIndex(min_) + 1;
+    }
+
+    if (i1 >= GetIndex(max_)) {
+      i1 = GetIndex(max_) - 1;
+    }
+
+    for (size_t i_blur = i0; i_blur <= i1; i_blur++) {
+      double v_blur = GetValue(i_blur);
+      double d_v = v - v_blur;
+      double w = scale*exp(-0.5 * d_v * d_v / (std*std));
+      blurred_counts[i_blur] += w * it->second;
+    }
+  }
+
+  counts_ = blurred_counts;
+  counts_total_ = 0;
+  for (auto it = counts_.begin(); it != counts_.end(); it ++) {
+    counts_total_ += it->second;
+  }
+}
+
 } // namespace histogram
 } // namespace library

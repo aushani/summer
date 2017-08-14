@@ -1,5 +1,6 @@
 #include "app/kitti/ray_model.h"
 
+#include <algorithm>
 #include <tuple>
 
 #include <boost/assert.hpp>
@@ -157,6 +158,43 @@ double RayModel::EvaluateObservations(const std::vector<ModelObservation> &obs) 
   return l_p_z;
 }
 
+std::map<std::pair<double, double>, double> RayModel::GetHistogramMedianWeight() const {
+  std::map<std::pair<double, double>, std::vector<double> > counts;
+
+ int n_angle = std::round(M_PI / kAngleRes) + 1;
+  for (int i_theta = -n_angle; i_theta <= n_angle; i_theta++) {
+    for (int i_phi = -n_angle; i_phi <= n_angle; i_phi++) {
+      double theta = i_theta * kAngleRes;
+      double phi = i_phi * kAngleRes;
+      counts[std::pair<double, double>(theta, phi)].clear();
+    }
+  }
+
+  for (auto it = histograms_.begin(); it != histograms_.end(); it++) {
+    const Histogram1GramKey &key = it->first;
+
+    double theta = key.idx_theta * kAngleRes;
+    double phi = key.idx_phi * kAngleRes;
+    counts[std::pair<double, double>(theta, phi)].push_back(it->second.GetCountsTotal());
+  }
+
+  std::map<std::pair<double, double>, double> median_counts;
+  for (auto it = counts.begin(); it != counts.end(); it++) {
+    std::vector<double> &counts = it->second;
+
+    if (counts.empty()) {
+      median_counts[it->first] = 0;
+      continue;
+    }
+
+    int n = counts.size() / 2;
+    std::nth_element(counts.begin(), counts.begin() + n, counts.end());
+    median_counts[it->first] = counts[n];
+  }
+
+  return median_counts;
+}
+
 std::map<std::pair<double, double>, double> RayModel::GetHistogramFillinByAngle() const {
   std::map<std::pair<double, double>, double> counts;
 
@@ -194,10 +232,11 @@ void RayModel::PrintStats() const {
 
 void RayModel::Blur() {
   // Blur filter
-  const double theta_std = ut::DegreesToRadians(5.0);
-  const double phi_std = ut::DegreesToRadians(5.0);
-  const double dist_ray_std = 0.10;
-  const double dist_z_std = 0.10;
+  const double theta_std = ut::DegreesToRadians(10.0);
+  const double phi_std = ut::DegreesToRadians(10.0);
+  const double dist_ray_std = 0.15;
+  const double dist_z_std = 0.15;
+  const double dist_obs_std = 0.15;
   const double std_dim[4] = {theta_std, phi_std, dist_ray_std, dist_z_std};
   const int range_std = 3;
 
@@ -217,12 +256,12 @@ void RayModel::Blur() {
       d_key[dim] = xd;
 
       double dist = xd * res_dim[dim];
-      double mahal_dist = dist / ( std_dim[dim] * std_dim[dim] );
+      double mahal_dist_2 = (dist*dist) / ( std_dim[dim] * std_dim[dim] );
 
       auto weights_key = std::make_tuple(d_key[0], d_key[1], d_key[2], d_key[3]);
 
       // Gaussian filter
-      weights[weights_key] = exp(-0.5*mahal_dist);
+      weights[weights_key] = exp(-0.5*mahal_dist_2);
     }
   }
   //printf("\tTook %5.3f sec to make %ld weight lookup table\n", t.GetSeconds(), weights.size());
@@ -280,6 +319,11 @@ void RayModel::Blur() {
 
   // Now we're done, save result
   histograms_ = prev_histograms;
+
+  // Finally, blur each individual histogram
+  for (auto it = histograms_.begin(); it != histograms_.end(); it++) {
+    it->second.Blur(dist_obs_std);
+  }
 }
 
 } // namespace kitti
