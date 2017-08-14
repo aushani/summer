@@ -3,12 +3,49 @@
 #include "library/timer/timer.h"
 
 #include "app/kitti/model_bank.h"
+#include "app/kitti/detection_map.h"
 
 namespace kt = library::kitti;
 
 using namespace app::kitti;
 
 constexpr double kZOffset = 0.8; // ???
+
+void SaveResult(const DetectionMap &detection_map, const std::string &cn, const char *fn) {
+  std::ofstream res_file(fn);
+
+  printf("Saving %s map...\n", cn.c_str());
+
+  auto map = detection_map.GetScores();
+  for (auto it = map.begin(); it != map.end(); it++) {
+    const ObjectState &os = it->first;
+
+    // Check class
+    if (os.classname != cn) {
+      continue;
+    }
+
+    float x = os.pos(0);
+    float y = os.pos(1);
+    float z = os.pos(2);
+
+    double angle = os.theta;
+
+    double score = detection_map.GetScore(os);
+    //double logodds = detection_map.GetLogOdds(os);
+    double prob = detection_map.GetProb(os);
+
+    double p = prob;
+    if (p < 1e-16)
+      p = 1e-16;
+    if (p > (1 - 1e-16))
+      p = 1 - 1e-16;
+    double logodds = -log(1.0/p - 1);
+
+    res_file << x << "," << y << "," << z << "," << angle << "," << score << "," << logodds << "," << prob << std::endl;
+  }
+  res_file.close();
+}
 
 int main(int argc, char** argv) {
   printf("Test KITTI...\n");
@@ -47,6 +84,13 @@ int main(int argc, char** argv) {
   kt::VelodyneScan scan(fn);
   printf("Loaded scan %d, has %ld hits\n", frame_num, scan.GetHits().size());
 
+  t.Start();
+  std::vector<Observation> obs;
+  for (const auto &x_hit : scan.GetHits()) {
+    obs.emplace_back(x_hit);
+  }
+  printf("Took %5.3f ms to make observations\n", t.GetMs());
+
   // Go through tracklets and see which ones have hits
   for (int t_id=0; t_id<tracklets.numberOfTracklets(); t_id++) {
     if (!tracklets.isActive(t_id, frame_num)) {
@@ -63,16 +107,9 @@ int main(int argc, char** argv) {
     ObjectState os(Eigen::Vector3d(pose->tx, pose->ty, pose->tz + kZOffset), pose->rz, tt->objectType);
 
     // Convert to ModelObservation's
-    library::timer::Timer t;
-    std::vector<ModelObservation> mos;
-    for (const auto &x_hit : scan.GetHits()) {
-      mos.emplace_back(os, Observation(x_hit));
-    }
-    printf("Took %5.3f ms to make model observations\n", t.GetMs());
-
     t.Start();
-    auto relevant_mos = mb.GetRelevantModelObservations(mos);
-    printf("Took %5.3f ms to get %ld relevant model observations\n", t.GetMs(), relevant_mos.size());
+    std::vector<ModelObservation> mos = ModelObservation::MakeModelObservations(os, obs, mb.GetMaxSizeXY(), mb.GetMaxSizeZ());
+    printf("Took %5.3f ms to make model observations\n", t.GetMs());
 
     auto models = mb.GetModels();
     std::string best_class;
@@ -81,7 +118,7 @@ int main(int argc, char** argv) {
     for (auto it = models.begin(); it != models.end(); it++) {
       const auto& model = it->second;
       library::timer::Timer t;
-      double log_prob = model.EvaluateObservations(relevant_mos);
+      double log_prob = model.EvaluateObservations(mos);
 
       if (log_prob > best_score && log_prob < 0) {
         best_class = it->first;
@@ -91,5 +128,17 @@ int main(int argc, char** argv) {
       printf("\tModel %10s \t --> %+07.5f \t (%5.3f ms)\n", it->first.c_str(), log_prob, t.GetMs());
     }
     printf("  Best %s vs actual %s\n", best_class.c_str(), os.classname.c_str());
+  }
+
+  DetectionMap detection_map(25.0, 2.0, mb);
+
+  t.Start();
+  detection_map.ProcessScan(scan);
+  printf("Took %5.3f sec to process scan\n", t.GetSeconds());
+
+  auto classes = mb.GetClasses();
+  for (const std::string &cn : classes) {
+    sprintf(fn, "result_%s.csv", cn.c_str());
+    SaveResult(detection_map, cn, fn);
   }
 }

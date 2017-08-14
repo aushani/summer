@@ -9,6 +9,8 @@
 
 #include "library/timer/timer.h"
 
+namespace kt = library::kitti;
+
 namespace app {
 namespace kitti {
 
@@ -43,7 +45,7 @@ const std::map<std::string, RayModel>& ModelBank::GetModels() const {
   return obj_models_;
 }
 
-std::vector<ModelObservation> ModelBank::GetRelevantModelObservations(const std::vector<ModelObservation> &mos) {
+std::vector<ModelObservation> ModelBank::GetRelevantModelObservations(const std::vector<ModelObservation> &mos) const {
   std::vector<ModelObservation> relevant_mos;
   for (const auto &mo : mos) {
     bool is_relevant = true;
@@ -61,11 +63,64 @@ std::vector<ModelObservation> ModelBank::GetRelevantModelObservations(const std:
   return relevant_mos;
 }
 
+double ModelBank::EvaluateScan(const ObjectState &os, const kt::VelodyneScan &scan) const {
+  auto it = obj_models_.find(os.classname);
+  if (it != obj_models_.end()) {
+    auto mos = ModelObservation::MakeModelObservations(os, scan, GetMaxSizeXY(), GetMaxSizeZ());
+
+    return it->second.EvaluateObservations(mos);
+  }
+
+  return 0.0f;
+}
+
+double ModelBank::EvaluateModelObservations(const ObjectState &os, const std::vector<ModelObservation> &mos) const {
+  auto it = obj_models_.find(os.classname);
+  if (it != obj_models_.end()) {
+    return it->second.EvaluateObservations(mos);
+  }
+
+  return 0.0f;
+}
+
 void ModelBank::PrintStats() const {
   for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
     printf("Class %s\n", it->first.c_str());
     it->second.PrintStats();
   }
+}
+
+std::vector<std::string> ModelBank::GetClasses() const {
+  std::vector<std::string> classes;
+  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
+    classes.push_back(it->first);
+  }
+
+  return classes;
+}
+
+double ModelBank::GetMaxSizeXY() const {
+  double res = 0;
+
+  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
+    if (it->second.GetMaxSizeXY() > res) {
+      res = it->second.GetMaxSizeXY();
+    }
+  }
+
+  return res;
+}
+
+double ModelBank::GetMaxSizeZ() const {
+  double res = 0;
+
+  for (auto it = obj_models_.begin(); it != obj_models_.end(); it++) {
+    if (it->second.GetMaxSizeZ() > res) {
+      res = it->second.GetMaxSizeZ();
+    }
+  }
+
+  return res;
 }
 
 void ModelBank::BlurClass(const std::string &classname) {

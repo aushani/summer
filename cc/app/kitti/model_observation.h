@@ -1,9 +1,12 @@
 #pragma once
 
+#include "library/kitti/velodyne_scan.h"
 #include "library/util/angle.h"
 
 #include "app/kitti/observation.h"
 #include "app/kitti/object_state.h"
+
+namespace kt = library::kitti;
 
 namespace app {
 namespace kitti {
@@ -37,6 +40,69 @@ struct ModelObservation {
 
     in_front = dist_obs < x_hit.range;
   }
+
+  static std::vector<ModelObservation> MakeModelObservations(const ObjectState &os, const kt::VelodyneScan &scan, double max_size_xy, double max_size_z) {
+    std::vector<Observation> obs;
+    for (const auto &x_hit: scan.GetHits()) {
+      obs.emplace_back(x_hit);
+    }
+
+    return MakeModelObservations(os, obs, max_size_xy, max_size_z);
+  }
+
+  static std::vector<ModelObservation> MakeModelObservations(const ObjectState &os, const std::vector<Observation> &observations,
+      double max_size_xy, double max_size_z) {
+    std::vector<ModelObservation> mos;
+
+    double dist_to_obj = os.pos.norm();
+
+    for (const auto &obs : observations) {
+      ModelObservation mo;
+
+      // in xy-plane
+      mo.dist_ray = obs.sin_theta*os.pos.x() - obs.cos_theta*os.pos.y();
+
+      // Check if ray comes close enough to object
+      if (std::abs(mo.dist_ray) > max_size_xy) {
+        continue;
+      }
+
+      // in xy-plane
+      double dist_obs_2d = obs.range_xy - obs.cos_theta*os.pos.x() - obs.sin_theta*os.pos.y();
+
+      // account for z
+      mo.dist_obs = dist_obs_2d / obs.cos_phi;
+
+      // Check for occlusion
+      if (mo.dist_obs < -max_size_xy) {
+        continue;
+      }
+
+      double z_a = dist_to_obj * obs.sin_phi;
+      mo.dist_z = os.pos.z() - z_a;
+
+      if (std::abs(mo.dist_z) > max_size_z) {
+        continue;
+      }
+
+      mo.in_front = mo.dist_obs < obs.range;
+
+      if (!mo.in_front) {
+        continue;
+      }
+
+      mo.theta = library::util::MinimizeAngle(obs.theta - os.theta);
+      mo.phi = library::util::MinimizeAngle(obs.phi);
+
+
+      mos.push_back(mo);
+    }
+
+    return mos;
+  }
+
+ private:
+  ModelObservation() {;}
 
 };
 

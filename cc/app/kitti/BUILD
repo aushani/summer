@@ -1,6 +1,7 @@
 cc_library(
     name = "kitti_app_lib",
     srcs = [
+            "detection_map.cc", "detection_map.h",
             "model_bank.cc", "model_bank.h",
             "model_bank_builder.cc", "model_bank_builder.h",
             "model_observation.h",

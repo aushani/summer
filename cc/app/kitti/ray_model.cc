@@ -326,5 +326,13 @@ void RayModel::Blur() {
   }
 }
 
+double RayModel::GetMaxSizeXY() const {
+  return max_size_xy_;
+}
+
+double RayModel::GetMaxSizeZ() const {
+  return max_size_z_;
+}
+
 } // namespace kitti
 } // namespace app

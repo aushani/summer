@@ -25,7 +25,7 @@ z = points[:, 2]
 r = (x**2 + y**2)**0.5
 idx_show = (r < 18) & (r > 12)
 
-ax.scatter(x[idx_show], y[idx_show], z[idx_show], c=z[idx_show])
+ax.scatter(x[idx_show], y[idx_show], z[idx_show], c=z[idx_show], s=3)
 
 ax.set_xlim(-7.5, 7.5)
 ax.set_ylim(5, 20)

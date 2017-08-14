@@ -199,6 +199,9 @@ class RayModel {
 
   bool IsRelevant(const ModelObservation &mo) const;
 
+  double GetMaxSizeXY() const;
+  double GetMaxSizeZ() const;
+
  private:
   double kAngleRes = 0.20;    // ~10 degrees
   double kDistRes = 0.20;     // ~20 cm
