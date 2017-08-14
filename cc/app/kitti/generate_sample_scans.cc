@@ -29,7 +29,6 @@ void GenerateSampleScans(const ObjectState &os, const RayModel &model) {
         double z = range * sin(sensor_phi);
 
         sample_file << x << ", " << y << ", " << z << std::endl;
-
       }
     }
   }
