@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas
+import os.path
 
 def show_map(ax, x, y, z, title, vmin=None, vmax=None, cb=False):
   x1 = np.min(x[:])
@@ -21,19 +22,35 @@ def show_map(ax, x, y, z, title, vmin=None, vmax=None, cb=False):
 
   ax.set_title(title)
 
-classes = ["Car", "Pedestrian", "Cyclist", "NOOBJ"]
-f, axarr = plt.subplots(nrows = 1, ncols = len(classes))
+classes = ["Car", "Pedestrian", "Cyclist", "Tram", "Van", "NOOBJ"]
+classes_exist = []
 
 for i, classname in enumerate(classes):
   fn = '/home/aushani/summer/cc/result_%s.csv' % (classname)
 
+  if not os.path.isfile(fn):
+    continue
+
+  classes_exist.append(classname)
+
+classes = classes_exist
+f, axarr = plt.subplots(nrows = 1, ncols = len(classes))
+
+gt = pandas.read_csv('/home/aushani/summer/cc/ground_truth.csv', header=None).values
+
+for i, classname in enumerate(classes):
+  fn = '/home/aushani/summer/cc/result_%s.csv' % (classname)
+
+  if not os.path.isfile(fn):
+    continue
+
   res = pandas.read_csv(fn, header=None).values
-  print res.shape
 
   x = res[:, 0]
   y = res[:, 1]
   z = res[:, 2]
   t = res[:, 3]
+  lo = res[:, 5]
   p = res[:, 6]
 
   unique_xs = np.unique(np.round(x, decimals=2))
@@ -43,22 +60,21 @@ for i, classname in enumerate(classes):
 
   shape = (len(unique_xs), len(unique_ys), len(unique_zs), len(unique_ts))
 
-  print shape
-
   x = np.reshape(x, shape)
   y = np.reshape(y, shape)
   p = np.reshape(p, shape)
-  print p.shape
 
   p = np.sum(p, axis=-1)
-  print p.shape
-
   p = np.sum(p, axis=-1)
-  print p.shape
 
   x = x[:, :, 0, 0]
   y = y[:, :, 0, 0]
 
-  show_map(axarr[i], x, y, p, classname, cb = True)
+  show_map(axarr[i], x, y, p, classname, vmin = 0, vmax = 1, cb = True)
+  for x in gt:
+    if x[4] != classname:
+      continue
+
+    axarr[i].scatter(x[0], x[1], c='r', marker='x')
 
 plt.show()

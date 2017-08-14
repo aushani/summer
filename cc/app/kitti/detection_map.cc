@@ -23,14 +23,15 @@ DetectionMap::DetectionMap(double size_xy, double size_z, const ModelBank &model
       angle_res = 2*M_PI;
     }
 
-    for (double x = 0; x <= size_xy_; x += kPosRes_) {
+    for (double x = -size_xy_; x <= size_xy_; x += kPosRes_) {
       for (double y = -size_xy_; y <= size_xy_; y += kPosRes_) {
-        for (double z = -2; z <= 0; z += kPosRes_) {
+        //for (double z = -2; z <= 0; z += kPosRes_) {
+        double z = -1.0;
           for (double angle = 0; angle < 2*M_PI; angle += angle_res) {
             ObjectState s(Eigen::Vector3d(x, y, z), angle, classname);
             scores_.insert( std::pair<ObjectState, double>(s, 0) );
           }
-        }
+        //}
       }
     }
   }

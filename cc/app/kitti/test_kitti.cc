@@ -92,6 +92,7 @@ int main(int argc, char** argv) {
   printf("Took %5.3f ms to make observations\n", t.GetMs());
 
   // Go through tracklets and see which ones have hits
+  std::ofstream gt_file("ground_truth.csv");
   for (int t_id=0; t_id<tracklets.numberOfTracklets(); t_id++) {
     if (!tracklets.isActive(t_id, frame_num)) {
       continue;
@@ -103,6 +104,7 @@ int main(int argc, char** argv) {
 
     printf("Tracklet %d (%s) at %5.3f, %5.3f, %5.3f, angle %5.3f\n",
            t_id, tt->objectType.c_str(), pose->tx, pose->ty, pose->tz + kZOffset, pose->rz);
+    gt_file << pose->tx << "," << pose->ty << "," << pose->tz + kZOffset << "," << pose->rz << ","  << tt->objectType << std::endl;
 
     ObjectState os(Eigen::Vector3d(pose->tx, pose->ty, pose->tz + kZOffset), pose->rz, tt->objectType);
 

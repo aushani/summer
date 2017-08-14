@@ -7,7 +7,7 @@ namespace kitti {
 
 class ObjectState {
  public:
-  ObjectState(const Eigen::Vector3d &x, double t, const std::string &cn) :
+  ObjectState(const Eigen::Vector2d &x, double t, const std::string &cn) :
     pos(x), theta(t), classname(cn) {
   }
 
