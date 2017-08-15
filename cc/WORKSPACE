@@ -10,6 +10,26 @@ new_local_repository(
     path = "/usr/local/cuda-8.0/"
 )
 
+new_local_repository(
+    name = "openscenegraph",
+    build_file = "tools/openscenegraph.BUILD",
+    path = "/usr/local/"
+)
+
+new_local_repository(
+    name = "qt4",
+    path = "/usr/include/qt4",
+    build_file = "tools/qt4.BUILD"
+)
+
+new_http_archive(
+    name = "boost",
+    build_file = "tools/boost.BUILD",
+    sha256 = "beae2529f759f6b3bf3f4969a19c2e9d6f0c503edcb2de4a61d1428519fcb3b0",
+    type = "tar.bz2",
+    url = "https://robots.engin.umich.edu/~aushani/boost_1_63_0.tar.bz2",
+)
+
 new_http_archive(
     name = "boost",
     build_file = "tools/boost.BUILD",
