@@ -19,7 +19,7 @@ namespace kitti {
 
 class DetectionMap {
  public:
-  DetectionMap(double size_xy, double size_z, const ModelBank &model_bank);
+  DetectionMap(double size_xy, const ModelBank &model_bank);
 
   std::vector<std::string> GetClasses() const;
 
@@ -38,7 +38,6 @@ class DetectionMap {
   const double kAngleRes_ = 30.0 * M_PI/180.0;  // 30 deg
 
   double size_xy_;
-  double size_z_;
 
   std::map<ObjectState, double> scores_;
 

@@ -12,7 +12,7 @@ class ObjectState {
   }
 
   bool operator<(const ObjectState &os) const {
-    for (int i=0; i<3; i++) {
+    for (int i=0; i<2; i++) {
       if (std::abs(pos(i) - os.pos(i)) > kResPos_) {
         return pos(i) < os.pos(i);
       }
@@ -25,7 +25,7 @@ class ObjectState {
     return classname < os.classname;
   }
 
-  const Eigen::Vector3d pos;
+  const Eigen::Vector2d pos;
   const double theta;
 
   const std::string classname;

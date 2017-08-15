@@ -34,7 +34,7 @@ for i, classname in enumerate(classes):
   classes_exist.append(classname)
 
 classes = classes_exist
-f, axarr = plt.subplots(nrows = 1, ncols = len(classes))
+f, axarr = plt.subplots(nrows = 1, ncols = len(classes), sharex = True, sharey = True)
 
 gt = pandas.read_csv('/home/aushani/summer/cc/ground_truth.csv', header=None).values
 
@@ -48,31 +48,29 @@ for i, classname in enumerate(classes):
 
   x = res[:, 0]
   y = res[:, 1]
-  z = res[:, 2]
-  t = res[:, 3]
-  lo = res[:, 5]
-  p = res[:, 6]
+  t = res[:, 2]
+  lo = res[:, 4]
+  p = res[:, 5]
 
   unique_xs = np.unique(np.round(x, decimals=2))
   unique_ys = np.unique(np.round(y, decimals=2))
-  unique_zs = np.unique(np.round(z, decimals=2))
   unique_ts = np.unique(np.round(t, decimals=2))
 
-  shape = (len(unique_xs), len(unique_ys), len(unique_zs), len(unique_ts))
+  shape = (len(unique_xs), len(unique_ys), len(unique_ts))
 
   x = np.reshape(x, shape)
   y = np.reshape(y, shape)
   p = np.reshape(p, shape)
 
   p = np.sum(p, axis=-1)
-  p = np.sum(p, axis=-1)
+  print p.shape
 
-  x = x[:, :, 0, 0]
-  y = y[:, :, 0, 0]
+  x = x[:, :, 0]
+  y = y[:, :, 0]
 
   show_map(axarr[i], x, y, p, classname, vmin = 0, vmax = 1, cb = True)
   for x in gt:
-    if x[4] != classname:
+    if x[3] != classname:
       continue
 
     axarr[i].scatter(x[0], x[1], c='r', marker='x')

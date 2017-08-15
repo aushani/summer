@@ -32,7 +32,7 @@ class ModelBankBuilder {
   const double kZOffset_ = 0.8; // ???
   const double kPosRes_ = 0.5;
   const double kAngleRes_ = ut::DegreesToRadians(30);
-  const int kEntriesPerObj_ = 10;
+  const int kEntriesPerObj_ = 100;
 
   ModelBank model_bank_;
 

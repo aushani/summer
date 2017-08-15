@@ -36,7 +36,7 @@ struct ModelObservation {
 
     double dist_to_obj = os.pos.norm();
     double z_a = dist_to_obj * x_hit.sin_phi;
-    dist_z = os.pos.z() - z_a;
+    dist_z = -z_a;
 
     in_front = dist_obs < x_hit.range;
   }
@@ -79,7 +79,7 @@ struct ModelObservation {
       }
 
       double z_a = dist_to_obj * obs.sin_phi;
-      mo.dist_z = os.pos.z() - z_a;
+      mo.dist_z = -z_a;
 
       if (std::abs(mo.dist_z) > max_size_z) {
         continue;

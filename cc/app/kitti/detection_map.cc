@@ -13,8 +13,8 @@ namespace kt = library::kitti;
 namespace app {
 namespace kitti {
 
-DetectionMap::DetectionMap(double size_xy, double size_z, const ModelBank &model_bank) :
- size_xy_(size_xy), size_z_(size_z), model_bank_(model_bank) {
+DetectionMap::DetectionMap(double size_xy, const ModelBank &model_bank) :
+ size_xy_(size_xy), model_bank_(model_bank) {
   auto classes = GetClasses();
 
   for (std::string classname : classes) {
@@ -25,13 +25,10 @@ DetectionMap::DetectionMap(double size_xy, double size_z, const ModelBank &model
 
     for (double x = -size_xy_; x <= size_xy_; x += kPosRes_) {
       for (double y = -size_xy_; y <= size_xy_; y += kPosRes_) {
-        //for (double z = -2; z <= 0; z += kPosRes_) {
-        double z = -1.0;
-          for (double angle = 0; angle < 2*M_PI; angle += angle_res) {
-            ObjectState s(Eigen::Vector3d(x, y, z), angle, classname);
-            scores_.insert( std::pair<ObjectState, double>(s, 0) );
-          }
-        //}
+        for (double angle = 0; angle < 2*M_PI; angle += angle_res) {
+          ObjectState s(Eigen::Vector2d(x, y), angle, classname);
+          scores_.insert( std::pair<ObjectState, double>(s, 0) );
+        }
       }
     }
   }
@@ -94,7 +91,6 @@ void DetectionMap::ProcessScan(const kt::VelodyneScan &scan) {
     if (ss.empty() ||
           (os.pos.x() == ss[0].pos.x() &&
            os.pos.y() == ss[0].pos.y() &&
-           os.pos.z() == ss[0].pos.z() &&
            os.theta   == ss[0].theta)) {
       ss.push_back(os);
     } else {

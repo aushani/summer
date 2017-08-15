@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
     const auto& model = it->second;
     printf("Model %s\n", it->first.c_str());
 
-    ObjectState os(Eigen::Vector3d(0, 15, -1.0), 0.0, it->first);
+    ObjectState os(Eigen::Vector2d(25.213, 8.603), -3.184, it->first);
 
     GenerateSampleScans(os, model);
   }

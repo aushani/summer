@@ -1,5 +1,7 @@
 #include "app/kitti/model_bank_builder.h"
 
+#include "library/timer/timer.h"
+
 namespace app {
 namespace kitti {
 
@@ -66,8 +68,9 @@ bool ModelBankBuilder::ProcessFrame(kt::Tracklets *tracklets, int log_num, int f
     return false;
   }
 
+  library::timer::Timer t;
   kt::VelodyneScan scan(fn);
-  printf("Loaded scan %d, has %ld hits\n", frame, scan.GetHits().size());
+  printf("Loaded scan %d in %5.3f sec, has %ld hits\n", frame, t.GetSeconds(), scan.GetHits().size());
 
   // Convert Eigen::Vector3d to Observations
   std::vector<Observation> obs;
@@ -89,29 +92,29 @@ bool ModelBankBuilder::ProcessFrame(kt::Tracklets *tracklets, int log_num, int f
     for (int i=0; i<kEntriesPerObj_; i++) {
       double dx = jitter_pos(rand_engine);
       double dy = jitter_pos(rand_engine);
-      double dz = jitter_pos(rand_engine);
 
       double dt = jitter_angle(rand_engine);
 
-      ObjectState os(Eigen::Vector3d(pose->tx + dx, pose->ty + dy, pose->tz + kZOffset_ + dz), pose->rz + dt, tt->objectType);
+      ObjectState os(Eigen::Vector2d(pose->tx + dx, pose->ty + dy), pose->rz + dt, tt->objectType);
+      printf("  Object: %5.3f, %5.3f, %5.3f, %s\n", os.pos.x(), os.pos.y(), os.theta, os.classname.c_str());
       model_bank_.MarkObservations(os, obs);
     }
   }
 
   // Sample background
-  int background_samples = tracklets->numberOfTracklets() * kEntriesPerObj_;
+  int background_samples = kEntriesPerObj_;
   double lower_bound = -20.0;
   double upper_bound = 20.0;
   std::uniform_real_distribution<double> xy_unif(lower_bound, upper_bound);
-  std::uniform_real_distribution<double> z_unif(0, 2);
+  std::uniform_real_distribution<double> theta_unif(-M_PI, M_PI);
 
   for (int i=0; i<background_samples; i++) {
     double x = xy_unif(rand_engine);
     double y = xy_unif(rand_engine);
-    double z = z_unif(rand_engine);
+    double t = theta_unif(rand_engine);
 
     // Make sure this is in camera view
-    if (!camera_cal_.InCameraView(x, y, z)) {
+    if (!camera_cal_.InCameraView(x, y, 0)) {
       continue;
     }
 
@@ -126,8 +129,7 @@ bool ModelBankBuilder::ProcessFrame(kt::Tracklets *tracklets, int log_num, int f
       tracklets->getPose(t_id, frame, pose);
 
       if ( std::abs(pose->tx - x) < kPosRes_/2 ||
-           std::abs(pose->ty - y) < kPosRes_/2 ||
-           std::abs(pose->tz - z) < kPosRes_/2) {
+           std::abs(pose->ty - y) < kPosRes_/2) {
         too_close = true;
         break;
       }
@@ -138,11 +140,12 @@ bool ModelBankBuilder::ProcessFrame(kt::Tracklets *tracklets, int log_num, int f
     }
 
     // Mark observations for no obj.
-    ObjectState os(Eigen::Vector3d(x, y, z + kZOffset_), 0, "NOOBJ");
+    ObjectState os(Eigen::Vector2d(x, y), t, "NOOBJ");
     model_bank_.MarkObservations(os, obs);
   }
 
-  return true;
+  //return true;
+  return false;
 }
 
 const ModelBank& ModelBankBuilder::GetModelBank() const {

@@ -25,9 +25,8 @@ void SaveResult(const DetectionMap &detection_map, const std::string &cn, const 
       continue;
     }
 
-    float x = os.pos(0);
-    float y = os.pos(1);
-    float z = os.pos(2);
+    float x = os.pos.x();
+    float y = os.pos.y();
 
     double angle = os.theta;
 
@@ -42,7 +41,7 @@ void SaveResult(const DetectionMap &detection_map, const std::string &cn, const 
       p = 1 - 1e-16;
     double logodds = -log(1.0/p - 1);
 
-    res_file << x << "," << y << "," << z << "," << angle << "," << score << "," << logodds << "," << prob << std::endl;
+    res_file << x << "," << y << "," << angle << "," << score << "," << logodds << "," << prob << std::endl;
   }
   res_file.close();
 }
@@ -104,9 +103,9 @@ int main(int argc, char** argv) {
 
     printf("Tracklet %d (%s) at %5.3f, %5.3f, %5.3f, angle %5.3f\n",
            t_id, tt->objectType.c_str(), pose->tx, pose->ty, pose->tz + kZOffset, pose->rz);
-    gt_file << pose->tx << "," << pose->ty << "," << pose->tz + kZOffset << "," << pose->rz << ","  << tt->objectType << std::endl;
+    gt_file << pose->tx << "," << pose->ty << "," << pose->rz << ","  << tt->objectType << std::endl;
 
-    ObjectState os(Eigen::Vector3d(pose->tx, pose->ty, pose->tz + kZOffset), pose->rz, tt->objectType);
+    ObjectState os(Eigen::Vector2d(pose->tx, pose->ty), pose->rz, tt->objectType);
 
     // Convert to ModelObservation's
     t.Start();
@@ -131,8 +130,9 @@ int main(int argc, char** argv) {
     }
     printf("  Best %s vs actual %s\n", best_class.c_str(), os.classname.c_str());
   }
+  gt_file.close();
 
-  DetectionMap detection_map(25.0, 2.0, mb);
+  DetectionMap detection_map(30.0, mb);
 
   t.Start();
   detection_map.ProcessScan(scan);
