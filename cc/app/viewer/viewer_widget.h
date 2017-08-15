@@ -29,10 +29,9 @@ class ViewerWidget : public QWidget, public osgViewer::CompositeViewer
 
     virtual void paintEvent(QPaintEvent* event) { frame(); }
 
-    osg::ref_ptr<osgViewer::View> get_view() { return _view; };
+    osg::ref_ptr<osgViewer::View> GetView() { return _view; };
 
   private:
-
     // primary view
     osg::ref_ptr<osgViewer::View> _view;
 

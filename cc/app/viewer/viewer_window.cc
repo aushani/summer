@@ -23,15 +23,15 @@ ViewerWindow::ViewerWindow(osg::ArgumentParser &args, QWidget *parent, Qt::Windo
   setWindowTitle(tr("Viewer"));
   setMinimumSize(640, 480);
 
-  init(args.getApplicationUsage());
+  Init(args.getApplicationUsage());
 }
 
 ViewerWindow::~ViewerWindow() {
 
 }
 
-void ViewerWindow::init(osg::ApplicationUsage* au) {
-  osg::ref_ptr<osgViewer::View> view = vwidget_->get_view();
+void ViewerWindow::Init(osg::ApplicationUsage* au) {
+  osg::ref_ptr<osgViewer::View> view = vwidget_->GetView();
 
   // set background to black
   // TODO: magic numbers
@@ -40,7 +40,8 @@ void ViewerWindow::init(osg::ApplicationUsage* au) {
   osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> ksm = new osgGA::KeySwitchMatrixManipulator();
 
   //ksm->addMatrixManipulator('1', "TerrainTrackpad", new osgGA::TerrainTrackpadManipulator());
-  //ksm->addMatrixManipulator('3', "Terrain", new osgGA::TerrainManipulator());
+  ksm->addMatrixManipulator( '2', "NodeTracker", new osgGA::NodeTrackerManipulator());
+  ksm->addMatrixManipulator('3', "Terrain", new osgGA::TerrainManipulator());
 
   // set initial camera position (for all manipulators)
   // TODO: magic numbers
@@ -97,22 +98,25 @@ void ViewerWindow::init(osg::ApplicationUsage* au) {
   view->setSceneData(xform);
 }
 
-int ViewerWindow::start() {
+int ViewerWindow::Start() {
   show();
 
   // start threads
-  std::cout << "Starting fa..." << std::endl;
-  //int rc = pthread_create(&_fa_thread, &_attr, fa_thread_routine, (void*)&_state);
-  //if (rc) {
-  //  std::cerr << "Error creating fa_thread: " << rc << std::endl;
-  //  return EXIT_FAILURE;
-  //}
+  std::cout << "Starting thread..." << std::endl;
+  run_thread_ = std::thread(&ViewerWindow::RunThread, this);
 
   return EXIT_SUCCESS;
 }
 
-void ViewerWindow::slot_cleanup() {
+void ViewerWindow::SlotCleanup() {
   printf("TODO: SlotCleanup\n");
+}
+
+void ViewerWindow::RunThread() {
+  while (true) {
+    printf("run thread!\n");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
 }
 
 } // namespace viewer

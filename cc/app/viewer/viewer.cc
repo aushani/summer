@@ -12,7 +12,7 @@ Viewer::Viewer(osg::ArgumentParser& args) :
 }
 
 void Viewer::Start() {
-  int rc = vwindow_->start();
+  int rc = vwindow_->Start();
 
   if (rc != EXIT_SUCCESS) {
     return;
