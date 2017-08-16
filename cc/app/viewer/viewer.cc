@@ -3,6 +3,7 @@
 
 #include "library/osg_nodes/point_cloud.h"
 #include "library/osg_nodes/occ_grid.h"
+#include "library/osg_nodes/tracklets.h"
 
 #include <iostream>
 #include <QLabel>
@@ -27,6 +28,11 @@ void Viewer::AddVelodyneScan(const kt::VelodyneScan &scan) {
 
 void Viewer::AddOccGrid(const rt::OccGrid &og) {
   osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);
+  vwindow_->AddChild(ogn);
+}
+
+void Viewer::AddTracklets(kt::Tracklets *tracklets, int frame) {
+  osg::ref_ptr<osgn::Tracklets> ogn = new osgn::Tracklets(tracklets, frame);
   vwindow_->AddChild(ogn);
 }
 

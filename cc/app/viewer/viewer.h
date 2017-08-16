@@ -13,6 +13,7 @@
 #include <QTimer>
 #include <QGridLayout>
 
+#include "library/kitti/tracklets.h"
 #include "library/kitti/velodyne_scan.h"
 #include "library/ray_tracing/occ_grid.h"
 
@@ -32,6 +33,7 @@ class Viewer {
 
   void AddVelodyneScan(const kt::VelodyneScan &scan);
   void AddOccGrid(const rt::OccGrid &og);
+  void AddTracklets(kt::Tracklets *tracklets, int frame);
 
   void Start();
 

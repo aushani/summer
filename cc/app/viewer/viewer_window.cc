@@ -11,6 +11,7 @@
 #include "library/util/angle.h"
 
 #include "app/viewer/pick_handler.h"
+#include "app/viewer/terrain_trackpad_manipulator.h"
 
 namespace ut = library::util;
 
@@ -35,13 +36,13 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
 
   osg::ref_ptr<osgViewer::View> view = vwidget_->GetView();
 
-  // set background to black
   // TODO: magic numbers
-  view->getCamera()->setClearColor(osg::Vec4d(1, 1, 1, 0));
+  //view->getCamera()->setClearColor(osg::Vec4d(1, 1, 1, 0)); // white
+  view->getCamera()->setClearColor(osg::Vec4d(0, 0, 0, 0)); // black
 
   osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> ksm = new osgGA::KeySwitchMatrixManipulator();
 
-  // ksm->addMatrixManipulator('1', "TerrainTrackpad", new osgGA::TerrainTrackpadManipulator());
+  ksm->addMatrixManipulator('1', "TerrainTrackpad", new TerrainTrackpadManipulator());
   ksm->addMatrixManipulator('2', "NodeTracker", new osgGA::NodeTrackerManipulator());
   ksm->addMatrixManipulator('3', "Terrain", new osgGA::TerrainManipulator());
 

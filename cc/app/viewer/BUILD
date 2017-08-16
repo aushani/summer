@@ -7,6 +7,7 @@ qt4_cc_library(
     normal_hdrs = [
                     "pick_handler.h",
                     "viewer_widget.h",
+                    "terrain_trackpad_manipulator.h",
                   ],
     deps = [
             "@qt4//:qt4_core",
@@ -24,6 +25,7 @@ cc_binary(
     srcs = [
             "main.cc",
             "pick_handler.cc", "pick_handler.h",
+            "terrain_trackpad_manipulator.cc", "terrain_trackpad_manipulator.h",
             "viewer.cc", "viewer.h",
             "viewer_widget.cc", "viewer_widget.h"
             ],

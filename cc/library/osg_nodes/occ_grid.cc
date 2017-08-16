@@ -9,7 +9,7 @@ namespace osg_nodes {
 
 OccGrid::OccGrid(const rt::OccGrid &og) : osg::Group() {
   osg::ref_ptr<CompositeShapeGroup> csg = new CompositeShapeGroup();
-  csg->GetSDrawable()->setColor(osg::Vec4(0, 1, 0, 0.8));
+  csg->GetSDrawable()->setColor(osg::Vec4(0.1, 0.9, 0.1, 0.8));
 
   // Iterate over occ grid and add occupied cells
   for (size_t i = 0; i < og.locations.size(); i++) {

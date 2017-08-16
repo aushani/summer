@@ -39,6 +39,35 @@ kt::VelodyneScan LoadVelodyneScan(osg::ArgumentParser *args) {
   return kt::VelodyneScan(fn);
 }
 
+kt::Tracklets LoadTracklets(osg::ArgumentParser *args) {
+  std::string home_dir = getenv("HOME");
+  std::string kitti_log_dir = home_dir + "/data/kittidata/extracted/";
+  if (!args->read(std::string("--kitti-log-dir"), kitti_log_dir)) {
+    printf("Using default KITTI log dir: %s\n", kitti_log_dir.c_str());
+  }
+
+  std::string kitti_log_date = "2011_09_26";
+  if (!args->read(std::string("--kitti-log-date"), kitti_log_date)) {
+    printf("Using default KITTI date: %s\n", kitti_log_date.c_str());
+  }
+
+  int log_num = 18;
+  if (!args->read(std::string("--log-num"), log_num)) {
+    printf("Using default KITTI log number: %d\n", log_num);
+  }
+
+  // Load Tracklets
+  char fn[1000];
+  sprintf(fn, "%s/%s/%s_drive_%04d_sync/tracklet_labels.xml",
+      kitti_log_dir.c_str(), kitti_log_date.c_str(), kitti_log_date.c_str(), log_num);
+  kt::Tracklets tracklets;
+  if (!tracklets.loadFromFile(fn)) {
+    printf("Could not load tracklets from %s\n", fn);
+  }
+
+  return tracklets;
+}
+
 int main(int argc, char** argv) {
   osg::ArgumentParser args(&argc, argv);
   osg::ApplicationUsage* au = args.getApplicationUsage();
@@ -69,23 +98,24 @@ int main(int argc, char** argv) {
   // Load velodyne scan
   kt::VelodyneScan scan = LoadVelodyneScan(&args);
 
+  int frame_num = 0;
+  if (!args.read(std::string("--frame-num"), frame_num)) {
+    printf("Using default KITTI frame number: %d\n", frame_num);
+  }
+  kt::Tracklets tracklets = LoadTracklets(&args);
+
   // Build occ grid
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
 
   library::timer::Timer t;
-  rt::OccGrid og1 = builder.GenerateOccGrid(scan.GetHits());
+  rt::OccGrid og = builder.GenerateOccGrid(scan.GetHits());
   printf("Took %5.3f ms to build occ grid\n", t.GetMs());
-
-  for (int i=0; i<100; i++) {
-    t.Start();
-    rt::OccGrid og2 = builder.GenerateOccGrid(scan.GetHits());
-    printf("Took %5.3f ms to build occ grid\n", t.GetMs());
-  }
 
   app::viewer::Viewer v(&args);
 
   v.AddVelodyneScan(scan);
-  v.AddOccGrid(og1);
+  v.AddOccGrid(og);
+  v.AddTracklets(&tracklets, frame_num);
 
   v.Start();
 
