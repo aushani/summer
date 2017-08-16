@@ -1,5 +1,4 @@
 // Adpated from dascar
-
 #include "library/osg_nodes/point_cloud.h"
 
 namespace kt = library::kitti;

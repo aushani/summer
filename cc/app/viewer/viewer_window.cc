@@ -14,15 +14,14 @@
 
 #include "app/viewer/pick_handler.h"
 
-namespace kt = library::kitti;
 namespace ut = library::util;
 namespace osgn = library::osg_nodes;
 
 namespace app {
 namespace viewer {
 
-ViewerWindow::ViewerWindow(osg::ArgumentParser *args, QWidget *parent, Qt::WindowFlags f) : QMainWindow(parent, f) {
-
+ViewerWindow::ViewerWindow(osg::ArgumentParser *args, QWidget *parent, Qt::WindowFlags f)
+    : QMainWindow(parent, f), xform_car_(new osg::MatrixTransform()) {
   osgViewer::ViewerBase::ThreadingModel tm = osgViewer::ViewerBase::SingleThreaded;
   vwidget_ = new ViewerWidget(0, Qt::Widget, tm);
 
@@ -32,10 +31,6 @@ ViewerWindow::ViewerWindow(osg::ArgumentParser *args, QWidget *parent, Qt::Windo
   setMinimumSize(640, 480);
 
   Init(args);
-}
-
-ViewerWindow::~ViewerWindow() {
-
 }
 
 void ViewerWindow::Init(osg::ArgumentParser *args) {
@@ -49,8 +44,8 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
 
   osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> ksm = new osgGA::KeySwitchMatrixManipulator();
 
-  //ksm->addMatrixManipulator('1', "TerrainTrackpad", new osgGA::TerrainTrackpadManipulator());
-  ksm->addMatrixManipulator( '2', "NodeTracker", new osgGA::NodeTrackerManipulator());
+  // ksm->addMatrixManipulator('1', "TerrainTrackpad", new osgGA::TerrainTrackpadManipulator());
+  ksm->addMatrixManipulator('2', "NodeTracker", new osgGA::NodeTrackerManipulator());
   ksm->addMatrixManipulator('3', "Terrain", new osgGA::TerrainManipulator());
 
   // set initial camera position (for all manipulators)
@@ -93,50 +88,22 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
 
   // rotate by x until z down
   // car RH coordinate frame has x forward, z down
-  osg::Matrixd H(osg::Quat(ut::DegreesToRadians(180), osg::Vec3d(1,0,0)));
-  //osg::Matrixd H(osg::Quat(0, osg::Vec3d(1, 0, 0)));
+  osg::Matrixd H(osg::Quat(ut::DegreesToRadians(180), osg::Vec3d(1, 0, 0)));
+  // osg::Matrixd H(osg::Quat(0, osg::Vec3d(1, 0, 0)));
   osg::ref_ptr<osg::MatrixTransform> xform = new osg::MatrixTransform(H);
 
-  osg::ref_ptr<osg::MatrixTransform> xform_car = new osg::MatrixTransform();
   osg::Matrixd D(osg::Quat(M_PI, osg::Vec3d(1, 0, 0)));
   D.postMultTranslate(osg::Vec3d(-1, 0, -1.2));
-  xform_car->setMatrix(D);
-  //xform_car->addChild(new osg::Axes());
-  xform->addChild(xform_car);
-
-  // Load velodyne scan
-  std::string home_dir = getenv("HOME");
-  std::string kitti_log_dir = home_dir + "/data/kittidata/extracted/";
-  if (!args->read(std::string("--kitti-log-dir"), kitti_log_dir)) {
-      printf("Using default KITTI log dir: %s\n", kitti_log_dir.c_str());
-  }
-
-  std::string kitti_log_date = "2011_09_26";
-  if (!args->read(std::string("--kitti-log-date"), kitti_log_date)) {
-      printf("Using default KITTI date: %s\n", kitti_log_date.c_str());
-  }
-
-  int log_num = 18;
-  if (!args->read(std::string("--log-num"), log_num)) {
-      printf("Using default KITTI log number: %d\n", log_num);
-  }
-
-  int frame_num = 0;
-  if (!args->read(std::string("--frame-num"), frame_num)) {
-      printf("Using default KITTI frame number: %d\n", frame_num);
-  }
-  char fn[1000];
-  // Load Velodyne
-  sprintf(fn, "%s/%s/%s_drive_%04d_sync/velodyne_points/data/%010d.bin",
-          kitti_log_dir.c_str(), kitti_log_date.c_str(), kitti_log_date.c_str(), log_num, frame_num);
-
-  kt::VelodyneScan scan(fn);
-  osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);
-  xform_car->addChild(pc);
-
+  xform_car_->setMatrix(D);
+  // xform_car->addChild(new osg::Axes());
+  xform->addChild(xform_car_);
 
   // set scene
   view->setSceneData(xform);
+}
+
+void ViewerWindow::AddChild(osg::Node *n) {
+  xform_car_->addChild(n);
 }
 
 int ViewerWindow::Start() {
@@ -159,5 +126,5 @@ void ViewerWindow::RunThread() {
   }
 }
 
-} // namespace viewer
-} // namespace app
+}  // namespace viewer
+}  // namespace app

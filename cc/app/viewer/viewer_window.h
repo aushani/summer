@@ -17,9 +17,10 @@ class ViewerWindow : public QMainWindow {
 
  public:
   ViewerWindow(osg::ArgumentParser *args, QWidget* parent, Qt::WindowFlags f);
-  ~ViewerWindow();
 
   int Start();
+
+  void AddChild(osg::Node *n);
 
  public slots:
   void SlotCleanup();
@@ -27,6 +28,7 @@ class ViewerWindow : public QMainWindow {
  private:
   osg::ref_ptr<ViewerWidget> vwidget_;
   std::thread run_thread_;
+  osg::ref_ptr<osg::MatrixTransform> xform_car_;
 
   void Init(osg::ArgumentParser *args);
 

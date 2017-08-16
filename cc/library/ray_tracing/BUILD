@@ -3,5 +3,10 @@ cc_library(
     srcs = glob(['*.cc']),
     hdrs = glob(["*.h"]),
     visibility = ["//visibility:public"],
-    copts = ["cuda"],
+    copts = ["-x",  "cuda", "-std=c++11"],
+    deps = [
+            "//tools:cuda",
+            "@eigen//:eigen",
+            "@boost//:boost_headers",
+           ],
 )
