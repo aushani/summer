@@ -15,6 +15,8 @@ qt4_cc_library(
             "@qt4//:qt4_core_prefixstripped",
             "@qt4//:qt4_gui_prefixstripped",
             "@qt4//:qt4_opengl_prefixstripped",
+            "//library/kitti",
+            "//library/osg_nodes",
            ],
 )
 

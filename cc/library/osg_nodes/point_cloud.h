@@ -1,0 +1,29 @@
+// Adapted from dascar
+
+#pragma once
+
+#include <osg/Geometry>
+#include <osg/Drawable>
+#include <osg/MatrixTransform>
+
+#include "library/kitti/velodyne_scan.h"
+
+namespace kt = library::kitti;
+
+namespace library {
+namespace osg_nodes {
+
+class PointCloud : public osg::Geometry {
+ public:
+  PointCloud(const kt::VelodyneScan &scan);
+
+ private:
+  osg::ref_ptr<osg::Vec3Array> vertices_;
+  osg::ref_ptr<osg::Vec4Array> colors_;
+  osg::ref_ptr<osg::DrawArrays> draw_arrays_;
+
+  //osg::ColorMap::Type cmap_ = osg::ColorMap::Type::JET;
+};
+
+} // osg_nodes
+} // library

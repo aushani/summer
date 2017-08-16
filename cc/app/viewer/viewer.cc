@@ -1,3 +1,4 @@
+// adapted from dascar
 #include "app/viewer/viewer.h"
 
 #include <iostream>
@@ -6,8 +7,8 @@
 namespace app {
 namespace viewer {
 
-Viewer::Viewer(osg::ArgumentParser& args) :
-  qapp_(new QApplication(args.argc(), args.argv())),
+Viewer::Viewer(osg::ArgumentParser *args) :
+  qapp_(new QApplication(args->argc(), args->argv())),
   vwindow_(new ViewerWindow(args, 0, Qt::Widget)) {
 }
 

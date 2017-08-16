@@ -16,7 +16,7 @@ class ViewerWindow : public QMainWindow {
   Q_OBJECT
 
  public:
-  ViewerWindow(osg::ArgumentParser& args, QWidget* parent, Qt::WindowFlags f);
+  ViewerWindow(osg::ArgumentParser *args, QWidget* parent, Qt::WindowFlags f);
   ~ViewerWindow();
 
   int Start();
@@ -28,7 +28,7 @@ class ViewerWindow : public QMainWindow {
   osg::ref_ptr<ViewerWidget> vwidget_;
   std::thread run_thread_;
 
-  void Init(osg::ApplicationUsage* au);
+  void Init(osg::ArgumentParser *args);
 
   void RunThread();
 };

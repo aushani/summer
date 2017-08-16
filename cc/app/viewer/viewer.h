@@ -1,3 +1,4 @@
+// adapted from dascar
 #pragma once
 
 #include <QtGui/QProgressBar>
@@ -21,7 +22,7 @@ namespace viewer {
 
 class Viewer {
  public:
-  Viewer(osg::ArgumentParser& args);
+  Viewer(osg::ArgumentParser *args);
 
   void Start();
 

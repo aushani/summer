@@ -32,7 +32,7 @@ int main(int argc, char** argv)
     return EXIT_SUCCESS;
   }
 
-  app::viewer::Viewer v(args);
+  app::viewer::Viewer v(&args);
   v.Start();
 
   return 0;
