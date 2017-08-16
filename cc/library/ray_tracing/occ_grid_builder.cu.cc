@@ -11,6 +11,9 @@
 #include <thrust/remove.h>
 
 #include "library/ray_tracing/occ_grid_location.h"
+#include "library/timer/timer.h"
+
+namespace tr = library::timer;
 
 namespace library {
 namespace ray_tracing {
@@ -35,10 +38,6 @@ struct DeviceData {
   float *hit_x = nullptr;
   float *hit_y = nullptr;
   float *hit_z = nullptr;
-
-  float *origin_x = nullptr;
-  float *origin_y = nullptr;
-  float *origin_z = nullptr;
 
   Location *locations = nullptr;
   float *log_odds_updates = nullptr;
@@ -67,15 +66,6 @@ DeviceData::DeviceData(float resolution, float max_range, int max_observations,
   err = cudaMalloc(&hit_z, sizeof(float) * max_observations);
   BOOST_ASSERT(err == cudaSuccess);
 
-  err = cudaMalloc(&origin_x, sizeof(float) * max_observations);
-  BOOST_ASSERT(err == cudaSuccess);
-
-  err = cudaMalloc(&origin_y, sizeof(float) * max_observations);
-  BOOST_ASSERT(err == cudaSuccess);
-
-  err = cudaMalloc(&origin_z, sizeof(float) * max_observations);
-  BOOST_ASSERT(err == cudaSuccess);
-
   err = cudaMalloc(&locations, sizeof(Location) * max_observations * max_voxel_visits_per_ray);
   BOOST_ASSERT(err == cudaSuccess);
 
@@ -96,9 +86,6 @@ DeviceData::DeviceData(const DeviceData &dd)
       hit_x(dd.hit_x),
       hit_y(dd.hit_y),
       hit_z(dd.hit_z),
-      origin_x(dd.origin_x),
-      origin_y(dd.origin_y),
-      origin_z(dd.origin_z),
       locations(dd.locations),
       log_odds_updates(dd.log_odds_updates),
       locations_reduced(dd.locations_reduced),
@@ -114,9 +101,6 @@ DeviceData::~DeviceData() {
     cudaFree(hit_x);
     cudaFree(hit_y);
     cudaFree(hit_z);
-    cudaFree(origin_x);
-    cudaFree(origin_y);
-    cudaFree(origin_z);
     cudaFree(locations);
     cudaFree(log_odds_updates);
     cudaFree(locations_reduced);
@@ -128,39 +112,39 @@ void DeviceData::CopyData(const std::vector<Eigen::Vector3d> &hits) {
   num_observations = hits.size();
 
   std::vector<float> v_hit_x, v_hit_y, v_hit_z;
-  std::vector<float> v_origin_x, v_origin_y, v_origin_z;
   for (const auto &hit : hits) {
-    v_hit_x.push_back(hit.x());
-    v_hit_y.push_back(hit.y());
-    v_hit_z.push_back(hit.z());
+    auto d = hit.data();
+    v_hit_x.push_back(d[0]);
+    v_hit_y.push_back(d[1]);
+    v_hit_z.push_back(d[2]);
 
     // Assumes that the hits originated from (0, 0, 0)
-    v_origin_x.push_back(0);
-    v_origin_y.push_back(0);
-    v_origin_z.push_back(0);
-  }
-
-  cudaStream_t streams[6];
-  for (int i = 0; i < 6; i++) {
-    cudaError_t res = cudaStreamCreate(&streams[i]);
-    BOOST_ASSERT(res == cudaSuccess);
   }
 
   size_t sz_copy = sizeof(float) * hits.size();
-  cudaMemcpyAsync(hit_x,    v_hit_x.data(),    sz_copy, cudaMemcpyHostToDevice, streams[0]);
-  cudaMemcpyAsync(hit_y,    v_hit_y.data(),    sz_copy, cudaMemcpyHostToDevice, streams[1]);
-  cudaMemcpyAsync(hit_z,    v_hit_z.data(),    sz_copy, cudaMemcpyHostToDevice, streams[2]);
-  cudaMemcpyAsync(origin_x, v_origin_x.data(), sz_copy, cudaMemcpyHostToDevice, streams[3]);
-  cudaMemcpyAsync(origin_y, v_origin_y.data(), sz_copy, cudaMemcpyHostToDevice, streams[4]);
-  cudaMemcpyAsync(origin_z, v_origin_z.data(), sz_copy, cudaMemcpyHostToDevice, streams[5]);
 
-  // Wait for all memcpy streams to complete
+  //cudaStream_t streams[3];
+  //for (int i = 0; i < 3; i++) {
+  //  cudaError_t res = cudaStreamCreate(&streams[i]);
+  //  BOOST_ASSERT(res == cudaSuccess);
+  //}
+
+  //cudaMemcpyAsync(hit_x,    v_hit_x.data(),    sz_copy, cudaMemcpyHostToDevice, streams[0]);
+  //cudaMemcpyAsync(hit_y,    v_hit_y.data(),    sz_copy, cudaMemcpyHostToDevice, streams[1]);
+  //cudaMemcpyAsync(hit_z,    v_hit_z.data(),    sz_copy, cudaMemcpyHostToDevice, streams[2]);
+
+  //// Wait for all memcpy streams to complete
+  //cudaDeviceSynchronize();
+
+  //for (int i = 0; i < 6; i++) {
+  //  cudaError_t res = cudaStreamDestroy(streams[i]);
+  //  BOOST_ASSERT(res == cudaSuccess);
+  //}
+
+  cudaMemcpy(hit_x,    v_hit_x.data(),    sz_copy, cudaMemcpyHostToDevice);
+  cudaMemcpy(hit_y,    v_hit_y.data(),    sz_copy, cudaMemcpyHostToDevice);
+  cudaMemcpy(hit_z,    v_hit_z.data(),    sz_copy, cudaMemcpyHostToDevice);
   cudaDeviceSynchronize();
-
-  for (int i = 0; i < 6; i++) {
-    cudaError_t res = cudaStreamDestroy(streams[i]);
-    BOOST_ASSERT(res == cudaSuccess);
-  }
 }
 
 OccGridBuilder::OccGridBuilder(int max_observations, float resolution, float max_range)
@@ -185,7 +169,6 @@ __global__ void RayTracingKernel(DeviceData data) {
   }
 
   float hit[3] = {data.hit_x[hit_idx], data.hit_y[hit_idx], data.hit_z[hit_idx]};
-  float origin[3] = {data.origin_x[hit_idx], data.origin_y[hit_idx], data.origin_z[hit_idx]};
 
   // The following is an implementation of Bresenham's line algorithm to sweep out the ray from the origin of the ray to
   // the hit point.
@@ -197,7 +180,7 @@ __global__ void RayTracingKernel(DeviceData data) {
   int dominant_dim = 0;              // which dim am i stepping through
 
   for (int i = 0; i < 3; ++i) {
-    cur_loc[i] = round(origin[i] / data.resolution);
+    //cur_loc[i] = round(origin[i] / data.resolution);
     end_loc[i] = round(hit[i] / data.resolution);
 
     ad[i] = fabsf(end_loc[i] - cur_loc[i]) * 2;
@@ -270,6 +253,8 @@ struct NoUpdate {
 };
 
 OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits) {
+  library::timer::Timer t;
+
   BOOST_ASSERT(hits.size() <= max_observations_);
 
   // Check for empty data
@@ -280,41 +265,54 @@ OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits
   }
 
   // First, we need to send the data to the GPU device
+  t.Start();
   device_data_->CopyData(hits);
+  printf("\tTook %5.3f ms to copy data\n", t.GetMs());
 
   // Now run ray tracing on the GPU device
+  t.Start();
   int blocks = ceil(static_cast<float>(device_data_->num_observations) / kThreadsPerBlock_);
   RayTracingKernel<<<blocks, kThreadsPerBlock_>>>(*device_data_);
   cudaError_t err = cudaDeviceSynchronize();
   BOOST_ASSERT(err == cudaSuccess);
+  printf("\tTook %5.3f ms to run kernel\n", t.GetMs());
 
   // Accumulate all the updates
   size_t num_updates = device_data_->num_observations * device_data_->max_voxel_visits_per_ray;
 
   // First prune unnecessary updates
+  t.Start();
   thrust::device_ptr<Location> dp_locations(device_data_->locations);
   thrust::device_ptr<float> dp_updates(device_data_->log_odds_updates);
 
   thrust::device_ptr<Location> dp_locations_end =
       thrust::remove_if(dp_locations, dp_locations + num_updates, dp_updates, NoUpdate());
   thrust::device_ptr<float> dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, NoUpdate());
+  printf("\tTook %5.3f to prune from %ld to %ld\n", t.GetMs(), num_updates, dp_locations_end - dp_locations);
   num_updates = dp_locations_end - dp_locations;
 
   // Now reduce updates to resulting log odds
+  t.Start();
   thrust::sort_by_key(dp_locations, dp_locations + num_updates, dp_updates);
+  printf("\tTook %5.3f to sort\n", t.GetMs());
 
+  t.Start();
   thrust::device_ptr<Location> dp_locs_reduced(device_data_->locations_reduced);
   thrust::device_ptr<float> dp_lo_reduced(device_data_->log_odds_updates_reduced);
 
   thrust::pair<thrust::device_ptr<Location>, thrust::device_ptr<float> > new_ends = thrust::reduce_by_key(
       dp_locations, dp_locations + num_updates, dp_updates, dp_locs_reduced, dp_lo_reduced);
   num_updates = new_ends.first - dp_locs_reduced;
+  printf("\tTook %5.3f to reduce\n", t.GetMs());
 
   // Copy result from GPU device to host
+  t.Start();
   std::vector<Location> location_vector(num_updates);
   std::vector<float> lo_vector(num_updates);
   cudaMemcpy(location_vector.data(), dp_locs_reduced.get(), sizeof(Location) * num_updates, cudaMemcpyDeviceToHost);
   cudaMemcpy(lo_vector.data(), dp_lo_reduced.get(), sizeof(float) * num_updates, cudaMemcpyDeviceToHost);
+  err = cudaDeviceSynchronize();
+  printf("\tTook %5.3f to copy to host\n", t.GetMs());
 
   return OccGrid(location_vector, lo_vector, resolution_);
 }

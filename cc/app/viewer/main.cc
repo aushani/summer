@@ -3,6 +3,7 @@
 
 #include "library/kitti/velodyne_scan.h"
 #include "library/ray_tracing/occ_grid_builder.h"
+#include "library/timer/timer.h"
 
 #include "app/viewer/viewer.h"
 
@@ -70,12 +71,21 @@ int main(int argc, char** argv) {
 
   // Build occ grid
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
-  rt::OccGrid og = builder.GenerateOccGrid(scan.GetHits());
+
+  library::timer::Timer t;
+  rt::OccGrid og1 = builder.GenerateOccGrid(scan.GetHits());
+  printf("Took %5.3f ms to build occ grid\n", t.GetMs());
+
+  for (int i=0; i<100; i++) {
+    t.Start();
+    rt::OccGrid og2 = builder.GenerateOccGrid(scan.GetHits());
+    printf("Took %5.3f ms to build occ grid\n", t.GetMs());
+  }
 
   app::viewer::Viewer v(&args);
 
   v.AddVelodyneScan(scan);
-  v.AddOccGrid(og);
+  v.AddOccGrid(og1);
 
   v.Start();
 

@@ -8,5 +8,6 @@ cc_library(
             "//tools:cuda",
             "@eigen//:eigen",
             "@boost//:boost_headers",
+            "//library/timer",
            ],
 )

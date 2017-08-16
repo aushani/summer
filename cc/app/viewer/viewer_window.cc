@@ -8,14 +8,11 @@
 #include <osgGA/TerrainManipulator>
 #include <osgViewer/ViewerEventHandlers>
 
-#include "library/kitti/velodyne_scan.h"
 #include "library/util/angle.h"
-#include "library/osg_nodes/point_cloud.h"
 
 #include "app/viewer/pick_handler.h"
 
 namespace ut = library::util;
-namespace osgn = library::osg_nodes;
 
 namespace app {
 namespace viewer {
