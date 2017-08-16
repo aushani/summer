@@ -17,7 +17,12 @@ int main(int argc, char** argv)
 
   au->setApplicationName(args.getApplicationName());
   au->setCommandLineUsage( args.getApplicationName() + " [options]");
-  au->setDescription( args.getApplicationName() + " displays sensor data published over LCM.");
+  au->setDescription(args.getApplicationName() + " viewer");
+
+  au->addCommandLineOption("--kitti-log-dir <dirname>", "KITTI data directory", "~/data/kittidata/extracted/");
+  au->addCommandLineOption("--kitti-log-date <dirname>", "KITTI date", "2011_09_26");
+  au->addCommandLineOption("--log-num <num>", "KITTI log number", "18");
+  au->addCommandLineOption("--frame-num <num>", "KITTI frame number", "0");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
