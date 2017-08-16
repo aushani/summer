@@ -26,6 +26,7 @@ class OccGridBuilder {
 
   // Configure the max dimension of outputted OccGrid's
   void ConfigureSize(float max_x, float max_y, float max_z);
+  void ConfigureSizeInPixels(size_t max_i, size_t max_j, size_t max_k);
 
   void SetPose(const Eigen::Vector3d &pos, float theta);
 
@@ -41,9 +42,9 @@ class OccGridBuilder {
   const float resolution_;
   const int max_observations_;
 
-  float max_x_ = 0;
-  float max_y_ = 0;
-  float max_z_ = 0;
+  size_t max_i_ = 0;
+  size_t max_j_ = 0;
+  size_t max_k_ = 0;
   bool max_dimension_valid_ = false;
 
   std::unique_ptr<DeviceData> device_data_;

@@ -12,19 +12,19 @@ OccGrid::OccGrid(const rt::OccGrid &og) : osg::Group() {
   csg->GetSDrawable()->setColor(osg::Vec4(0.1, 0.9, 0.1, 0.8));
 
   // Iterate over occ grid and add occupied cells
-  for (size_t i = 0; i < og.locations.size(); i++) {
-    rt::Location loc = og.locations[i];
-    float val = og.log_odds[i];
+  for (size_t i = 0; i < og.GetLocations().size(); i++) {
+    rt::Location loc = og.GetLocations()[i];
+    float val = og.GetLogOdds()[i];
 
     if (val <= 0) {
       continue;
     }
 
-    double scale = og.resolution * 0.75;
+    double scale = og.GetResolution() * 0.75;
 
-    double x = loc.i * og.resolution;
-    double y = loc.j * og.resolution;
-    double z = loc.k * og.resolution;
+    double x = loc.i * og.GetResolution();
+    double y = loc.j * og.GetResolution();
+    double z = loc.k * og.GetResolution();
 
     csg->GetCShape()->addChild(new osg::Box(osg::Vec3(x, y, z), scale));
   }

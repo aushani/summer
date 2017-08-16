@@ -5,8 +5,6 @@
 
 #include <boost/assert.hpp>
 #include <boost/serialization/map.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
 
 namespace library {
 namespace histogram {

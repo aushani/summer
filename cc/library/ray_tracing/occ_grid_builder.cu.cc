@@ -257,14 +257,12 @@ struct NoUpdate {
 };
 
 struct OutOfRange {
-  int max_i;
-  int max_j;
-  int max_k;
+  size_t max_i;
+  size_t max_j;
+  size_t max_k;
 
-  OutOfRange(float max_x, float max_y, float max_z, float resolution) {
-    max_i = ceil(max_x / resolution);
-    max_j = ceil(max_y / resolution);
-    max_k = ceil(max_z / resolution);
+  OutOfRange(size_t mi, size_t mj, size_t mk) :
+   max_i(mi), max_j(mj), max_k(mk) {
   }
 
   __host__ __device__ bool operator()(const Location &loc) const {
@@ -283,9 +281,13 @@ struct OutOfRange {
 };
 
 void OccGridBuilder::ConfigureSize(float max_x, float max_y, float max_z) {
-  max_x_ = max_x;
-  max_y_ = max_y;
-  max_z_ = max_z;
+  ConfigureSizeInPixels(ceil(max_x / resolution_), ceil(max_y / resolution_), ceil(max_z / resolution_));
+}
+
+void OccGridBuilder::ConfigureSizeInPixels(size_t max_i, size_t max_j, size_t max_k) {
+  max_i_ = max_i;
+  max_j_ = max_j;
+  max_k_ = max_k;
   max_dimension_valid_ = true;
 }
 
@@ -338,7 +340,7 @@ OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits
   // Prune updates that are out of range
   if (max_dimension_valid_) {
     t.Start();
-    OutOfRange oor(max_x_, max_y_, max_z_, resolution_);
+    OutOfRange oor(max_i_, max_j_, max_k_);
     auto dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, dp_locations, oor);
     auto dp_locations_end = thrust::remove_if(dp_locations, dp_locations + num_updates, oor);
     printf("\tTook %5.3f to enfore in range (%ld->%ld)\n",

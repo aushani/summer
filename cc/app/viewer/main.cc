@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
            t_id, tt->objectType.c_str(), tt->w, tt->l, tt->h,
            pose->tx, pose->ty, pose->tz + kt::Tracklets::kZOffset, pose->rz);
 
-    builder.ConfigureSize(2.5, 2.5, 2.0);
+    builder.ConfigureSizeInPixels(16, 16, 16);
     builder.SetPose(Eigen::Vector3d(pose->tx, pose->ty, 0), pose->rz);
     break;
   }
