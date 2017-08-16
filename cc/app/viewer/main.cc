@@ -106,6 +106,23 @@ int main(int argc, char** argv) {
 
   // Build occ grid
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
+  for (int t_id=0; t_id<tracklets.numberOfTracklets(); t_id++) {
+    if (!tracklets.isActive(t_id, frame_num)) {
+      continue;
+    }
+
+    auto *tt = tracklets.getTracklet(t_id);
+    kt::Tracklets::tPose* pose;
+    tracklets.getPose(t_id, frame_num, pose);
+
+    printf("Tracklet %d (%s) with size %5.3f x %5.3f x %5.3f at %5.3f, %5.3f, %5.3f, angle %5.3f\n",
+           t_id, tt->objectType.c_str(), tt->w, tt->l, tt->h,
+           pose->tx, pose->ty, pose->tz + kt::Tracklets::kZOffset, pose->rz);
+
+    builder.ConfigureSize(2.5, 2.5, 2.0);
+    builder.SetPose(Eigen::Vector3d(pose->tx, pose->ty, 0), pose->rz);
+    break;
+  }
 
   library::timer::Timer t;
   rt::OccGrid og = builder.GenerateOccGrid(scan.GetHits());

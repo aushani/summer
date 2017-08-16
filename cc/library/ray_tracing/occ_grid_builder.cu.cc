@@ -25,8 +25,8 @@ namespace ray_tracing {
 struct DeviceData {
   DeviceData(float resolution, float max_range, int max_observations,
       float logOddsFree, float logOddsOccupied, float logOddsUnknown);
-  DeviceData(const DeviceData &dd);
-  ~DeviceData();
+
+  void FreeDeviceMemory();
 
   void CopyData(const std::vector<Eigen::Vector3d> &hits);
 
@@ -45,7 +45,8 @@ struct DeviceData {
   Location *locations_reduced = nullptr;
   float *log_odds_updates_reduced = nullptr;
 
-  bool own_gpu_memory = false;
+  float pose_xyz[3] = {0.0f, 0.0f, 0.0f};
+  float pose_theta = 0.0f;
 
   const float kLogOddsFree;
   const float kLogOddsOccupied;
@@ -79,33 +80,14 @@ DeviceData::DeviceData(float resolution, float max_range, int max_observations,
   BOOST_ASSERT(err == cudaSuccess);
 }
 
-DeviceData::DeviceData(const DeviceData &dd)
-    : num_observations(dd.num_observations),
-      max_voxel_visits_per_ray(dd.max_voxel_visits_per_ray),
-      resolution(dd.resolution),
-      hit_x(dd.hit_x),
-      hit_y(dd.hit_y),
-      hit_z(dd.hit_z),
-      locations(dd.locations),
-      log_odds_updates(dd.log_odds_updates),
-      locations_reduced(dd.locations_reduced),
-      log_odds_updates_reduced(dd.log_odds_updates_reduced),
-      own_gpu_memory(false),
-      kLogOddsFree(dd.kLogOddsFree),
-      kLogOddsOccupied(dd.kLogOddsOccupied),
-      kLogOddsUnknown(dd.kLogOddsUnknown)
-      {}
-
-DeviceData::~DeviceData() {
-  if (own_gpu_memory) {
-    cudaFree(hit_x);
-    cudaFree(hit_y);
-    cudaFree(hit_z);
-    cudaFree(locations);
-    cudaFree(log_odds_updates);
-    cudaFree(locations_reduced);
-    cudaFree(log_odds_updates_reduced);
-  }
+void DeviceData::FreeDeviceMemory() {
+  cudaFree(hit_x);
+  cudaFree(hit_y);
+  cudaFree(hit_z);
+  cudaFree(locations);
+  cudaFree(log_odds_updates);
+  cudaFree(locations_reduced);
+  cudaFree(log_odds_updates_reduced);
 }
 
 void DeviceData::CopyData(const std::vector<Eigen::Vector3d> &hits) {
@@ -152,10 +134,11 @@ OccGridBuilder::OccGridBuilder(int max_observations, float resolution, float max
       resolution_(resolution),
       device_data_(new DeviceData(resolution, max_range, max_observations,
             kLogOddsFree_, kLogOddsOccupied_, kLogOddsUnknown_)) {
-  device_data_->own_gpu_memory = true;
 }
 
-OccGridBuilder::~OccGridBuilder() {}
+OccGridBuilder::~OccGridBuilder() {
+  device_data_->FreeDeviceMemory();
+}
 
 __global__ void RayTracingKernel(DeviceData data) {
   // Figure out which hit this thread is processing
@@ -168,7 +151,28 @@ __global__ void RayTracingKernel(DeviceData data) {
     return;
   }
 
-  float hit[3] = {data.hit_x[hit_idx], data.hit_y[hit_idx], data.hit_z[hit_idx]};
+  // Get origin and hit relative to pose
+  float hx = data.hit_x[hit_idx] - data.pose_xyz[0];
+  float hy = data.hit_y[hit_idx] - data.pose_xyz[1];
+  float hz = data.hit_z[hit_idx] - data.pose_xyz[2];
+
+  float st = sin(data.pose_theta);
+  float ct = cos(data.pose_theta);
+
+  float hx_p = ct * hx - st * hy;
+  float hy_p = st * hx + ct * hy;
+  float hz_p = hz;
+
+  float ox = -data.pose_xyz[0];
+  float oy = -data.pose_xyz[1];
+  float oz = -data.pose_xyz[2];
+
+  float ox_p = ct * ox - st * oy;
+  float oy_p = st * ox + ct * oy;
+  float oz_p = oz;
+
+  float hit[3] = {hx_p, hy_p, hz_p};
+  float origin[3] = {ox_p, oy_p, oz_p};
 
   // The following is an implementation of Bresenham's line algorithm to sweep out the ray from the origin of the ray to
   // the hit point.
@@ -180,7 +184,7 @@ __global__ void RayTracingKernel(DeviceData data) {
   int dominant_dim = 0;              // which dim am i stepping through
 
   for (int i = 0; i < 3; ++i) {
-    //cur_loc[i] = round(origin[i] / data.resolution);
+    cur_loc[i] = round(origin[i] / data.resolution);
     end_loc[i] = round(hit[i] / data.resolution);
 
     ad[i] = fabsf(end_loc[i] - cur_loc[i]) * 2;
@@ -252,6 +256,47 @@ struct NoUpdate {
   __host__ __device__ bool operator()(const float x) const { return fabs(x) < 1e-6; }
 };
 
+struct OutOfRange {
+  int max_i;
+  int max_j;
+  int max_k;
+
+  OutOfRange(float max_x, float max_y, float max_z, float resolution) {
+    max_i = ceil(max_x / resolution);
+    max_j = ceil(max_y / resolution);
+    max_k = ceil(max_z / resolution);
+  }
+
+  __host__ __device__ bool operator()(const Location &loc) const {
+    if (std::abs(loc.i) >= max_i) {
+      return true;
+    }
+    if (std::abs(loc.j) >= max_j) {
+      return true;
+    }
+    if (std::abs(loc.k) >= max_k) {
+      return true;
+    }
+
+    return false;
+  }
+};
+
+void OccGridBuilder::ConfigureSize(float max_x, float max_y, float max_z) {
+  max_x_ = max_x;
+  max_y_ = max_y;
+  max_z_ = max_z;
+  max_dimension_valid_ = true;
+}
+
+void OccGridBuilder::SetPose(const Eigen::Vector3d &pos, float theta) {
+  device_data_->pose_xyz[0] = pos.x();
+  device_data_->pose_xyz[1] = pos.y();
+  device_data_->pose_xyz[2] = pos.z();
+
+  device_data_->pose_theta = theta;
+}
+
 OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits) {
   library::timer::Timer t;
 
@@ -285,11 +330,21 @@ OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits
   thrust::device_ptr<Location> dp_locations(device_data_->locations);
   thrust::device_ptr<float> dp_updates(device_data_->log_odds_updates);
 
-  thrust::device_ptr<Location> dp_locations_end =
-      thrust::remove_if(dp_locations, dp_locations + num_updates, dp_updates, NoUpdate());
-  thrust::device_ptr<float> dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, NoUpdate());
+  auto dp_locations_end = thrust::remove_if(dp_locations, dp_locations + num_updates, dp_updates, NoUpdate());
+  auto dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, NoUpdate());
   printf("\tTook %5.3f to prune from %ld to %ld\n", t.GetMs(), num_updates, dp_locations_end - dp_locations);
   num_updates = dp_locations_end - dp_locations;
+
+  // Prune updates that are out of range
+  if (max_dimension_valid_) {
+    t.Start();
+    OutOfRange oor(max_x_, max_y_, max_z_, resolution_);
+    auto dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, dp_locations, oor);
+    auto dp_locations_end = thrust::remove_if(dp_locations, dp_locations + num_updates, oor);
+    printf("\tTook %5.3f to enfore in range (%ld->%ld)\n",
+        t.GetMs(), num_updates, dp_locations_end - dp_locations);
+    num_updates = dp_locations_end - dp_locations;
+  }
 
   // Now reduce updates to resulting log odds
   t.Start();

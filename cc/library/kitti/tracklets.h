@@ -20,6 +20,9 @@ class Tracklets {
 
 public:
 
+  // z offset?
+  static constexpr double kZOffset = 0.8;
+
   // pose states
   enum POSE_STATES {
     UNSET   = 0,
