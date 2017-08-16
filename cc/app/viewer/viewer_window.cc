@@ -9,11 +9,13 @@
 #include <osgViewer/ViewerEventHandlers>
 
 #include "library/kitti/velodyne_scan.h"
+#include "library/util/angle.h"
 #include "library/osg_nodes/point_cloud.h"
 
 #include "app/viewer/pick_handler.h"
 
 namespace kt = library::kitti;
+namespace ut = library::util;
 namespace osgn = library::osg_nodes;
 
 namespace app {
@@ -91,8 +93,8 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
 
   // rotate by x until z down
   // car RH coordinate frame has x forward, z down
-  // osg::Matrixd H(osg::Quat(180*k_d2r, osg::Vec3d(1,0,0)));
-  osg::Matrixd H(osg::Quat(0, osg::Vec3d(1, 0, 0)));
+  osg::Matrixd H(osg::Quat(ut::DegreesToRadians(180), osg::Vec3d(1,0,0)));
+  //osg::Matrixd H(osg::Quat(0, osg::Vec3d(1, 0, 0)));
   osg::ref_ptr<osg::MatrixTransform> xform = new osg::MatrixTransform(H);
 
   osg::ref_ptr<osg::MatrixTransform> xform_car = new osg::MatrixTransform();
@@ -153,7 +155,6 @@ void ViewerWindow::SlotCleanup() {
 
 void ViewerWindow::RunThread() {
   while (true) {
-    printf("run thread!\n");
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 }

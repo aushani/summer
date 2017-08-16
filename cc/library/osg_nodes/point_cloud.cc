@@ -14,7 +14,17 @@ PointCloud::PointCloud(const kt::VelodyneScan &scan) :
 
   for (const auto &hit : scan.GetHits()) {
     vertices_->push_back(osg::Vec3(hit.x(), hit.y(), hit.z()));
-    colors_->push_back(osg::Vec4(1, 0, 0, 0));
+    double z = hit.z();
+    double c = 0;
+    if (z < kColorMapZMin) {
+      c = 0.0;
+    } else if (z > kColorMapZMax) {
+      c = 1.0;
+    } else {
+      c = (z - kColorMapZMin)/(kColorMapZMax - kColorMapZMin);
+    }
+
+    colors_->push_back(osg::Vec4(1-c, 0, c, 0));
   }
 
   setVertexArray(vertices_);
