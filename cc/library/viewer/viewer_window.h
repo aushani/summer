@@ -1,3 +1,4 @@
+// adapted from dascar
 #pragma once
 
 #include <thread>
@@ -7,9 +8,9 @@
 #include <osgQt/GraphicsWindowQt>
 #include <osgViewer/CompositeViewer>
 
-#include "app/viewer/viewer_widget.h"
+#include "library/viewer/viewer_widget.h"
 
-namespace app {
+namespace library {
 namespace viewer {
 
 class ViewerWindow : public QMainWindow {
@@ -36,4 +37,4 @@ class ViewerWindow : public QMainWindow {
 };
 
 }  // namespace viewer
-}  // namespace app
+}  // namespace library

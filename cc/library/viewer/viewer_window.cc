@@ -1,4 +1,5 @@
-#include "app/viewer/viewer_window.h"
+// adapted from dascar
+#include "library/viewer/viewer_window.h"
 
 #include <iostream>
 
@@ -10,12 +11,12 @@
 
 #include "library/util/angle.h"
 
-#include "app/viewer/pick_handler.h"
-#include "app/viewer/terrain_trackpad_manipulator.h"
+#include "library/viewer/pick_handler.h"
+#include "library/viewer/terrain_trackpad_manipulator.h"
 
 namespace ut = library::util;
 
-namespace app {
+namespace library {
 namespace viewer {
 
 ViewerWindow::ViewerWindow(osg::ArgumentParser *args, QWidget *parent, Qt::WindowFlags f)
@@ -125,4 +126,4 @@ void ViewerWindow::RunThread() {
 }
 
 }  // namespace viewer
-}  // namespace app
+}  // namespace library

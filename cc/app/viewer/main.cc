@@ -2,13 +2,17 @@
 #include <osg/ArgumentParser>
 
 #include "library/kitti/velodyne_scan.h"
+#include "library/osg_nodes/point_cloud.h"
+#include "library/osg_nodes/occ_grid.h"
+#include "library/osg_nodes/tracklets.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 #include "library/timer/timer.h"
-
-#include "app/viewer/viewer.h"
+#include "library/viewer/viewer.h"
 
 namespace kt = library::kitti;
 namespace rt = library::ray_tracing;
+namespace osgn = library::osg_nodes;
+namespace vw = library::viewer;
 
 kt::VelodyneScan LoadVelodyneScan(osg::ArgumentParser *args) {
   std::string home_dir = getenv("HOME");
@@ -106,33 +110,20 @@ int main(int argc, char** argv) {
 
   // Build occ grid
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
-  for (int t_id=0; t_id<tracklets.numberOfTracklets(); t_id++) {
-    if (!tracklets.isActive(t_id, frame_num)) {
-      continue;
-    }
-
-    auto *tt = tracklets.getTracklet(t_id);
-    kt::Tracklets::tPose* pose;
-    tracklets.getPose(t_id, frame_num, pose);
-
-    printf("Tracklet %d (%s) with size %5.3f x %5.3f x %5.3f at %5.3f, %5.3f, %5.3f, angle %5.3f\n",
-           t_id, tt->objectType.c_str(), tt->w, tt->l, tt->h,
-           pose->tx, pose->ty, pose->tz + kt::Tracklets::kZOffset, pose->rz);
-
-    builder.ConfigureSizeInPixels(16, 16, 16);
-    builder.SetPose(Eigen::Vector3d(pose->tx, pose->ty, 0), pose->rz);
-    break;
-  }
 
   library::timer::Timer t;
   rt::OccGrid og = builder.GenerateOccGrid(scan.GetHits());
   printf("Took %5.3f ms to build occ grid\n", t.GetMs());
 
-  app::viewer::Viewer v(&args);
+  vw::Viewer v(&args);
 
-  v.AddVelodyneScan(scan);
-  v.AddOccGrid(og);
-  v.AddTracklets(&tracklets, frame_num);
+  osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);
+  osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);
+  osg::ref_ptr<osgn::Tracklets> tn = new osgn::Tracklets(&tracklets, frame_num);
+
+  v.AddChild(pc);
+  v.AddChild(ogn);
+  v.AddChild(tn);
 
   v.Start();
 
