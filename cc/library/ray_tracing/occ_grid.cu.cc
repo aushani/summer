@@ -1,8 +1,13 @@
 #include "library/ray_tracing/occ_grid.h"
 
 #include <algorithm>
+#include <iostream>
+#include <fstream>
 
 #include <boost/assert.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/serialization/vector.hpp>
 
 namespace library {
 namespace ray_tracing {
@@ -47,6 +52,21 @@ float OccGrid::GetResolution() const {
 
 const OccGridData& OccGrid::GetData() const {
   return data_;
+}
+
+void OccGrid::Save(const char* fn) const {
+  std::ofstream ofs(fn);
+  boost::archive::binary_oarchive oa(ofs);
+  oa << data_;
+}
+
+OccGrid OccGrid::Load(const char* fn) {
+  OccGridData data;
+  std::ifstream ifs(fn);
+  boost::archive::binary_iarchive ia(ifs);
+  ia >> data;
+
+  return OccGrid(data);
 }
 
 }  // namespace ray_tracing

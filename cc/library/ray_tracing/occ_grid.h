@@ -2,7 +2,6 @@
 #pragma once
 
 #include <vector>
-#include <boost/serialization/vector.hpp>
 
 #include "library/ray_tracing/occ_grid_location.h"
 
@@ -16,6 +15,8 @@ struct OccGridData {
   std::vector<float> log_odds;
 
   float resolution = 0.0;
+
+  OccGridData() {;}
 
   OccGridData(const std::vector<Location> &locs, const std::vector<float> &los, float res) :
     locations(locs), log_odds(los), resolution(res) {
@@ -45,6 +46,9 @@ class OccGrid {
   const std::vector<float>& GetLogOdds() const;
   float GetResolution() const;
   const OccGridData& GetData() const;
+
+  void Save(const char* fn) const;
+  static OccGrid Load(const char* fn);
 
  private:
   const OccGridData data_;

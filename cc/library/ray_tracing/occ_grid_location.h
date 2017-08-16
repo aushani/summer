@@ -38,6 +38,13 @@ struct Location {
   CUDA_CALLABLE bool operator==(const Location &rhs) const {
     return i == rhs.i && j == rhs.j && k == rhs.k;
   }
+
+  template<class Archive>
+  void serialize(Archive & ar, const unsigned int /* file_version */){
+    ar & i;
+    ar & j;
+    ar & k;
+  }
 };
 
 }  // namespace ray_tracing
