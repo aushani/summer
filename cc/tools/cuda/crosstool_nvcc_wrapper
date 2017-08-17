@@ -49,7 +49,7 @@ CPU_COMPILER = ('/usr/bin/gcc')
 GCC_HOST_COMPILER_PATH = ('/usr/bin/gcc')
 
 CURRENT_DIR = os.path.dirname(sys.argv[0])
-NVCC_PATH = '/usr/local/cuda-8.0/bin/nvcc'
+NVCC_PATH = '/usr/local/cuda/bin/nvcc'
 LLVM_HOST_COMPILER_PATH = ('/usr/bin/gcc')
 PREFIX_DIR = os.path.dirname(GCC_HOST_COMPILER_PATH)
 
