@@ -48,7 +48,6 @@ class OccGrid {
   const std::vector<Location>& GetLocations() const;
   const std::vector<float>& GetLogOdds() const;
   float GetResolution() const;
-  const OccGridData& GetData() const;
 
   void Save(const char* fn) const;
   static OccGrid Load(const char* fn);

@@ -30,5 +30,24 @@ cc_binary(
            ],
     deps = [
             "//library/ray_tracing",
+            "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
+    name = "detector",
+    srcs = [
+            "detector.cc", "detector.h",
+            "map_node.cc", "map_node.h",
+            "run_detector.cc",
+           ],
+    linkopts = ["-lpthread"],
+    deps = [
+            "//library/kitti",
+            "//library/osg_nodes",
+            "//library/ray_tracing",
+            "//library/viewer",
+            "@boost//:boost_headers",
+            "@boost//:boost_filesystem",
            ],
 )

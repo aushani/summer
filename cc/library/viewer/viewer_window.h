@@ -31,6 +31,8 @@ class ViewerWindow : public QMainWindow {
   std::thread run_thread_;
   osg::ref_ptr<osg::MatrixTransform> xform_car_;
 
+  int bin_at_ = 0;
+
   void Init(osg::ArgumentParser *args);
 
   void RunThread();

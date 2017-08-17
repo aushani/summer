@@ -60,10 +60,6 @@ float OccGrid::GetResolution() const {
   return data_.resolution;
 }
 
-const OccGridData& OccGrid::GetData() const {
-  return data_;
-}
-
 void OccGrid::Save(const char* fn) const {
   std::ofstream ofs(fn);
   boost::archive::binary_oarchive oa(ofs);

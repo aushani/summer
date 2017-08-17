@@ -65,3 +65,25 @@ cc_library(
   defines = ["BOOST_TEST_DYN_LINK"],
   deps = [":boost_headers"],
 )
+
+cc_library(
+  name = "boost_filesystem",
+  srcs = [
+          "boost_1_63_0/libs/filesystem/src/codecvt_error_category.cpp",
+          "boost_1_63_0/libs/filesystem/src/operations.cpp",
+          "boost_1_63_0/libs/filesystem/src/path.cpp",
+          "boost_1_63_0/libs/filesystem/src/path_traits.cpp",
+          "boost_1_63_0/libs/filesystem/src/portability.cpp",
+          "boost_1_63_0/libs/filesystem/src/unique_path.cpp",
+          "boost_1_63_0/libs/filesystem/src/utf8_codecvt_facet.cpp",
+          "boost_1_63_0/libs/filesystem/src/windows_file_codecvt.cpp",
+         ],
+  copts = [
+      "-Wno-unused-parameter",
+      "-fvisibility=hidden",
+  ],
+  deps = [
+      ":boost_headers",
+      ":boost_system",
+  ],
+)

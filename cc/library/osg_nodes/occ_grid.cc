@@ -28,8 +28,8 @@ OccGrid::OccGrid(const rt::OccGrid &og, double thresh_lo) : osg::Group() {
       alpha = 0;
     }
 
-    if (alpha > 1) {
-      alpha = 1;
+    if (alpha > 0.8) {
+      alpha = 0.8;
     }
 
     osg::ref_ptr<CompositeShapeGroup> csg_box = new CompositeShapeGroup();

@@ -102,6 +102,11 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
 }
 
 void ViewerWindow::AddChild(osg::Node *n) {
+  auto ss = n->getOrCreateStateSet();
+  //ss->setMode(GL_BLEND, osg::StateAttribute::ON);
+  //ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+  ss->setRenderBinDetails(bin_at_++, "RenderBin");
+
   xform_car_->addChild(n);
 }
 
