@@ -1,13 +1,29 @@
-cc_binary(
-    name = "run_extractor",
+cc_library(
+    name = "kitti_occ_grids_lib",
     srcs = [
-            "run_occ_grid_extractor.cc",
+            "model.cc", "model.h",
+            "detector.cc", "detector.h",
+            "map_node.cc", "map_node.h",
+            "model_node.cc", "model_node.h",
             "occ_grid_extractor.cc", "occ_grid_extractor.h",
            ],
     deps = [
             "//library/kitti",
+            "//library/osg_nodes",
             "//library/ray_tracing",
             "//library/timer",
+            "//library/viewer",
+            "@boost//:boost_serialization",
+           ],
+)
+
+cc_binary(
+    name = "run_extractor",
+    srcs = [
+            "run_occ_grid_extractor.cc",
+           ],
+    deps = [
+            ":kitti_occ_grids_lib",
            ],
 )
 
@@ -17,9 +33,17 @@ cc_binary(
             "view_occ_grid.cc",
            ],
     deps = [
-            "//library/osg_nodes",
-            "//library/ray_tracing",
-            "//library/viewer",
+            ":kitti_occ_grids_lib",
+           ],
+)
+
+cc_binary(
+    name = "view_model",
+    srcs = [
+            "view_model.cc",
+           ],
+    deps = [
+            ":kitti_occ_grids_lib",
            ],
 )
 
@@ -29,7 +53,7 @@ cc_binary(
             "merge_occ_grids.cc",
            ],
     deps = [
-            "//library/ray_tracing",
+            ":kitti_occ_grids_lib",
             "@boost//:boost_filesystem",
            ],
 )
@@ -37,17 +61,11 @@ cc_binary(
 cc_binary(
     name = "detector",
     srcs = [
-            "detector.cc", "detector.h",
-            "map_node.cc", "map_node.h",
             "run_detector.cc",
            ],
     linkopts = ["-lpthread"],
     deps = [
-            "//library/kitti",
-            "//library/osg_nodes",
-            "//library/ray_tracing",
-            "//library/viewer",
-            "@boost//:boost_headers",
+            ":kitti_occ_grids_lib",
             "@boost//:boost_filesystem",
            ],
 )

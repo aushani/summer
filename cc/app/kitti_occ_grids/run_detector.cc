@@ -64,6 +64,7 @@ int main(int argc, char** argv) {
   au->addCommandLineOption("--log-num <num>", "KITTI log number", "18");
   au->addCommandLineOption("--frame-num <num>", "KITTI frame number", "0");
   au->addCommandLineOption("--model <dir>", "Models to evaluate", "");
+  au->addCommandLineOption("--bg-model <dir>", "BG Models to evaluate", "");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -101,6 +102,12 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  std::string bg_model_fn;
+  if (!args.read("--bg-model", bg_model_fn)) {
+    printf("no model given!\n");
+    return EXIT_FAILURE;
+  }
+
   // Load velodyne scan
   printf("Loading vel\n");
   kt::VelodyneScan scan = LoadVelodyneScan(kitti_log_dir, kitti_log_date, log_num, frame_num);
@@ -110,6 +117,7 @@ int main(int argc, char** argv) {
   // Load model
   printf("loading model %s\n", model_fn.c_str());
   rt::OccGrid model_og = rt::OccGrid::Load(model_fn.c_str());
+  rt::OccGrid bg_model_og = rt::OccGrid::Load(bg_model_fn.c_str());
 
   // Build occ grid
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
@@ -122,13 +130,10 @@ int main(int argc, char** argv) {
   rt::DenseOccGrid dog(og, 50.0, 50.0, 10.0);
   printf("Took %5.3f ms to make dense occ grid\n", t.GetMs());
 
-  printf("%5.3f\n", dog.GetProbability(og.GetLocations()[og.GetLocations().size()/2]));
-
   kog::Detector detector(og.GetResolution(), 100);
-  printf("%5.3f\n", detector.Evaluate(dog, model_og, kog::ObjectState(0.0, 0.0)));
 
   t.Start();
-  detector.Evaluate(dog, model_og);
+  detector.Evaluate(dog, model_og, bg_model_og);
   printf("Took %5.3f ms to run detector\n", t.GetMs());
 
   vw::Viewer v(&args);

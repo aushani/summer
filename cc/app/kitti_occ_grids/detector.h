@@ -32,15 +32,15 @@ class Detector {
  public:
   Detector(double res, int n_size);
 
-  void Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model);
-  double Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const ObjectState &state);
+  void Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const rt::OccGrid &bg_model);
 
   const std::map<ObjectState, double>& GetScores() const;
 
  private:
   std::map<ObjectState, double> scores_;
 
-  void EvaluateWorkerThread(const rt::DenseOccGrid &scene, const rt::OccGrid &model, std::deque<ObjectState> *states, std::mutex *mutex);
+  double Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const rt::OccGrid &bg_model, const ObjectState &state);
+  void EvaluateWorkerThread(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const rt::OccGrid &bg_model, std::deque<ObjectState> *states, std::mutex *mutex);
 
 };
 

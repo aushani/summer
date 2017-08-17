@@ -19,7 +19,7 @@ Detector::Detector(double res, int n_size) {
   }
 }
 
-void Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model) {
+void Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const rt::OccGrid &bg_model) {
   BOOST_ASSERT(scene.GetResolution() == model.GetResolution());
 
   std::deque<ObjectState> states;
@@ -33,7 +33,7 @@ void Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model)
   std::vector<std::thread> threads;
   std::mutex mutex;
   for (int i=0; i<num_threads; i++) {
-    threads.push_back(std::thread(&Detector::EvaluateWorkerThread, this, scene, model, &states, &mutex));
+    threads.push_back(std::thread(&Detector::EvaluateWorkerThread, this, scene, model, bg_model, &states, &mutex));
   }
 
   for (auto &thread : threads) {
@@ -42,7 +42,7 @@ void Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model)
 
 }
 
-void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const rt::OccGrid &model, std::deque<ObjectState> *states, std::mutex *mutex) {
+void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const rt::OccGrid &bg_model, std::deque<ObjectState> *states, std::mutex *mutex) {
   bool done = false;
 
   while (!done) {
@@ -55,12 +55,14 @@ void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const rt::Occ
       states->pop_front();
       mutex->unlock();
 
-      scores_[s] = Evaluate(scene, model, s);
+      double score = Evaluate(scene, model, bg_model, s);
+
+      scores_[s] = 1 / (1 + exp(-score));
     }
   }
 }
 
-double Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const ObjectState &state) {
+double Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const rt::OccGrid &bg_model, const ObjectState &state) {
   auto model_locs = model.GetLocations();
   auto model_los = model.GetLogOdds();
 
@@ -70,8 +72,11 @@ double Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &mode
 
   for (size_t i = 0; i < model_locs.size(); i++) {
     auto loc = model_locs[i];
-    float lo = model_los[i];
-    double p_model = 1 / (1 + exp(-lo));
+
+    float model_lo = model_los[i];
+    double p_model = 1 / (1 + exp(-model_lo));
+
+    float p_bg = bg_model.GetProbability(loc);
 
     double dx = loc.i * res;
     double dy = loc.j * res;
@@ -81,9 +86,10 @@ double Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &mode
 
     double p_scene = scene.GetProbability(scene_loc);
 
-    double score = (p_model * p_scene) + (1-p_model) * (1-p_scene);
+    double model_score = (p_model * p_scene) + (1-p_model) * (1-p_scene);
+    double bg_score = (p_bg * p_scene) + (1-p_bg) * (1-p_scene);
 
-    log_score += log(score);
+    log_score += log(model_score) - log(bg_score);
   }
 
   return log_score;
