@@ -37,6 +37,10 @@ struct Counter {
     return static_cast<double>(GetCount(occu)) / static_cast<double>(GetTotalCount());
   }
 
+  double GetProbability(float lo) const {
+    return GetProbability(lo > 0);
+  }
+
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /* file_version */){

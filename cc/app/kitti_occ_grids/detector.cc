@@ -19,7 +19,7 @@ Detector::Detector(double res, int n_size) {
   }
 }
 
-void Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const rt::OccGrid &bg_model) {
+void Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model) {
   BOOST_ASSERT(scene.GetResolution() == model.GetResolution());
 
   std::deque<ObjectState> states;
@@ -42,7 +42,7 @@ void Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model,
 
 }
 
-void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const rt::OccGrid &bg_model, std::deque<ObjectState> *states, std::mutex *mutex) {
+void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, std::deque<ObjectState> *states, std::mutex *mutex) {
   bool done = false;
 
   while (!done) {
@@ -62,32 +62,43 @@ void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const rt::Occ
   }
 }
 
-double Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const rt::OccGrid &bg_model, const ObjectState &state) {
-  auto model_locs = model.GetLocations();
-  auto model_los = model.GetLogOdds();
+double Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, const ObjectState &state) {
+  auto counts = model.GetCounts();
+  auto bg_counts = bg_model.GetCounts();
 
   float res = model.GetResolution();
 
   double log_score = 0.0;
 
-  for (size_t i = 0; i < model_locs.size(); i++) {
-    auto loc = model_locs[i];
+  for (auto it = counts.cbegin(); it != counts.cend(); it++) {
+    // Check to make sure it exists in background
+    auto it_bg = bg_counts.find(it->first);
+    if (it_bg == bg_counts.end()) {
+      continue;
+    }
 
-    float model_lo = model_los[i];
-    double p_model = 1 / (1 + exp(-model_lo));
-
-    float p_bg = bg_model.GetProbability(loc);
-
-    double dx = loc.i * res;
-    double dy = loc.j * res;
-    double dz = loc.k * res;
-
+    double dx = it->first.i * res;
+    double dy = it->first.j * res;
+    double dz = it->first.k * res;
     rt::Location scene_loc(state.x + dx, state.y + dy, dz, res);
 
-    double p_scene = scene.GetProbability(scene_loc);
+    float lo_scene = scene.GetLogOdds(scene_loc);
 
-    double model_score = (p_model * p_scene) + (1-p_model) * (1-p_scene);
-    double bg_score = (p_bg * p_scene) + (1-p_bg) * (1-p_scene);
+    // Check if this is unknown
+    if (std::abs(lo_scene) < 1e-3) {
+      continue;
+    }
+
+    double model_score = it->second.GetProbability(lo_scene);
+    double bg_score = it_bg->second.GetProbability(lo_scene);
+
+    if (model_score < 1e-3) {
+      model_score = 1e-3;
+    }
+
+    if (bg_score < 1e-3) {
+      bg_score = 1e-3;
+    }
 
     log_score += log(model_score) - log(bg_score);
   }

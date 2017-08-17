@@ -12,6 +12,7 @@
 
 #include "app/kitti_occ_grids/detector.h"
 #include "app/kitti_occ_grids/map_node.h"
+#include "app/kitti_occ_grids/model.h"
 
 namespace kt = library::kitti;
 namespace rt = library::ray_tracing;
@@ -116,8 +117,8 @@ int main(int argc, char** argv) {
 
   // Load model
   printf("loading model %s\n", model_fn.c_str());
-  rt::OccGrid model_og = rt::OccGrid::Load(model_fn.c_str());
-  rt::OccGrid bg_model_og = rt::OccGrid::Load(bg_model_fn.c_str());
+  kog::Model model    = kog::Model::Load(model_fn.c_str());
+  kog::Model bg_model = kog::Model::Load(bg_model_fn.c_str());
 
   // Build occ grid
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
@@ -130,10 +131,10 @@ int main(int argc, char** argv) {
   rt::DenseOccGrid dog(og, 50.0, 50.0, 10.0);
   printf("Took %5.3f ms to make dense occ grid\n", t.GetMs());
 
-  kog::Detector detector(og.GetResolution(), 100);
+  kog::Detector detector(og.GetResolution(), 75);
 
   t.Start();
-  detector.Evaluate(dog, model_og, bg_model_og);
+  detector.Evaluate(dog, model, bg_model);
   printf("Took %5.3f ms to run detector\n", t.GetMs());
 
   vw::Viewer v(&args);
