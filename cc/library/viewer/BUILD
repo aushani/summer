@@ -9,6 +9,7 @@ qt4_cc_library(
                     "viewer_widget.h",
                     "terrain_trackpad_manipulator.h",
                   ],
+    linkopts = ["-lpthread"],
     deps = [
             "@qt4//:qt4_core",
             "@qt4//:qt4_gui",

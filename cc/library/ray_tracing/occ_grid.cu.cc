@@ -22,7 +22,7 @@ OccGrid::OccGrid(const OccGridData &ogd) :
  OccGrid(ogd.locations, ogd.log_odds, ogd.resolution) {
 }
 
-float OccGrid::GetLogOdds(Location loc) const {
+float OccGrid::GetLogOdds(const Location &loc) const {
   std::vector<Location>::const_iterator it = std::lower_bound(data_.locations.begin(), data_.locations.end(), loc);
   if (it != data_.locations.end() && (*it) == loc) {
     size_t pos = it - data_.locations.begin();
@@ -33,9 +33,19 @@ float OccGrid::GetLogOdds(Location loc) const {
   return 0.0f;
 }
 
+float OccGrid::GetProbability(const Location &loc) const {
+  double lo = GetLogOdds(loc);
+  return 1 / (1 + exp(-lo));
+}
+
 float OccGrid::GetLogOdds(float x, float y, float z) const {
   Location loc(x, y, z, data_.resolution);
   return GetLogOdds(loc);
+}
+
+float OccGrid::GetProbability(float x, float y, float z) const {
+  double lo = GetLogOdds(x, y, z);
+  return 1 / (1 + exp(-lo));
 }
 
 const std::vector<Location>& OccGrid::GetLocations() const {

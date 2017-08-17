@@ -7,16 +7,13 @@
 namespace library {
 namespace osg_nodes {
 
-OccGrid::OccGrid(const rt::OccGrid &og) : osg::Group() {
-  osg::ref_ptr<CompositeShapeGroup> csg = new CompositeShapeGroup();
-  csg->GetSDrawable()->setColor(osg::Vec4(0.1, 0.9, 0.1, 0.8));
-
+OccGrid::OccGrid(const rt::OccGrid &og, double thresh_lo) : osg::Group() {
   // Iterate over occ grid and add occupied cells
   for (size_t i = 0; i < og.GetLocations().size(); i++) {
     rt::Location loc = og.GetLocations()[i];
     float val = og.GetLogOdds()[i];
 
-    if (val <= 0) {
+    if (val <= thresh_lo) {
       continue;
     }
 
@@ -26,10 +23,22 @@ OccGrid::OccGrid(const rt::OccGrid &og) : osg::Group() {
     double y = loc.j * og.GetResolution();
     double z = loc.k * og.GetResolution();
 
-    csg->GetCShape()->addChild(new osg::Box(osg::Vec3(x, y, z), scale));
-  }
+    double alpha = val*2;
+    if (alpha < 0) {
+      alpha = 0;
+    }
 
-  addChild(csg);
+    if (alpha > 1) {
+      alpha = 1;
+    }
+
+    osg::ref_ptr<CompositeShapeGroup> csg_box = new CompositeShapeGroup();
+    csg_box->GetSDrawable()->setColor(osg::Vec4(0.1, 0.9, 0.1, alpha));
+
+    osg::ref_ptr<osg::Box> box = new osg::Box(osg::Vec3(x, y, z), scale);
+    csg_box->GetCShape()->addChild(box);
+    addChild(csg_box);
+  }
 }
 
 }  // namespace osg_nodes

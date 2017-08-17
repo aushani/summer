@@ -22,3 +22,13 @@ cc_binary(
             "//library/viewer",
            ],
 )
+
+cc_binary(
+    name = "merge_occ_grids",
+    srcs = [
+            "merge_occ_grids.cc",
+           ],
+    deps = [
+            "//library/ray_tracing",
+           ],
+)

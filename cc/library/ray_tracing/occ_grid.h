@@ -39,7 +39,10 @@ class OccGrid {
   OccGrid(const std::vector<Location> &locs, const std::vector<float> &los, float res);
   OccGrid(const OccGridData &ogd);
 
-  float GetLogOdds(Location loc) const;
+  float GetProbability(const Location &loc) const;
+  float GetProbability(float x, float y, float z) const;
+
+  float GetLogOdds(const Location &loc) const;
   float GetLogOdds(float x, float y, float z) const;
 
   const std::vector<Location>& GetLocations() const;
