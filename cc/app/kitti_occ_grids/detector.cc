@@ -9,12 +9,17 @@
 namespace app {
 namespace kitti_occ_grids {
 
-Detector::Detector(double res, int n_size) {
+Detector::Detector(double res, int n_size, int theta_size) {
   for (int ix = -n_size; ix < n_size; ix++) {
     double x = ix * res;
+
     for (int iy = -n_size; iy < n_size; iy++) {
       double y = iy * res;
-      scores_[ObjectState(x, y)] = 0;
+
+      for (int it = 0; it < theta_size; it++) {
+        double t = it * 2*M_PI / theta_size;
+        scores_[ObjectState(x, y, t)] = 0;
+      }
     }
   }
 }

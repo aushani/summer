@@ -12,6 +12,7 @@ cc_library(
             "//library/osg_nodes",
             "//library/ray_tracing",
             "//library/timer",
+            "//library/util",
             "//library/viewer",
             "@boost//:boost_serialization",
            ],

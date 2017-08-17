@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
   rt::DenseOccGrid dog(og, 50.0, 50.0, 10.0);
   printf("Took %5.3f ms to make dense occ grid\n", t.GetMs());
 
-  kog::Detector detector(og.GetResolution(), 75);
+  kog::Detector detector(og.GetResolution(), 75, 1);
 
   t.Start();
   detector.Evaluate(dog, model, bg_model);
