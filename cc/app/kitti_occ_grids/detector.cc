@@ -19,24 +19,13 @@ Detector::Detector(double res, int n_size) {
   }
 }
 
-void Detector::Evaluate(const rt::OccGrid &scene, const rt::OccGrid &model) {
+void Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model) {
   BOOST_ASSERT(scene.GetResolution() == model.GetResolution());
 
-  std::deque<std::vector<ObjectState> > states;
-
-  size_t batch_size = 100;
-  std::vector<ObjectState> ss;
+  std::deque<ObjectState> states;
 
   for (auto it = scores_.begin(); it != scores_.end(); it++) {
-    ss.push_back(it->first);
-    if (ss.size() >= batch_size) {
-      states.push_back(ss);
-      ss.clear();
-    }
-  }
-
-  if (ss.size() > 0) {
-    states.push_back(ss);
+    states.push_back(it->first);
   }
 
   int num_threads = 48;
@@ -53,7 +42,7 @@ void Detector::Evaluate(const rt::OccGrid &scene, const rt::OccGrid &model) {
 
 }
 
-void Detector::EvaluateWorkerThread(const rt::OccGrid &scene, const rt::OccGrid &model, std::deque<std::vector<ObjectState> > *states, std::mutex *mutex) {
+void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const rt::OccGrid &model, std::deque<ObjectState> *states, std::mutex *mutex) {
   bool done = false;
 
   while (!done) {
@@ -62,18 +51,16 @@ void Detector::EvaluateWorkerThread(const rt::OccGrid &scene, const rt::OccGrid 
       done = true;
       mutex->unlock();
     } else {
-      auto ss = states->front();
+      auto s = states->front();
       states->pop_front();
       mutex->unlock();
 
-      for (const auto &s : ss) {
-        scores_[s] = Evaluate(scene, model, s);
-      }
+      scores_[s] = Evaluate(scene, model, s);
     }
   }
 }
 
-double Detector::Evaluate(const rt::OccGrid &scene, const rt::OccGrid &model, const ObjectState &state) {
+double Detector::Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const ObjectState &state) {
   auto model_locs = model.GetLocations();
   auto model_los = model.GetLogOdds();
 

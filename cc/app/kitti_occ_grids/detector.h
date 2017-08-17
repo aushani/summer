@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include "library/ray_tracing/occ_grid.h"
+#include "library/ray_tracing/dense_occ_grid.h"
 
 namespace rt = library::ray_tracing;
 
@@ -31,15 +32,15 @@ class Detector {
  public:
   Detector(double res, int n_size);
 
-  void Evaluate(const rt::OccGrid &scene, const rt::OccGrid &model);
+  void Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model);
+  double Evaluate(const rt::DenseOccGrid &scene, const rt::OccGrid &model, const ObjectState &state);
 
   const std::map<ObjectState, double>& GetScores() const;
 
  private:
   std::map<ObjectState, double> scores_;
 
-  double Evaluate(const rt::OccGrid &scene, const rt::OccGrid &model, const ObjectState &state);
-  void EvaluateWorkerThread(const rt::OccGrid &scene, const rt::OccGrid &model, std::deque<std::vector<ObjectState> > *states, std::mutex *mutex);
+  void EvaluateWorkerThread(const rt::DenseOccGrid &scene, const rt::OccGrid &model, std::deque<ObjectState> *states, std::mutex *mutex);
 
 };
 
