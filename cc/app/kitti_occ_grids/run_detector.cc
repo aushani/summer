@@ -131,12 +131,17 @@ int main(int argc, char** argv) {
   rt::DenseOccGrid dog(og, 50.0, 50.0, 10.0);
   printf("Took %5.3f ms to make dense occ grid\n", t.GetMs());
 
-  kog::Detector detector(og.GetResolution(), 75, 1);
+  kog::Detector detector(og.GetResolution(), 25, 25);
+  kog::ObjectState os(-3.0, -5.0, 0.0);
+  size_t idx = detector.GetIndex(os);
+  kog::ObjectState os2 = detector.GetState(idx);
+  printf("%5.3f %5.3f -> %ld -> %5.3f %5.3f\n", os.x, os.y, idx, os2.x, os2.y);
 
   t.Start();
   detector.Evaluate(dog, model, bg_model);
   //detector.Evaluate(og, model, bg_model);
-  printf("Took %5.3f ms to run detector\n", t.GetMs());
+  printf("Took %5.3f ms to run detector with range +- %5.3f, +- %5.3f, res %5.3f\n",
+      t.GetMs(), detector.GetRangeX(), detector.GetRangeY(), detector.GetRes());
 
   vw::Viewer v(&args);
 

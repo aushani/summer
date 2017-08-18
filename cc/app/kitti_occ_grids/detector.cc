@@ -9,36 +9,31 @@
 namespace app {
 namespace kitti_occ_grids {
 
-Detector::Detector(double res, int n_size, int theta_size) {
-  for (int ix = -n_size; ix < n_size; ix++) {
-    double x = ix * res;
-
-    for (int iy = -n_size; iy < n_size; iy++) {
-      double y = iy * res;
-
-      for (int it = 0; it < theta_size; it++) {
-        double t = it * 2*M_PI / theta_size;
-        scores_[ObjectState(x, y, t)] = 0;
-      }
-    }
-  }
+Detector::Detector(double res, double range_x, double range_y) :
+ range_x_(range_x), range_y_(range_y),
+  n_x_(2 * std::ceil(range_x / res) + 1),
+  n_y_(2 * std::ceil(range_y / res) + 1),
+  res_(res),
+  scores_(n_x_*n_y_, 0.0) {
 }
 
 void Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model) {
   BOOST_ASSERT(scene.GetResolution() == model.GetResolution());
 
-  std::deque<ObjectState> states;
+  std::deque<size_t> work_queue;
 
-  for (auto it = scores_.begin(); it != scores_.end(); it++) {
-    states.push_back(it->first);
+  for (size_t i = 0; i< scores_.size(); i++) {
+    work_queue.push_back(i);
   }
 
   int num_threads = 48;
+  printf("Have %ld states to evaluate with %d threads\n",
+      work_queue.size(), num_threads);
 
   std::vector<std::thread> threads;
   std::mutex mutex;
   for (int i=0; i<num_threads; i++) {
-    threads.push_back(std::thread(&Detector::EvaluateWorkerThread, this, scene, model, bg_model, &states, &mutex));
+    threads.push_back(std::thread(&Detector::EvaluateWorkerThread, this, scene, model, bg_model, &work_queue, &mutex));
   }
 
   for (auto &thread : threads) {
@@ -79,28 +74,30 @@ void Detector::Evaluate(const rt::OccGrid &scene, const Model &model, const Mode
         double model_score = model.GetProbability(loc_at, lo);
         double bg_score = bg_model.GetProbability(loc_at, lo);
 
-        scores_[ObjectState(x_at, y_at, 0)] += log(model_score) - log(bg_score);
+        size_t idx = GetIndex(ObjectState(x_at, y_at, 0));
+        scores_[idx] += log(model_score) - log(bg_score);
       }
     }
   }
 }
 
-void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, std::deque<ObjectState> *states, std::mutex *mutex) {
+void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, std::deque<size_t> *work_queue, std::mutex *mutex) {
   bool done = false;
 
   while (!done) {
     mutex->lock();
-    if (states->empty()) {
+    if (work_queue->empty()) {
       done = true;
       mutex->unlock();
     } else {
-      auto s = states->front();
-      states->pop_front();
+      size_t idx = work_queue->front();
+      work_queue->pop_front();
       mutex->unlock();
 
-      double score = Evaluate(scene, model, bg_model, s);
+      ObjectState os = GetState(idx);
+      double score = Evaluate(scene, model, bg_model, os);
 
-      scores_[s] = 1 / (1 + exp(-score));
+      scores_[idx] = 1 / (1 + exp(-score));
     }
   }
 }
@@ -149,8 +146,55 @@ double Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, con
   return log_score;
 }
 
-const std::map<ObjectState, double>& Detector::GetScores() const {
-  return scores_;
+double Detector::GetScore(const ObjectState &os) const {
+  if (!InRange(os)) {
+    return 0.0;
+  }
+
+  size_t idx = GetIndex(os);
+  return scores_[idx];
+}
+
+double Detector::GetRangeX() const {
+  return range_x_;
+}
+
+double Detector::GetRangeY() const {
+  return range_y_;
+}
+
+bool Detector::InRange(const ObjectState &os) const {
+  return std::abs(os.x) < range_x_ && std::abs(os.y) < range_y_;
+}
+
+size_t Detector::GetIndex(const ObjectState &os) const {
+  int ix = os.x / res_ + n_x_ / 2;
+  int iy = os.y / res_ + n_y_ / 2;
+
+  if (ix >= n_x_ || iy >= n_y_) {
+    return -1;
+  }
+
+  size_t idx = ix * n_y_ + iy;
+  return idx;
+}
+
+ObjectState Detector::GetState(size_t idx) const {
+  size_t ix = idx / n_y_;
+  size_t iy = idx % n_y_;
+
+  // int instead of size_t because could be negative
+  int dix = ix - n_x_/2;
+  int diy = iy - n_y_/2;
+
+  double x = dix * res_;
+  double y = diy * res_;
+
+  return ObjectState(x, y, 0);
+}
+
+double Detector::GetRes() const {
+  return res_;
 }
 
 } // namespace kitti_occ_grids

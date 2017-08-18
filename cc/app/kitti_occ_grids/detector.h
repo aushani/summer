@@ -47,20 +47,37 @@ struct ObjectState {
 
 class Detector {
  public:
-  Detector(double res, int n_size, int theta_size);
+  Detector(double res, double range_x, double range_y);
 
   void Evaluate(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model);
 
   void Evaluate(const rt::OccGrid &scene, const Model &model, const Model &bg_model);
 
-  const std::map<ObjectState, double>& GetScores() const;
+  //const std::map<ObjectState, double>& GetScores() const;
+  double GetScore(const ObjectState &os) const;
+
+  double GetRangeX() const;
+  double GetRangeY() const;
+  bool InRange(const ObjectState &os) const;
+
+  size_t GetIndex(const ObjectState &os) const;
+  ObjectState GetState(size_t idx) const;
+
+  double GetRes() const;
 
  private:
-  std::map<ObjectState, double> scores_;
+  double range_x_;
+  double range_y_;
+  size_t n_x_;
+  size_t n_y_;
+
+  double res_;
+
+  //std::map<ObjectState, double> scores_;
+  std::vector<double> scores_;
 
   double Evaluate(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, const ObjectState &state);
-  void EvaluateWorkerThread(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, std::deque<ObjectState> *states, std::mutex *mutex);
-
+  void EvaluateWorkerThread(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, std::deque<size_t> *work_queue, std::mutex *mutex);
 };
 
 } // namespace kitti_occ_grids
