@@ -6,8 +6,9 @@
 #include <boost/filesystem.hpp>
 
 #include "library/ray_tracing/occ_grid.h"
+#include "library/timer/timer.h"
 
-#include "app/kitti_occ_grids/model.h"
+#include "app/kitti_occ_grids/mi_model.h"
 
 namespace kog = app::kitti_occ_grids;
 namespace rt = library::ray_tracing;
@@ -21,9 +22,11 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  kog::Model *model = nullptr;
+  kog::MiModel *model = nullptr;
 
   int count = 0;
+  library::timer::Timer t;
+  library::timer::Timer t_step;
 
   fs::path p(argv[1]);
   fs::directory_iterator end_it;
@@ -35,23 +38,19 @@ int main(int argc, char** argv) {
     rt::OccGrid og = rt::OccGrid::Load(it->path().string().c_str());
 
     if (model == nullptr) {
-      model = new kog::Model(og.GetResolution());
+      model = new kog::MiModel(5.0, 5.0, og.GetResolution());
     }
 
     BOOST_ASSERT(model->GetResolution() == og.GetResolution());
 
     // Do the accumulating
-    const auto &locs = og.GetLocations();
-    const auto &los = og.GetLogOdds();
+    model->MarkObservations(og);
+    count++;
 
-    for (size_t j = 0; j < locs.size(); j++) {
-      const auto &loc = locs[j];
-      float lo = los[j];
-
-      model->MarkObservation(loc, lo);
+    if (t_step.GetSeconds() > 60) {
+      printf("Merged %d (%5.3f sec per og)\n", count, t.GetSeconds() / count);
+      t_step.Start();
     }
-
-    printf("Merged %d\n", ++count);
   }
 
   // Save

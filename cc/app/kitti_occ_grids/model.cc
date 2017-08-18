@@ -46,7 +46,7 @@ double Model::GetProbability(const rt::Location &loc, float lo) const {
   return GetProbability(loc, lo > 0);
 }
 
-const std::map<rt::Location, Counter>& Model::GetCounts() const {
+const std::map<rt::Location, Model::Counter>& Model::GetCounts() const {
   return counts_;
 }
 

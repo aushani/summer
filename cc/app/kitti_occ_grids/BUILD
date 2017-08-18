@@ -2,6 +2,7 @@ cc_library(
     name = "kitti_occ_grids_lib",
     srcs = [
             "model.cc", "model.h",
+            "mi_model.cc", "mi_model.h",
             "detector.cc", "detector.h",
             "map_node.cc", "map_node.h",
             "model_node.cc", "model_node.h",
