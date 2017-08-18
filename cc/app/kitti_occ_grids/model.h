@@ -59,6 +59,8 @@ class Model {
   void MarkObservation(const rt::Location &loc, float lo);
   double GetProbability(const rt::Location &loc, float lo) const;
 
+  size_t GetSupport(const rt::Location &loc) const;
+
   const std::map<rt::Location, Counter>& GetCounts() const;
   double GetResolution() const;
 

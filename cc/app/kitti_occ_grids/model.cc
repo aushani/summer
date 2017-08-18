@@ -54,6 +54,15 @@ double Model::GetResolution() const {
   return resolution_;
 }
 
+size_t Model::GetSupport(const rt::Location &loc) const {
+  auto it = counts_.find(loc);
+  if (it == counts_.end()) {
+    return 0;
+  }
+
+  return it->second.GetTotalCount();
+}
+
 void Model::Save(const char* fn) const {
   std::ofstream ofs(fn);
   boost::archive::binary_oarchive oa(ofs);

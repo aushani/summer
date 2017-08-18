@@ -51,6 +51,8 @@ class Detector {
 
   void Evaluate(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model);
 
+  void Evaluate(const rt::OccGrid &scene, const Model &model, const Model &bg_model);
+
   const std::map<ObjectState, double>& GetScores() const;
 
  private:

@@ -135,6 +135,7 @@ int main(int argc, char** argv) {
 
   t.Start();
   detector.Evaluate(dog, model, bg_model);
+  //detector.Evaluate(og, model, bg_model);
   printf("Took %5.3f ms to run detector\n", t.GetMs());
 
   vw::Viewer v(&args);

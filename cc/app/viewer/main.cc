@@ -101,6 +101,7 @@ int main(int argc, char** argv) {
 
   // Load velodyne scan
   kt::VelodyneScan scan = LoadVelodyneScan(&args);
+  printf("Have %ld points\n", scan.GetHits().size());
 
   int frame_num = 0;
   if (!args.read(std::string("--frame-num"), frame_num)) {

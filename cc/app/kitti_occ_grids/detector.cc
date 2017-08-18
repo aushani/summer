@@ -44,7 +44,45 @@ void Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, const
   for (auto &thread : threads) {
     thread.join();
   }
+}
 
+void Detector::Evaluate(const rt::OccGrid &scene, const Model &model, const Model &bg_model) {
+  BOOST_ASSERT(scene.GetResolution() == model.GetResolution());
+
+  auto &locs = scene.GetLocations();
+  auto &los = scene.GetLogOdds();
+
+  printf("Have %ld voxels to evaluate\n", locs.size());
+
+  // TODO
+  double model_size = 5.0;
+  double res = scene.GetResolution();
+
+  for (size_t i = 0; i < locs.size(); i++) {
+    if (i % 1000 == 0) {
+      printf("at %ld / %ld\n", i, locs.size());
+    }
+
+    auto &loc = locs[i];
+    auto &lo = los[i];
+
+    double x = loc.i * res;
+    double y = loc.j * res;
+
+    for (double dix = -model_size/res; dix < model_size/res; dix++) {
+      for (double diy = -model_size/res; diy < model_size/res; diy++) {
+        double x_at = x + dix * res;
+        double y_at = y + diy * res;
+
+        rt::Location loc_at(dix, diy, loc.k);
+
+        double model_score = model.GetProbability(loc_at, lo);
+        double bg_score = bg_model.GetProbability(loc_at, lo);
+
+        scores_[ObjectState(x_at, y_at, 0)] += log(model_score) - log(bg_score);
+      }
+    }
+  }
 }
 
 void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, std::deque<ObjectState> *states, std::mutex *mutex) {
