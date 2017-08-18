@@ -6,8 +6,8 @@ cc_library(
         "include",
     ],
     linkopts = [
-        "-Wl,-rpath=/usr/local/cuda/lib",
-        "-L/usr/local/cuda/lib",
+        "-Wl,-rpath=/usr/local/cuda/lib64",
+        "-L/usr/local/cuda/lib64",
         "-lnppc",
         "-lnppi",
         "-lnpps",
