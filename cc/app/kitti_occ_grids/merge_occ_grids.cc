@@ -8,7 +8,7 @@
 #include "library/ray_tracing/occ_grid.h"
 #include "library/timer/timer.h"
 
-#include "app/kitti_occ_grids/mi_model.h"
+#include "app/kitti_occ_grids/joint_model.h"
 
 namespace kog = app::kitti_occ_grids;
 namespace rt = library::ray_tracing;
@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  kog::MiModel *model = nullptr;
+  kog::JointModel *model = nullptr;
 
   int count = 0;
   library::timer::Timer t;
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
     rt::OccGrid og = rt::OccGrid::Load(it->path().string().c_str());
 
     if (model == nullptr) {
-      model = new kog::MiModel(5.0, 5.0, og.GetResolution());
+      model = new kog::JointModel(5.0, 5.0, og.GetResolution());
     }
 
     BOOST_ASSERT(model->GetResolution() == og.GetResolution());

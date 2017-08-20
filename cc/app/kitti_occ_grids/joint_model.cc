@@ -1,4 +1,4 @@
-#include "app/kitti_occ_grids/mi_model.h"
+#include "app/kitti_occ_grids/joint_model.h"
 
 #include <thread>
 #include <iostream>
@@ -12,10 +12,10 @@ namespace rt = library::ray_tracing;
 namespace app {
 namespace kitti_occ_grids {
 
-MiModel::MiModel() : resolution_(0.0), range_xy_(0.0), range_z_(0.0), n_xy_(0), n_z_(0) {
+JointModel::JointModel() : resolution_(0.0), range_xy_(0.0), range_z_(0.0), n_xy_(0), n_z_(0) {
 }
 
-MiModel::MiModel(double range_xy, double range_z, double res) :
+JointModel::JointModel(double range_xy, double range_z, double res) :
  resolution_(res), range_xy_(range_xy), range_z_(range_z),
  n_xy_(2*std::ceil(range_xy_ / resolution_) + 1),
  n_z_(2*std::ceil(range_z_ / resolution_) + 1),
@@ -23,7 +23,7 @@ MiModel::MiModel(double range_xy, double range_z, double res) :
   printf("Allocated %ld elements in mi model\n", n_xy_*n_xy_*n_z_ * n_xy_*n_xy_*n_z_);
 }
 
-void MiModel::MarkObservations(const rt::OccGrid &og) {
+void JointModel::MarkObservations(const rt::OccGrid &og) {
   BOOST_ASSERT(resolution_ == og.GetResolution());
 
   size_t sz = og.GetLocations().size();
@@ -34,7 +34,7 @@ void MiModel::MarkObservations(const rt::OccGrid &og) {
     size_t start = i * sz / num_threads;
     size_t end = i * sz / num_threads;
 
-    threads.emplace_back(&MiModel::MarkObservatonsWorker, this, og, start, end);
+    threads.emplace_back(&JointModel::MarkObservatonsWorker, this, og, start, end);
   }
 
   for (auto &t : threads) {
@@ -42,7 +42,7 @@ void MiModel::MarkObservations(const rt::OccGrid &og) {
   }
 }
 
-void MiModel::MarkObservatonsWorker(const rt::OccGrid &og, size_t idx1_start, size_t idx1_end) {
+void JointModel::MarkObservatonsWorker(const rt::OccGrid &og, size_t idx1_start, size_t idx1_end) {
   const auto &locs = og.GetLocations();
   const auto &los = og.GetLogOdds();
 
@@ -67,7 +67,7 @@ void MiModel::MarkObservatonsWorker(const rt::OccGrid &og, size_t idx1_start, si
   }
 }
 
-size_t MiModel::GetIndex(const rt::Location &loc1, const rt::Location &loc2) const {
+size_t JointModel::GetIndex(const rt::Location &loc1, const rt::Location &loc2) const {
   int x1 = loc1.i + n_xy_/2;
   int y1 = loc1.j + n_xy_/2;
   int z1 = loc1.k + n_z_/2;
@@ -91,7 +91,7 @@ size_t MiModel::GetIndex(const rt::Location &loc1, const rt::Location &loc2) con
   return idx1 * (n_xy_ * n_xy_ * n_z_) + idx2;
 }
 
-bool MiModel::InRange(const rt::Location &loc) const {
+bool JointModel::InRange(const rt::Location &loc) const {
   double x = loc.i * resolution_;
   double y = loc.j * resolution_;
   double z = loc.k * resolution_;
@@ -99,18 +99,50 @@ bool MiModel::InRange(const rt::Location &loc) const {
   return std::abs(x) < range_xy_ && std::abs(y) < range_xy_ && std::abs(z) < range_z_;
 }
 
-double MiModel::GetResolution() const {
+double JointModel::GetResolution() const {
   return resolution_;
 }
 
-void MiModel::Save(const char *fn) const {
+double JointModel::ComputeMutualInformation(const rt::Location &loc1, const rt::Location &loc2) const {
+  if (!InRange(loc1) || !InRange(loc2)) {
+    return 0.0;
+  }
+
+  size_t idx = GetIndex(loc1, loc2);
+
+  const Counter& c = counts_[idx];
+
+  double mi = 0.0;
+
+  for (int i=0; i<2; i++) {
+    bool occ1 = i == 0;
+    for (int j=0; j<2; j++) {
+      bool occ2 = j == 0;
+
+      double p_xy = c.GetProb(occ1, occ2);
+      double p_x = c.GetProb1(occ1);
+      double p_y = c.GetProb2(occ2);
+
+      // check for tolerance
+      if (p_xy < 1e-10) {
+        continue;
+      }
+
+      mi += p_xy * log( p_xy / (p_x * p_y));
+    }
+  }
+
+  return mi;
+}
+
+void JointModel::Save(const char *fn) const {
   std::ofstream ofs(fn);
   boost::archive::binary_oarchive oa(ofs);
   oa << (*this);
 }
 
-MiModel MiModel::Load(const char *fn) {
-  MiModel m;
+JointModel JointModel::Load(const char *fn) {
+  JointModel m;
   std::ifstream ifs(fn);
   boost::archive::binary_iarchive ia(ifs);
   ia >> m;
