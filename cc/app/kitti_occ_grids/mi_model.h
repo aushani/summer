@@ -15,7 +15,8 @@ namespace kitti_occ_grids {
 class MiModel {
  public:
   struct Counter {
-    size_t counts[4] = {0, 0, 0, 0};
+    //size_t counts[4] = {0, 0, 0, 0};
+    int counts[4] = {0, 0, 0, 0};
 
     void Count(bool occ1, bool occ2) {
       counts[GetIndex(occ1, occ2)]++;
