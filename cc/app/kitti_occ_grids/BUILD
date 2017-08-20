@@ -61,6 +61,17 @@ cc_binary(
 )
 
 cc_binary(
+    name = "make_chow_lui_trees",
+    srcs = [
+            "make_chow_lui_trees.cc",
+           ],
+    deps = [
+            ":kitti_occ_grids_lib",
+            "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
     name = "detector",
     srcs = [
             "run_detector.cc",
