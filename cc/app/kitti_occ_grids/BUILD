@@ -1,6 +1,7 @@
 cc_library(
     name = "kitti_occ_grids_lib",
     srcs = [
+            "chow_lui_tree.cc", "chow_lui_tree.h",
             "model.cc", "model.h",
             "joint_model.cc", "joint_model.h",
             "detector.cc", "detector.h",

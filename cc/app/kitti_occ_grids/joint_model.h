@@ -100,8 +100,13 @@ class JointModel {
   void MarkObservations(const rt::OccGrid &og);
 
   double ComputeMutualInformation(const rt::Location &loc1, const rt::Location &loc2) const;
+  int GetNumObservations(const rt::Location &loc1, const rt::Location &loc2) const;
 
   double GetResolution() const;
+
+  int GetNXY() const;
+  int GetNZ() const;
+  bool InRange(const rt::Location &loc) const;
 
   void Save(const char *fn) const;
   static JointModel Load(const char *fn);
@@ -123,7 +128,6 @@ class JointModel {
   void MarkObservatonsWorker(const rt::OccGrid &og, size_t idx1_start, size_t idx1_end);
 
   size_t GetIndex(const rt::Location &loc1, const rt::Location &loc2) const;
-  bool InRange(const rt::Location &loc) const;
 
   friend class boost::serialization::access;
   template<class Archive>

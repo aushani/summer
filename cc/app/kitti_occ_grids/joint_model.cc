@@ -32,7 +32,7 @@ void JointModel::MarkObservations(const rt::OccGrid &og) {
   std::vector<std::thread> threads;
   for (int i=0; i<num_threads; i++) {
     size_t start = i * sz / num_threads;
-    size_t end = i * sz / num_threads;
+    size_t end = (i+1) * sz / num_threads;
 
     threads.emplace_back(&JointModel::MarkObservatonsWorker, this, og, start, end);
   }
@@ -63,8 +63,17 @@ void JointModel::MarkObservatonsWorker(const rt::OccGrid &og, size_t idx1_start,
       }
 
       counts_[GetIndex(loc1, loc2)].Count(lo1, lo2);
+      BOOST_ASSERT(GetNumObservations(loc1, loc2) > 0);
     }
   }
+}
+
+int JointModel::GetNXY() const {
+  return n_xy_;
+}
+
+int JointModel::GetNZ() const {
+  return n_z_;
 }
 
 size_t JointModel::GetIndex(const rt::Location &loc1, const rt::Location &loc2) const {
@@ -92,11 +101,19 @@ size_t JointModel::GetIndex(const rt::Location &loc1, const rt::Location &loc2) 
 }
 
 bool JointModel::InRange(const rt::Location &loc) const {
-  double x = loc.i * resolution_;
-  double y = loc.j * resolution_;
-  double z = loc.k * resolution_;
+  //double x = loc.i * resolution_;
+  //double y = loc.j * resolution_;
+  //double z = loc.k * resolution_;
 
-  return std::abs(x) < range_xy_ && std::abs(y) < range_xy_ && std::abs(z) < range_z_;
+  //return std::abs(x) < range_xy_ && std::abs(y) < range_xy_ && std::abs(z) < range_z_;
+
+  int x = loc.i + n_xy_/2;
+  int y = loc.j + n_xy_/2;
+  int z = loc.k + n_z_/2;
+
+  return x >= 0 && x < n_xy_ &&
+         y >= 0 && y < n_xy_ &&
+         z >= 0 && z < n_z_;
 }
 
 double JointModel::GetResolution() const {
@@ -133,6 +150,18 @@ double JointModel::ComputeMutualInformation(const rt::Location &loc1, const rt::
   }
 
   return mi;
+}
+
+int JointModel::GetNumObservations(const rt::Location &loc1, const rt::Location &loc2) const {
+  if (!InRange(loc1) || !InRange(loc2)) {
+    return -1;
+  }
+
+  size_t idx = GetIndex(loc1, loc2);
+
+  const Counter& c = counts_[idx];
+
+  return c.GetTotalCount();
 }
 
 void JointModel::Save(const char *fn) const {
