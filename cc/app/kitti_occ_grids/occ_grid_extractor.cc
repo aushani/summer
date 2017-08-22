@@ -86,8 +86,8 @@ void OccGridExtractor::ProcessFrameObjects(kt::Tracklets *tracklets, const kt::V
 void OccGridExtractor::ProcessFrameBackground(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame) {
   int background_samples = tracklets->numberOfTracklets();
 
-  double lower_bound = -20.0;
-  double upper_bound = 20.0;
+  double lower_bound = -50.0;
+  double upper_bound = 50.0;
   std::uniform_real_distribution<double> xy_unif(lower_bound, upper_bound);
   std::uniform_real_distribution<double> theta_unif(-M_PI, M_PI);
 

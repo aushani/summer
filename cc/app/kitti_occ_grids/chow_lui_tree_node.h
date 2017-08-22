@@ -12,7 +12,10 @@ namespace kitti_occ_grids {
 
 class ChowLuiTreeNode : public osg::Group {
  public:
-  ChowLuiTreeNode(const ChowLuiTree &clt, const JointModel &jm);
+  ChowLuiTreeNode(const ChowLuiTree &clt);
+
+ private:
+  void Render(const rt::Location &loc, const ChowLuiTree &clt);
 };
 
 } // namespace kitti_occ_grids

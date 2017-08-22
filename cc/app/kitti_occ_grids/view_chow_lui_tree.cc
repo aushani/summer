@@ -27,7 +27,6 @@ int main(int argc, char** argv) {
   au->setDescription(args.getApplicationName() + " viewer");
 
   au->addCommandLineOption("--clt <dirname>", "CLT Filename", "");
-  au->addCommandLineOption("--jm <dirname>", "Model Filename", "");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -45,18 +44,8 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  std::string fn_model;
-  if (!args.read("--jm", fn_model)) {
-    printf("No model file to render!\n");
-    return 1;
-  }
-
-  kog::JointModel jm = kog::JointModel::Load(fn_model.c_str());
-  osg::ref_ptr<kog::ModelNode> jm_node = new kog::ModelNode(jm);
-  //v.AddChild(jm_node);
-
   kog::ChowLuiTree clt = kog::ChowLuiTree::Load(fn_clt.c_str());
-  osg::ref_ptr<kog::ChowLuiTreeNode> clt_node = new kog::ChowLuiTreeNode(clt, jm);
+  osg::ref_ptr<kog::ChowLuiTreeNode> clt_node = new kog::ChowLuiTreeNode(clt);
   v.AddChild(clt_node);
 
   v.Start();

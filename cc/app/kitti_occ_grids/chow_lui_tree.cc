@@ -17,6 +17,68 @@ ChowLuiTree::ChowLuiTree() {
 }
 
 ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution()) {
+  // Make edges
+  auto edges = ConstructEdges(jm);
+
+  // Make tree
+  MakeTree(edges, jm);
+}
+
+void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointModel &jm) {
+  // Get tree edges
+  std::vector<Edge> edges(e);
+
+  while (!edges.empty()) {
+    // Find an edge we can process
+    auto it = edges.begin();
+    bool found = false;
+    bool flip = false;
+    for ( ; it != edges.end(); it++) {
+      if (nodes_.count(it->loc1) > 0) {
+        found = true;
+        flip = false;
+        break;
+      }
+
+      if (nodes_.count(it->loc2) > 0) {
+        found = true;
+        flip = true;
+        break;
+      }
+    }
+
+    // We need to make a root node first
+    if (!found) {
+      it = edges.begin();
+
+      Node n(it->loc1, jm);
+
+      nodes_.insert({it->loc1, n});
+      parent_locs_.push_back(n.GetLocation());
+
+      found = true;
+      flip = false;
+    }
+
+    Edge edge = *it;
+    auto loc1 = (!flip) ? edge.loc1 : edge.loc2;
+    auto loc2 = (!flip) ? edge.loc2 : edge.loc1;
+
+    // Create Node
+    Node n(loc2, loc1, jm);
+    nodes_.insert({loc2, n});
+
+    // Add to parent's children
+    auto p_n = nodes_.find(loc1);
+    BOOST_ASSERT(p_n != nodes_.end());
+    p_n->second.AddChild(n);
+
+    // Remove edge that we processed
+    edges.erase(it);
+  }
+}
+
+std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm) {
   library::timer::Timer t;
   t.Start();
 
@@ -74,6 +136,14 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution())
                     edges.size(), int_loc_mapping.size());
               }
 
+              double di = i1 - i2;
+              double dj = j1 - j2;
+              double dk = k1 - k2;
+              double d2 = di*di + dj*dj + dk*dk;
+              if (sqrt(d2) > kMaxDistanceBetweenNodes_) {
+                continue;
+              }
+
               rt::Location loc2(i2, j2, k2);
 
               if (loc1 == loc2) {
@@ -111,12 +181,11 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution())
   boost::property_map<Graph, boost::edge_weight_t>::type weight = get(boost::edge_weight, g);
   std::vector<EdgeDescriptor> spanning_tree;
 
-  printf("passing to boost...\n");
   t.Start();
   boost::kruskal_minimum_spanning_tree(g, std::back_inserter(spanning_tree));
   printf("kruskal done in %5.3f sec, have %ld edges\n", t.GetSeconds(), spanning_tree.size());
 
-  // add edges
+  std::vector<Edge> clt_edges;
   for (std::vector < EdgeDescriptor >::iterator ei = spanning_tree.begin(); ei != spanning_tree.end(); ++ei) {
     int i_loc1 = source(*ei, g);
     int i_loc2 = target(*ei, g);
@@ -127,20 +196,75 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution())
     double w = weight[*ei];
     double mi = -w;
 
-    AddEdge(Edge(loc1, loc2, mi));
+    clt_edges.emplace_back(loc1, loc2, mi);
   }
-}
 
-void ChowLuiTree::AddEdge(const Edge &e) {
-  tree_edges_.push_back(e);
+  return clt_edges;
 }
 
 double ChowLuiTree::GetResolution() const {
   return resolution_;
 }
 
-const std::vector<ChowLuiTree::Edge>& ChowLuiTree::GetEdges() const {
-  return tree_edges_;
+const std::vector<rt::Location>& ChowLuiTree::GetParentLocs() const {
+  return parent_locs_;
+}
+
+const ChowLuiTree::Node& ChowLuiTree::GetNode(const rt::Location &loc) const {
+  auto it = nodes_.find(loc);
+  BOOST_ASSERT(it != nodes_.end());
+
+  return it->second;
+}
+
+rt::OccGrid ChowLuiTree::Sample() const {
+  // Random sampling
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine rand_engine(seed);
+
+  // Occ grid map
+  std::map<rt::Location, bool> sample_og;
+
+  // Star from parents and traverse tree
+  for (const auto &p : parent_locs_) {
+    auto it = nodes_.find(p);
+    BOOST_ASSERT(it != nodes_.end());
+    SampleHelper(it->second, &sample_og, &rand_engine);
+  }
+
+  // Spoof an occ grid
+  std::vector<rt::Location> locs;
+  std::vector<float> los;
+
+  for (auto it : sample_og) {
+    locs.push_back(it.first);
+    los.push_back(it.second ? 1.0:-1.0);
+  }
+
+  rt::OccGrid og(locs, los, GetResolution());
+
+  return og;
+}
+
+void ChowLuiTree::SampleHelper(const ChowLuiTree::Node &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const {
+  std::uniform_real_distribution<double> rand_unif(0.0, 1.0);
+
+  auto &sample_og = *sample_og_pointer;
+
+  // Assign this node
+  if (node_at.HasParent()) {
+    bool parent_occu = sample_og[node_at.GetParentLocation()];
+    sample_og[node_at.GetLocation()] = rand_unif(*rand_engine) < node_at.GetConditionalProbability(parent_occu, true);
+  } else {
+    sample_og[node_at.GetLocation()] = rand_unif(*rand_engine) < node_at.GetMarginalProbability(true);
+  }
+
+  // Process children
+  for (const auto &loc : node_at.GetChildren()) {
+    auto it = nodes_.find(loc);
+    BOOST_ASSERT(it != nodes_.end());
+    SampleHelper(it->second, sample_og_pointer, rand_engine);
+  }
 }
 
 void ChowLuiTree::Save(const char *fn) const {
