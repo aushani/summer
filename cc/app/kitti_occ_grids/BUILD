@@ -84,6 +84,16 @@ cc_binary(
 )
 
 cc_binary(
+    name = "sample_clt",
+    srcs = [
+            "sample_clt.cc",
+           ],
+    deps = [
+            ":kitti_occ_grids_lib",
+           ],
+)
+
+cc_binary(
     name = "detector",
     srcs = [
             "run_detector.cc",

@@ -16,7 +16,8 @@ class JointModel {
  public:
   struct Counter {
     //size_t counts[4] = {0, 0, 0, 0};
-    int counts[4] = {0, 0, 0, 0};
+    //int counts[4] = {0, 0, 0, 0};
+    int counts[4] = {1, 1, 1, 1}; // smoothing/regularization
 
     // Counting
     void Count(bool occ1, bool occ2) {

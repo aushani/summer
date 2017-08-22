@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
     rt::OccGrid og = rt::OccGrid::Load(it->path().string().c_str());
 
     if (model == nullptr) {
-      model = new kog::JointModel(3.0, 3.0, og.GetResolution());
+      model = new kog::JointModel(2.0, 2.0, og.GetResolution());
     }
 
     BOOST_ASSERT(model->GetResolution() == og.GetResolution());

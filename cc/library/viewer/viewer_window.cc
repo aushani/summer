@@ -110,6 +110,17 @@ void ViewerWindow::AddChild(osg::Node *n) {
   xform_car_->addChild(n);
 }
 
+void ViewerWindow::RemoveAllChildren() {
+  while (xform_car_->getNumChildren() > 0) {
+    xform_car_->removeChild(0, 1);
+  }
+}
+
+void ViewerWindow::AddHandler(osgGA::GUIEventHandler *h) {
+  osg::ref_ptr<osgViewer::View> view = vwidget_->GetView();
+  view->addEventHandler(h);
+}
+
 int ViewerWindow::Start() {
   show();
 

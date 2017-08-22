@@ -5,6 +5,7 @@
 
 #include <QtGui/QMainWindow>
 #include <osg/MatrixTransform>
+#include <osgGA/GUIEventHandler>
 #include <osgQt/GraphicsWindowQt>
 #include <osgViewer/CompositeViewer>
 
@@ -22,6 +23,9 @@ class ViewerWindow : public QMainWindow {
   int Start();
 
   void AddChild(osg::Node *n);
+  void RemoveAllChildren();
+
+  void AddHandler(osgGA::GUIEventHandler *h);
 
  public slots:
   void SlotCleanup();

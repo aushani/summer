@@ -7,6 +7,7 @@
 #include <QtGui/QDoubleSpinBox>
 #include <QtGui/QCheckBox>
 #include <osg/MatrixTransform>
+#include <osgGA/GUIEventHandler>
 #include <osgQt/GraphicsWindowQt>
 #include <osgViewer/CompositeViewer>
 
@@ -23,6 +24,9 @@ class Viewer {
   Viewer(osg::ArgumentParser *args);
 
   void AddChild(osg::Node *n);
+  void RemoveAllChildren();
+
+  void AddHandler(osgGA::GUIEventHandler *h);
 
   void Start();
 
