@@ -46,8 +46,6 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution())
 
   size_t n_at = 0;
 
-  printf("%d-%d, %d-%d\n", min_ij, max_ij, min_k, max_k);
-
   for (int i1=min_ij; i1 < max_ij; i1++) {
     for (int j1=min_ij; j1 < max_ij; j1++) {
       for (int k1=min_k; k1 < max_k; k1++) {
@@ -82,18 +80,13 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution())
                 continue;
               }
 
+              if (jm.GetNumObservations(loc1, loc2) < 100) {
+                continue;
+              }
+
               if (loc_int_mapping.count(loc2) == 0) {
                 loc_int_mapping[loc2] = int_loc_mapping.size();
                 int_loc_mapping.push_back(loc2);
-              }
-
-              if (jm.GetNumObservations(loc1, loc2) < 0) {
-                printf("Out of range! %d, %d, %d, \t%d, %d, %d\n",
-                    loc1.i, loc1.j, loc1.k, loc2.i, loc2.j, loc2.k);
-              }
-
-              if (jm.GetNumObservations(loc1, loc2) < 10) {
-                continue;
               }
 
               int i_loc2 = loc_int_mapping[loc2];
@@ -132,8 +125,9 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution())
     const rt::Location &loc2 = int_loc_mapping[i_loc2];
 
     double w = weight[*ei];
+    double mi = -w;
 
-    AddEdge(Edge(loc1, loc2, w));
+    AddEdge(Edge(loc1, loc2, mi));
   }
 }
 

@@ -103,6 +103,7 @@ class JointModel {
   int GetNumObservations(const rt::Location &loc1, const rt::Location &loc2) const;
 
   int GetCount(const rt::Location &loc, bool occu) const;
+  int GetCount(const rt::Location &loc1, const rt::Location &loc2, bool occu1, bool occu2) const;
 
   double GetResolution() const;
 

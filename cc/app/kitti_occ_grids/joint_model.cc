@@ -176,6 +176,17 @@ int JointModel::GetCount(const rt::Location &loc, bool occu) const {
   return c.GetCount(occu, occu);
 }
 
+int JointModel::GetCount(const rt::Location &loc1, const rt::Location &loc2, bool occu1, bool occu2) const {
+  if (!InRange(loc1) || !InRange(loc2)) {
+    return -1;
+  }
+
+  size_t idx = GetIndex(loc1, loc2);
+  const Counter& c = counts_[idx];
+
+  return c.GetCount(occu1, occu2);
+}
+
 void JointModel::Save(const char *fn) const {
   std::ofstream ofs(fn);
   boost::archive::binary_oarchive oa(ofs);
