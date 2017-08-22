@@ -54,10 +54,15 @@ class ChowLuiTree {
 
   ChowLuiTree(const JointModel &jm);
 
+  const std::vector<Edge>& GetEdges() const;
+
+  double GetResolution() const;
+
   void Save(const char *fn) const;
   static ChowLuiTree Load(const char *fn);
 
  private:
+  double resolution_;
   std::vector<Edge> tree_edges_;
 
   // For convience with boost serialization
@@ -68,6 +73,7 @@ class ChowLuiTree {
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /* file_version */){
+    ar & resolution_;
     ar & tree_edges_;
   }
 

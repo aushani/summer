@@ -4,16 +4,14 @@
 #include <osg/Drawable>
 #include <osg/MatrixTransform>
 
-#include "app/kitti_occ_grids/model.h"
-#include "app/kitti_occ_grids/joint_model.h"
+#include "app/kitti_occ_grids/chow_lui_tree.h"
 
 namespace app {
 namespace kitti_occ_grids {
 
-class ModelNode : public osg::Group {
+class ChowLuiTreeNode : public osg::Group {
  public:
-  ModelNode(const JointModel &jm);
-  ModelNode(const Model &model);
+  ChowLuiTreeNode(const ChowLuiTree &clt);
 };
 
 } // namespace kitti_occ_grids

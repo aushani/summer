@@ -102,6 +102,8 @@ class JointModel {
   double ComputeMutualInformation(const rt::Location &loc1, const rt::Location &loc2) const;
   int GetNumObservations(const rt::Location &loc1, const rt::Location &loc2) const;
 
+  int GetCount(const rt::Location &loc, bool occu) const;
+
   double GetResolution() const;
 
   int GetNXY() const;

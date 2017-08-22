@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
     rt::OccGrid og = rt::OccGrid::Load(it->path().string().c_str());
 
     if (model == nullptr) {
-      model = new kog::JointModel(5.0, 5.0, og.GetResolution());
+      model = new kog::JointModel(2.0, 2.0, og.GetResolution());
     }
 
     BOOST_ASSERT(model->GetResolution() == og.GetResolution());
@@ -59,9 +59,18 @@ int main(int argc, char** argv) {
   kog::ChowLuiTree tree(*model);
   printf("Took %5.3f ms to make Chow-Lui tree\n", t.GetMs());
 
+  char fn[1000];
+  sprintf(fn, "%s.clt", argv[2]);
+
   t.Start();
-  tree.Save(argv[2]);
+  tree.Save(fn);
   printf("Took %5.3f sec to save Chow-Lui tree\n", t.GetSeconds());
+
+  sprintf(fn, "%s.jm", argv[2]);
+
+  t.Start();
+  model->Save(fn);
+  printf("Took %5.3f sec to save model\n", t.GetSeconds());
 
   delete model;
 

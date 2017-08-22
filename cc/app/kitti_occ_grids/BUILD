@@ -2,6 +2,7 @@ cc_library(
     name = "kitti_occ_grids_lib",
     srcs = [
             "chow_lui_tree.cc", "chow_lui_tree.h",
+            "chow_lui_tree_node.cc", "chow_lui_tree_node.h",
             "model.cc", "model.h",
             "joint_model.cc", "joint_model.h",
             "detector.cc", "detector.h",
@@ -69,6 +70,16 @@ cc_binary(
     deps = [
             ":kitti_occ_grids_lib",
             "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
+    name = "view_chow_lui_tree",
+    srcs = [
+            "view_chow_lui_tree.cc",
+           ],
+    deps = [
+            ":kitti_occ_grids_lib",
            ],
 )
 

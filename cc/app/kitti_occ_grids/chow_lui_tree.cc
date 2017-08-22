@@ -13,7 +13,10 @@
 namespace app {
 namespace kitti_occ_grids {
 
-ChowLuiTree::ChowLuiTree(const JointModel &jm) {
+ChowLuiTree::ChowLuiTree() {
+}
+
+ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution()) {
   library::timer::Timer t;
   t.Start();
 
@@ -41,7 +44,6 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) {
   int min_k = -jm.GetNZ() / 2;
   int max_k = min_k + jm.GetNZ();
 
-  size_t n_total = (jm.GetNXY()*jm.GetNXY() * jm.GetNZ()) * (jm.GetNXY()*jm.GetNXY() * jm.GetNZ());
   size_t n_at = 0;
 
   printf("%d-%d, %d-%d\n", min_ij, max_ij, min_k, max_k);
@@ -64,17 +66,21 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) {
           continue;
         }
 
-        for (int i2=min_ij; i2 < max_ij; i2++) {
-          for (int j2=min_ij; j2 < max_ij; j2++) {
-            for (int k2=min_k; k2 < max_k; k2++) {
+        for (int i2 = i1; i2 < max_ij; i2++) {
+          for (int j2 = j1; j2 < max_ij; j2++) {
+            for (int k2 = k1; k2 < max_k; k2++) {
               n_at++;
               if (n_at % (1000 * 1000) == 0) {
-                printf("At %ld M / %ld M\n", n_at/(1000*1000), n_total/(1000*1000));
+                printf("At %ld M\n", n_at/(1000*1000));
                 printf("\tHave %ld edges, %ld nodes so far...\n",
                     edges.size(), int_loc_mapping.size());
               }
 
               rt::Location loc2(i2, j2, k2);
+
+              if (loc1 == loc2) {
+                continue;
+              }
 
               if (loc_int_mapping.count(loc2) == 0) {
                 loc_int_mapping[loc2] = int_loc_mapping.size();
@@ -86,7 +92,7 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) {
                     loc1.i, loc1.j, loc1.k, loc2.i, loc2.j, loc2.k);
               }
 
-              if (jm.GetNumObservations(loc1, loc2) < 4) {
+              if (jm.GetNumObservations(loc1, loc2) < 10) {
                 continue;
               }
 
@@ -133,6 +139,14 @@ ChowLuiTree::ChowLuiTree(const JointModel &jm) {
 
 void ChowLuiTree::AddEdge(const Edge &e) {
   tree_edges_.push_back(e);
+}
+
+double ChowLuiTree::GetResolution() const {
+  return resolution_;
+}
+
+const std::vector<ChowLuiTree::Edge>& ChowLuiTree::GetEdges() const {
+  return tree_edges_;
 }
 
 void ChowLuiTree::Save(const char *fn) const {

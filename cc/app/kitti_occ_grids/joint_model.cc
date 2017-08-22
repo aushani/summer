@@ -164,6 +164,18 @@ int JointModel::GetNumObservations(const rt::Location &loc1, const rt::Location 
   return c.GetTotalCount();
 }
 
+int JointModel::GetCount(const rt::Location &loc, bool occu) const {
+  if (!InRange(loc)) {
+    return 0;
+  }
+
+  size_t idx = GetIndex(loc, loc);
+
+  const Counter& c = counts_[idx];
+
+  return c.GetCount(occu, occu);
+}
+
 void JointModel::Save(const char *fn) const {
   std::ofstream ofs(fn);
   boost::archive::binary_oarchive oa(ofs);
