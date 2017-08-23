@@ -60,6 +60,17 @@ float OccGrid::GetResolution() const {
   return data_.resolution;
 }
 
+std::map<Location, float> OccGrid::MakeMap() const {
+  std::map<Location, float> og_map;
+
+  for (size_t i = 0; i < data_.locations.size(); i++) {
+    float lo = data_.log_odds[i];
+    og_map[data_.locations[i]] = lo > 0 ? 1:0;
+  }
+
+  return og_map;
+}
+
 void OccGrid::Save(const char* fn) const {
   std::ofstream ofs(fn);
   boost::archive::binary_oarchive oa(ofs);

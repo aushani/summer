@@ -169,7 +169,7 @@ class ChowLuiTree {
   const std::vector<rt::Location>& GetParentLocs() const;
   const Node& GetNode(const rt::Location &loc) const;
 
-  double EvaluateLogProbability(const rt::OccGrid &og) const;
+  double EvaluateLogProbability(const std::map<rt::Location, float> &og_map) const;
 
   rt::OccGrid Sample() const;
 

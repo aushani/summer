@@ -267,25 +267,8 @@ void ChowLuiTree::SampleHelper(const ChowLuiTree::Node &node_at, std::map<rt::Lo
   }
 }
 
-double ChowLuiTree::EvaluateLogProbability(const rt::OccGrid &og) const {
-  library::timer::Timer t;
-
-  t.Start();
-  std::map<rt::Location, float> og_map;
-
-  const auto &locs = og.GetLocations();
-  const auto &los = og.GetLogOdds();
-
-  for (size_t i = 0; i < locs.size(); i++) {
-    float lo = los[i];
-
-    if (lo > 0) {
-      og_map[locs[i]] = 1.0;
-    } else if (lo < 0) {
-      og_map[locs[i]] = 0.0;
-    }
-  }
-  //printf("\tMade map in %5.3f ms\n", t.GetMs());
+double ChowLuiTree::EvaluateLogProbability(const std::map<rt::Location, float> &og_map) const {
+  std::map<rt::Location, float> my_og_map(og_map);
 
   double log_prob = 0;
 
@@ -293,7 +276,7 @@ double ChowLuiTree::EvaluateLogProbability(const rt::OccGrid &og) const {
   for (const auto &p : parent_locs_) {
     auto it = nodes_.find(p);
     BOOST_ASSERT(it != nodes_.end());
-    log_prob += EvaluateLogProbabilityHelper(it->second, &og_map);
+    log_prob += EvaluateLogProbabilityHelper(it->second, &my_og_map);
   }
 
   return log_prob;
@@ -310,9 +293,10 @@ double ChowLuiTree::EvaluateLogProbabilityHelper(const ChowLuiTree::Node &node_a
     if (node_at.HasParent()) {
       // Law of total probability
       const auto &parent = node_at.GetParentLocation();
-      BOOST_ASSERT(og.count(parent) > 0);
+      auto it_parent = og.find(parent);
+      BOOST_ASSERT(it_parent != og.end());
 
-      double p_parent_occu = og[parent];
+      double p_parent_occu = it_parent->second;
       double p_parent_free = 1 - p_parent_occu;
 
       double p_occu_given_parent_occu = node_at.GetConditionalProbability(true, true);
@@ -325,16 +309,17 @@ double ChowLuiTree::EvaluateLogProbabilityHelper(const ChowLuiTree::Node &node_a
       og[node_at.GetLocation()] = p_occu;
     }
   } else {
-    // If this node was observed, evaluate it's likelihood given our current belief in the state of the occ grid
+    // If this node was observed, evaluate its likelihood given our current belief in the state of the occ grid
     bool obs = og[node_at.GetLocation()] > 0.5;
     double update = 0.0;
 
     if (node_at.HasParent()) {
       // Law of total probability
       const auto &parent = node_at.GetParentLocation();
-      BOOST_ASSERT(og.count(parent) > 0);
+      auto it_parent = og.find(parent);
+      BOOST_ASSERT(it_parent != og.end());
 
-      double p_parent_occu = og[parent];
+      double p_parent_occu = it_parent->second;
       double p_parent_free = 1 - p_parent_occu;
 
       double p_obs_given_parent_occu = node_at.GetConditionalProbability(true, obs);
@@ -353,12 +338,6 @@ double ChowLuiTree::EvaluateLogProbabilityHelper(const ChowLuiTree::Node &node_a
       BOOST_ASSERT(p_obs_given_parent_free >= 0);
 
       double p_obs = p_obs_given_parent_occu * p_parent_occu + p_obs_given_parent_free * p_parent_free;
-
-      //printf("p_parent_occu = %f\n", p_parent_occu);
-      //printf("p_parent_free = %f\n", p_parent_free);
-      //printf("p_obs_given_parent_occu = %f\n", p_obs_given_parent_occu);
-      //printf("p_obs_given_parent_free = %f\n", p_obs_given_parent_free);
-      //printf("p_obs: %f\n", p_obs);
 
       BOOST_ASSERT(p_obs <= 1);
       BOOST_ASSERT(p_obs >= 0);

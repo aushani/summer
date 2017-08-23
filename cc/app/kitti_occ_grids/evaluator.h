@@ -34,7 +34,7 @@ class Evaluator {
 
   std::map<std::string, ChowLuiTree> clts_;
   std::map<std::string, std::map<std::string, int> > confusion_matrix_;
-  mutable std::mutex cm_mutex_;
+  mutable std::mutex results_mutex_;
 
   struct Work {
     fs::path path;
@@ -47,6 +47,9 @@ class Evaluator {
   mutable std::mutex work_queue_mutex_;
 
   std::vector<std::thread> threads_;
+
+  double eval_time_ms_ = 0;
+  int eval_counts_ = 0;
 
   void WorkerThread();
 };

@@ -1,5 +1,7 @@
 #include "app/kitti_occ_grids/evaluator.h"
 
+#include "library/timer/timer.h"
+
 namespace rt = library::ray_tracing;
 namespace fs = boost::filesystem;
 
@@ -96,7 +98,9 @@ void Evaluator::Finish() {
 }
 
 void Evaluator::WorkerThread() {
+  library::timer::Timer t;
   bool done = false;
+
   while (!done) {
     work_queue_mutex_.lock();
     if (work_queue_.empty()) {
@@ -116,11 +120,13 @@ void Evaluator::WorkerThread() {
       bool first = true;
       double best_log_prob = 0.0;
 
+      t.Start();
+      auto og_map = og.MakeMap();
       for (const auto it : clts_) {
         const auto &classname = it.first;
         const auto &clt = it.second;
 
-        double log_prob = clt.EvaluateLogProbability(og);
+        double log_prob = clt.EvaluateLogProbability(og_map);
 
         if (first || log_prob > best_log_prob) {
           best_log_prob = log_prob;
@@ -129,17 +135,24 @@ void Evaluator::WorkerThread() {
 
         first = false;
       }
+      double ms = t.GetMs();
 
       // Add to results
-      cm_mutex_.lock();
+      results_mutex_.lock();
+
       confusion_matrix_[w.classname][best_classname]++;
-      cm_mutex_.unlock();
+      eval_time_ms_ += ms;
+      eval_counts_++;
+
+      results_mutex_.unlock();
     }
   }
 }
 
 void Evaluator::PrintConfusionMatrix() const {
-  cm_mutex_.lock();
+  results_mutex_.lock();
+
+  printf("Took %5.3f ms / evaluation\n", eval_time_ms_ / eval_counts_);
 
   printf("%15s  ", "");
   for (const auto it1 : confusion_matrix_) {
@@ -166,7 +179,7 @@ void Evaluator::PrintConfusionMatrix() const {
     printf("\n");
   }
 
-  cm_mutex_.unlock();
+  results_mutex_.unlock();
 }
 
 std::vector<std::string> Evaluator::GetClasses() const {

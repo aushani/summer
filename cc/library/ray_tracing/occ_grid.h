@@ -1,6 +1,7 @@
 // Adapted from dascar
 #pragma once
 
+#include <map>
 #include <vector>
 
 #include "library/ray_tracing/occ_grid_location.h"
@@ -48,6 +49,8 @@ class OccGrid {
   const std::vector<Location>& GetLocations() const;
   const std::vector<float>& GetLogOdds() const;
   float GetResolution() const;
+
+  std::map<Location, float> MakeMap() const;
 
   void Save(const char* fn) const;
   static OccGrid Load(const char* fn);
