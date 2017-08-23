@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
   au->setCommandLineUsage( args.getApplicationName() + " [options]");
   au->setDescription(args.getApplicationName() + " viewer");
 
-  au->addCommandLineOption("--filename <dirname>", "Model Filename", "");
+  au->addCommandLineOption("--jm <dirname>", "Model Filename", "");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -36,16 +36,16 @@ int main(int argc, char** argv) {
 
   // Load occ grid
   std::string fn;
-  if (!args.read("--filename", fn)) {
+  if (!args.read("--jm", fn)) {
     printf("Error! Need file to render!\n");
     return 1;
   }
 
-  kog::Model model = kog::Model::Load(fn.c_str());
+  kog::JointModel jm = kog::JointModel::Load(fn.c_str());
 
   vw::Viewer v(&args);
 
-  osg::ref_ptr<kog::ModelNode> node = new kog::ModelNode(model);
+  osg::ref_ptr<kog::ModelNode> node = new kog::ModelNode(jm);
 
   v.AddChild(node);
 

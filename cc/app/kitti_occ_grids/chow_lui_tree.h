@@ -17,6 +17,7 @@ namespace kitti_occ_grids {
 
 class ChowLuiTree {
  public:
+  // Edges used to construct tree
   struct Edge {
     rt::Location loc1;
     rt::Location loc2;
@@ -168,6 +169,8 @@ class ChowLuiTree {
   const std::vector<rt::Location>& GetParentLocs() const;
   const Node& GetNode(const rt::Location &loc) const;
 
+  double EvaluateLogProbability(const rt::OccGrid &og) const;
+
   rt::OccGrid Sample() const;
 
   void Save(const char *fn) const;
@@ -189,6 +192,8 @@ class ChowLuiTree {
 
   void SampleHelper(const Node &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const;
 
+  double EvaluateLogProbabilityHelper(const Node &node_at, std::map<rt::Location, float> *og_pointer) const;
+
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /* file_version */){
@@ -197,7 +202,6 @@ class ChowLuiTree {
     ar & nodes_;
     ar & parent_locs_;
   }
-
 };
 
 } // namespace kitti_occ_grids
