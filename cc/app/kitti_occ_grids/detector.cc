@@ -122,15 +122,15 @@ double Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, con
     double dz = it->first.k * res;
     rt::Location scene_loc(state.x + dx, state.y + dy, dz, res);
 
-    float lo_scene = scene.GetLogOdds(scene_loc);
-
     // Check if this is unknown
-    if (std::abs(lo_scene) < 1e-3) {
+    if (scene.IsKnown(scene_loc)) {
       continue;
     }
 
-    double model_score = it->second.GetProbability(lo_scene);
-    double bg_score = it_bg->second.GetProbability(lo_scene);
+    bool obs = scene.GetProbability(scene_loc) > 0.5;
+
+    double model_score = it->second.GetProbability(obs);
+    double bg_score = it_bg->second.GetProbability(obs);
 
     if (model_score < 1e-3) {
       model_score = 1e-3;

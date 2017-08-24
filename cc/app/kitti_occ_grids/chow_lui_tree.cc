@@ -269,9 +269,9 @@ void ChowLuiTree::SampleHelper(const CLTNode &node_at, std::map<rt::Location, bo
   }
 }
 
-double ChowLuiTree::EvaluateLogProbability(const std::map<rt::Location, float> &og_map, const EvalType &type) const {
+double ChowLuiTree::EvaluateLogProbability(const rt::DenseOccGrid &dog, const EvalType &type) const {
   if (type == EvalType::LOTP) {
-    std::map<rt::Location, float> my_og_map(og_map);
+    rt::DenseOccGrid my_dog(dog);
 
     double log_prob = 0;
 
@@ -279,7 +279,7 @@ double ChowLuiTree::EvaluateLogProbability(const std::map<rt::Location, float> &
     for (const auto &p : parent_locs_) {
       auto it = nodes_.find(p);
       BOOST_ASSERT(it != nodes_.end());
-      log_prob += EvaluateLogProbabilityHelperLOTP(it->second, &my_og_map);
+      log_prob += EvaluateLogProbabilityHelperLOTP(it->second, &my_dog);
     }
 
     return log_prob;
@@ -292,7 +292,7 @@ double ChowLuiTree::EvaluateLogProbability(const std::map<rt::Location, float> &
     for (const auto &p : parent_locs_) {
       auto it = nodes_.find(p);
       BOOST_ASSERT(it != nodes_.end());
-      log_prob += EvaluateLogProbabilityHelperSC(it->second, og_map, 0, -1);
+      log_prob += EvaluateLogProbabilityHelperSC(it->second, dog, 0, -1);
     }
 
     return log_prob;
@@ -303,11 +303,10 @@ double ChowLuiTree::EvaluateLogProbability(const std::map<rt::Location, float> &
 
     for (const auto &it_node : nodes_) {
       const auto &loc = it_node.first;
+      const auto &node = it_node.second;
 
-      const auto it = og_map.find(loc);
-      if (it != og_map.end()) {
-        const auto &node = it_node.second;
-        bool obs = it->second;
+      if (dog.IsKnown(loc) ) {
+        bool obs = dog.GetProbability(loc) > 0.5;
 
         double p_obs = node.GetMarginalProbability(obs);
         log_prob += log(p_obs);
@@ -320,44 +319,43 @@ double ChowLuiTree::EvaluateLogProbability(const std::map<rt::Location, float> &
   return 0.0;
 }
 
-double ChowLuiTree::EvaluateLogProbabilityHelperLOTP(const CLTNode &node_at, std::map<rt::Location, float> *og_pointer) const {
-  auto &og = *og_pointer;
+double ChowLuiTree::EvaluateLogProbabilityHelperLOTP(const CLTNode &node_at, rt::DenseOccGrid *dog_pointer) const {
+  auto &dog = *dog_pointer;
 
   double log_prob = 0.0;
 
-  if (og.count(node_at.GetLocation()) == 0) {
-    // If this node was not observed in the OccGrid, figure out our belief of it given the tree so we can evaluate the
-    // other observations
+  if (!dog.IsKnown(node_at.GetLocation())) {
+    // If this node was not observed in the DenseOccGrid, figure out our belief of it given the tree so we can evaluate
+    // the other observations
     if (node_at.NumAncestors() > 0) {
       // Law of total probability
-      const auto &parent = node_at.GetAncestorLocation(0);
-      auto it_parent = og.find(parent);
-      BOOST_ASSERT(it_parent != og.end());
+      const auto &parent_loc = node_at.GetAncestorLocation(0);
+      BOOST_ASSERT(dog.IsKnown(parent_loc));
 
-      double p_parent_occu = it_parent->second;
+      double p_parent_occu = dog.GetProbability(parent_loc);
       double p_parent_free = 1 - p_parent_occu;
 
       double p_occu_given_parent_occu = node_at.GetConditionalProbability(true, 0, true);
       double p_occu_given_parent_free = node_at.GetConditionalProbability(true, 0, false);
 
       double p_occu = p_occu_given_parent_occu * p_parent_occu + p_occu_given_parent_free * p_parent_free;
-      og[node_at.GetLocation()] = p_occu;
+
+      dog.Set(node_at.GetLocation(), p_occu);
     } else {
       double p_occu = node_at.GetMarginalProbability(true);
-      og[node_at.GetLocation()] = p_occu;
+      dog.Set(node_at.GetLocation(), p_occu);
     }
   } else {
     // If this node was observed, evaluate its likelihood given our current belief in the state of the occ grid
-    bool obs = og[node_at.GetLocation()] > 0.5;
+    bool obs = dog.GetProbability(node_at.GetLocation()) > 0.5;
     double update = 0.0;
 
     if (node_at.NumAncestors() > 0) {
       // Law of total probability
-      const auto &parent = node_at.GetAncestorLocation(0);
-      auto it_parent = og.find(parent);
-      BOOST_ASSERT(it_parent != og.end());
+      const auto &parent_loc = node_at.GetAncestorLocation(0);
+      BOOST_ASSERT(dog.IsKnown(parent_loc));
 
-      double p_parent_occu = it_parent->second;
+      double p_parent_occu = dog.GetProbability(parent_loc);
       double p_parent_free = 1 - p_parent_occu;
 
       double p_obs_given_parent_occu = node_at.GetConditionalProbability(obs, 0, true);
@@ -392,21 +390,19 @@ double ChowLuiTree::EvaluateLogProbabilityHelperLOTP(const CLTNode &node_at, std
   for (const auto &loc : node_at.GetChildrenLocations()) {
     auto it = nodes_.find(loc);
     BOOST_ASSERT(it != nodes_.end());
-    log_prob += EvaluateLogProbabilityHelperLOTP(it->second, &og);
+    log_prob += EvaluateLogProbabilityHelperLOTP(it->second, dog_pointer);
   }
 
   return log_prob;
 }
 
-double ChowLuiTree::EvaluateLogProbabilityHelperSC(const CLTNode &node_at, const std::map<rt::Location, float> &og_map, int level_at, int last_observed_parent) const {
+double ChowLuiTree::EvaluateLogProbabilityHelperSC(const CLTNode &node_at, const rt::DenseOccGrid &dog, int level_at, int last_observed_parent) const {
   double log_prob = 0.0;
-  bool was_observed = og_map.count(node_at.GetLocation()) > 0;
+  bool was_observed = dog.IsKnown(node_at.GetLocation());
 
   // If this node was observed, evaluate its likelihood given its closest ancestor
   if (was_observed) {
-    const auto it = og_map.find(node_at.GetLocation());
-    BOOST_ASSERT(it != og_map.end());
-    bool obs = it->second > 0.5;
+    bool obs = dog.GetProbability(node_at.GetLocation()) > 0.5;
 
     double p_obs = 0.0;
 
@@ -416,10 +412,10 @@ double ChowLuiTree::EvaluateLogProbabilityHelperSC(const CLTNode &node_at, const
     } else {
       int ancestor = level_at - last_observed_parent - 1;
 
-      const auto it_ancestor = og_map.find(node_at.GetAncestorLocation(ancestor));
-      BOOST_ASSERT(it_ancestor != og_map.end());
+      const auto &ancestor_loc = node_at.GetAncestorLocation(ancestor);
+      BOOST_ASSERT(dog.IsKnown(ancestor_loc));
 
-      bool obs_ancestor = it_ancestor->second > 0.5;
+      bool obs_ancestor = dog.GetProbability(ancestor_loc) > 0.5;
       p_obs = node_at.GetConditionalProbability(obs, ancestor, obs_ancestor);
     }
 
@@ -434,7 +430,7 @@ double ChowLuiTree::EvaluateLogProbabilityHelperSC(const CLTNode &node_at, const
   for (const auto &loc : node_at.GetChildrenLocations()) {
     auto it = nodes_.find(loc);
     BOOST_ASSERT(it != nodes_.end());
-    log_prob += EvaluateLogProbabilityHelperSC(it->second, og_map, level_at + 1, last_observed_parent);
+    log_prob += EvaluateLogProbabilityHelperSC(it->second, dog, level_at + 1, last_observed_parent);
   }
 
   return log_prob;

@@ -117,3 +117,13 @@ cc_binary(
             "@boost//:boost_filesystem",
            ],
 )
+
+cc_binary(
+    name = "test_timing",
+    srcs = [
+            "test_timing.cc",
+           ],
+    deps = [
+            ":kitti_occ_grids_lib",
+           ],
+)

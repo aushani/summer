@@ -122,12 +122,12 @@ void Evaluator::WorkerThread() {
       double best_log_prob = 0.0;
 
       t.Start();
-      auto og_map = og.MakeMap();
+      rt::DenseOccGrid dog(og, 5.0, 5.0, 5.0, true);
       for (const auto it : clts_) {
         const auto &classname = it.first;
         const auto &clt = it.second;
 
-        double log_prob = clt.EvaluateLogProbability(og_map, eval_type_);
+        double log_prob = clt.EvaluateLogProbability(dog, eval_type_);
 
         if (first || log_prob > best_log_prob) {
           best_log_prob = log_prob;

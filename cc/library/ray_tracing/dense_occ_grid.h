@@ -10,28 +10,31 @@ namespace ray_tracing {
 
 class DenseOccGrid {
  public:
-  DenseOccGrid(const OccGrid &og, float max_x, float max_y, float max_z);
+  DenseOccGrid(const OccGrid &og, float max_x, float max_y, float max_z, bool make_binary);
 
-  float GetLogOdds(const Location &loc) const;
+  void Set(const Location &loc, float p);
+
   float GetProbability(const Location &loc) const;
+  bool IsKnown(const Location &loc) const;
 
+  bool InRange(const Location &loc) const;
   float GetResolution() const;
 
  private:
   static constexpr int kNumThreads = 1;
 
-  const size_t nx_;
-  const size_t ny_;
-  const size_t nz_;
+  const int nx_;
+  const int ny_;
+  const int nz_;
 
   const float resolution_;
 
-  std::vector<float> log_odds_;
+  std::vector<float> probs_;
+  std::vector<bool> known_;
 
-  bool InRange(const Location &loc) const;
   size_t GetIndex(const Location &loc) const;
 
-  void PopulateDenseWorker(const OccGrid &og, size_t i0, size_t i1);
+  void PopulateDenseWorker(const OccGrid &og, size_t i0, size_t i1, bool make_binary);
 };
 
 }  // namespace ray_tracing
