@@ -173,6 +173,8 @@ class ChowLuiTree {
 
   rt::OccGrid Sample() const;
 
+  size_t Size() const;
+
   void Save(const char *fn) const;
   static ChowLuiTree Load(const char *fn);
 

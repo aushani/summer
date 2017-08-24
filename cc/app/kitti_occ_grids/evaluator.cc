@@ -28,6 +28,8 @@ Evaluator::Evaluator(const char* base_dir_name) :
     fs::path p_clf = it->path() / fs::path("clt.clt");
 
     auto clt = ChowLuiTree::Load(p_clf.string().c_str());
+    printf("CLT size: %ld\n", clt.Size());
+
     clts_.insert({classname, clt});
   }
   printf("Loaded all clt's\n");

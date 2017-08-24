@@ -360,6 +360,10 @@ double ChowLuiTree::EvaluateLogProbabilityHelper(const ChowLuiTree::Node &node_a
   return log_prob;
 }
 
+size_t ChowLuiTree::Size() const {
+  return nodes_.size();
+}
+
 void ChowLuiTree::Save(const char *fn) const {
   std::ofstream ofs(fn);
   boost::archive::binary_oarchive oa(ofs);
