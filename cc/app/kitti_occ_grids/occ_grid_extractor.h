@@ -26,7 +26,9 @@ class OccGridExtractor {
 
  private:
   const char* kKittiBaseFilename = "/home/aushani/data/kittidata/extracted/";
-  static constexpr double kPosRes_ = 0.30; // 30 cm
+  static constexpr double kPosRes_ = 0.30;                    // 30 cm
+  static constexpr double kAngleRes_ = 90.0 * M_PI / 180.0;   // 90 degrees
+  static constexpr int kJittersPerObject_ = 10;
 
   rt::OccGridBuilder og_builder_;
   kt::CameraCal camera_cal_;

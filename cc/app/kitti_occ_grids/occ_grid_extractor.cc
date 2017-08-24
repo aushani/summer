@@ -10,7 +10,7 @@ OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
  camera_cal_("/home/aushani/data/kittidata/extracted/2011_09_26/"),
  rand_engine(std::chrono::system_clock::now().time_since_epoch().count()),
  save_base_fn_(save_base_fn) {
-  og_builder_.ConfigureSizeInPixels(16, 16, 16);
+  og_builder_.ConfigureSizeInPixels(10, 10, 10); // +- 3 meters
 }
 
 void OccGridExtractor::Run() {
@@ -73,13 +73,23 @@ void OccGridExtractor::ProcessFrameObjects(kt::Tracklets *tracklets, const kt::V
     kt::Tracklets::tPose* pose;
     tracklets->getPose(t_id, frame, pose);
 
-    og_builder_.SetPose(Eigen::Vector3d(pose->tx, pose->ty, 0), pose->rz);
-    rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
+    // Jitter objects according to position and angular resolution
+    std::uniform_real_distribution<double> xy_unif(-kPosRes_/2, kPosRes_/2);
+    std::uniform_real_distribution<double> theta_unif(-kAngleRes_/2, kAngleRes_/2);
 
-    // Save OccGrid
-    char fn[1000];
-    sprintf(fn, "%s/%s_%04d_%04d_%04d.og", save_base_fn_.c_str(), tt->objectType.c_str(), log_num, frame, t_id);
-    og.Save(fn);
+    for (int jitter=0; jitter < kJittersPerObject_; jitter++) {
+      double dx = xy_unif(rand_engine);
+      double dy = xy_unif(rand_engine);
+      double dt = theta_unif(rand_engine);
+
+      og_builder_.SetPose(Eigen::Vector3d(pose->tx + dx, pose->ty + dy, 0), pose->rz + dt);
+      rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
+
+      // Save OccGrid
+      char fn[1000];
+      sprintf(fn, "%s/%s_%04d_%04d_%04d_%04d.og", save_base_fn_.c_str(), tt->objectType.c_str(), log_num, frame, t_id, jitter);
+      og.Save(fn);
+    }
   }
 }
 
@@ -127,7 +137,7 @@ void OccGridExtractor::ProcessFrameBackground(kt::Tracklets *tracklets, const kt
     rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
 
     char fn[1000];
-    sprintf(fn, "%s/NOOBJ_%04d_%04d_%04d.og", save_base_fn_.c_str(), log_num, frame, bg_sample);
+    sprintf(fn, "%s/Background_%04d_%04d_%04d.og", save_base_fn_.c_str(), log_num, frame, bg_sample);
     og.Save(fn);
 
     bg_sample++;
