@@ -8,11 +8,11 @@ namespace fs = boost::filesystem;
 namespace app {
 namespace kitti_occ_grids {
 
-Evaluator::Evaluator(const char* base_dir_name) :
- data_path_(base_dir_name) {
+Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
+ training_data_path_(training_dir), testing_data_path_(testing_dir) {
 
   fs::directory_iterator end_it;
-  for (fs::directory_iterator it(data_path_); it != end_it; it++) {
+  for (fs::directory_iterator it(training_data_path_); it != end_it; it++) {
     if (fs::is_regular_file(it->path())) {
       continue;
     }
@@ -51,7 +51,7 @@ Evaluator::~Evaluator() {
 void Evaluator::QueueClass(const std::string &classname) {
   work_queue_mutex_.lock();
 
-  fs::path p_class = data_path_ / fs::path(classname);
+  fs::path p_class = testing_data_path_ / fs::path(classname);
 
   fs::directory_iterator end_it;
   for (fs::directory_iterator it(p_class); it != end_it; it++) {
@@ -87,8 +87,7 @@ void Evaluator::Start() {
   std::random_shuffle(work_queue_.begin(), work_queue_.end());
   work_queue_mutex_.unlock();
 
-  int num_threads = 64;
-  for (int i=0; i<num_threads; i++) {
+  for (int i=0; i<kNumThreads_; i++) {
     threads_.push_back(std::thread(&Evaluator::WorkerThread, this));
   }
 }

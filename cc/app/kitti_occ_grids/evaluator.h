@@ -16,7 +16,7 @@ namespace kitti_occ_grids {
 
 class Evaluator {
  public:
-  Evaluator(const char* base_dir_name);
+  Evaluator(const char* training_dir, const char* testing_dir);
   ~Evaluator();
 
   void QueueClass(const std::string &classname);
@@ -30,7 +30,10 @@ class Evaluator {
   std::vector<std::string> GetClasses() const;
 
  private:
-  fs::path data_path_;
+  static constexpr int kNumThreads_ = 10;
+
+  fs::path training_data_path_;
+  fs::path testing_data_path_;
 
   std::map<std::string, ChowLuiTree> clts_;
   std::map<std::string, std::map<std::string, int> > confusion_matrix_;

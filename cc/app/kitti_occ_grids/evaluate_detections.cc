@@ -10,12 +10,12 @@ namespace kog = app::kitti_occ_grids;
 int main(int argc, char** argv) {
   printf("Evaluate Detections\n");
 
-  if (argc < 2) {
-    printf("Usage: %s gen_data/\n", argv[0]);
+  if (argc < 3) {
+    printf("Usage: %s training_data/ testing_data/ \n", argv[0]);
     return 1;
   }
 
-  kog::Evaluator evaluator(argv[1]);
+  kog::Evaluator evaluator(argv[1], argv[2]);
 
   for (const std::string &cn : evaluator.GetClasses()) {
     evaluator.QueueClass(cn);
