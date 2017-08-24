@@ -63,7 +63,13 @@ class ChowLuiTree {
   const std::vector<rt::Location>& GetParentLocs() const;
   const CLTNode& GetNode(const rt::Location &loc) const;
 
-  double EvaluateLogProbability(const std::map<rt::Location, float> &og_map) const;
+  enum class EvalType {
+    LOTP,
+    SC,
+    MARGINAL
+  };
+
+  double EvaluateLogProbability(const std::map<rt::Location, float> &og_map, const EvalType &type) const;
 
   rt::OccGrid Sample() const;
 
@@ -88,7 +94,8 @@ class ChowLuiTree {
 
   void SampleHelper(const CLTNode &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const;
 
-  double EvaluateLogProbabilityHelper(const CLTNode &node_at, std::map<rt::Location, float> *og_pointer, int level_at, int last_observed_parent) const;
+  double EvaluateLogProbabilityHelperLOTP(const CLTNode &node_at, std::map<rt::Location, float> *og_pointer) const;
+  double EvaluateLogProbabilityHelperSC(const CLTNode &node_at, const std::map<rt::Location, float> &og_map, int level_at, int last_observed_parent) const;
 
   friend class boost::serialization::access;
   template<class Archive>

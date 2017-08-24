@@ -8,8 +8,8 @@ namespace fs = boost::filesystem;
 namespace app {
 namespace kitti_occ_grids {
 
-Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
- training_data_path_(training_dir), testing_data_path_(testing_dir) {
+Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const ChowLuiTree::EvalType &type) :
+ training_data_path_(training_dir), testing_data_path_(testing_dir), eval_type_(type) {
 
   fs::directory_iterator end_it;
   for (fs::directory_iterator it(training_data_path_); it != end_it; it++) {
@@ -127,7 +127,7 @@ void Evaluator::WorkerThread() {
         const auto &classname = it.first;
         const auto &clt = it.second;
 
-        double log_prob = clt.EvaluateLogProbability(og_map);
+        double log_prob = clt.EvaluateLogProbability(og_map, eval_type_);
 
         if (first || log_prob > best_log_prob) {
           best_log_prob = log_prob;
