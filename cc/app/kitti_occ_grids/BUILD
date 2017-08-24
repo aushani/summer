@@ -2,7 +2,8 @@ cc_library(
     name = "kitti_occ_grids_lib",
     srcs = [
             "chow_lui_tree.cc", "chow_lui_tree.h",
-            "chow_lui_tree_node.cc", "chow_lui_tree_node.h",
+            "chow_lui_tree_osg_node.cc", "chow_lui_tree_osg_node.h",
+            "clt_node.cc", "clt_node.h",
             "evaluator.cc", "evaluator.h",
             "model.cc", "model.h",
             "joint_model.cc", "joint_model.h",

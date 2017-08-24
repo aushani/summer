@@ -10,9 +10,9 @@
 namespace app {
 namespace kitti_occ_grids {
 
-class ChowLuiTreeNode : public osg::Group {
+class ChowLuiTreeOSGNode : public osg::Group {
  public:
-  ChowLuiTreeNode(const ChowLuiTree &clt);
+  ChowLuiTreeOSGNode(const ChowLuiTree &clt);
 
  private:
   void Render(const rt::Location &loc, const ChowLuiTree &clt);

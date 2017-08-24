@@ -51,7 +51,7 @@ void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointM
     if (!found) {
       it = edges.begin();
 
-      Node n(it->loc1, jm);
+      CLTNode n(it->loc1, jm);
 
       nodes_.insert({it->loc1, n});
       parent_locs_.push_back(n.GetLocation());
@@ -65,13 +65,15 @@ void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointM
     auto loc2 = (!flip) ? edge.loc2 : edge.loc1;
 
     // Create Node
-    Node n(loc2, loc1, jm);
+    const auto &it_parent = nodes_.find(loc1);
+    BOOST_ASSERT(it_parent != nodes_.end());
+    auto &parent = it_parent->second;
+
+    CLTNode n(loc2, parent, jm);
     nodes_.insert({loc2, n});
 
     // Add to parent's children
-    auto p_n = nodes_.find(loc1);
-    BOOST_ASSERT(p_n != nodes_.end());
-    p_n->second.AddChild(n);
+    parent.AddChild(n.GetLocation());
 
     // Remove edge that we processed
     edges.erase(it);
@@ -210,7 +212,7 @@ const std::vector<rt::Location>& ChowLuiTree::GetParentLocs() const {
   return parent_locs_;
 }
 
-const ChowLuiTree::Node& ChowLuiTree::GetNode(const rt::Location &loc) const {
+const CLTNode& ChowLuiTree::GetNode(const rt::Location &loc) const {
   auto it = nodes_.find(loc);
   BOOST_ASSERT(it != nodes_.end());
 
@@ -246,21 +248,21 @@ rt::OccGrid ChowLuiTree::Sample() const {
   return og;
 }
 
-void ChowLuiTree::SampleHelper(const ChowLuiTree::Node &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const {
+void ChowLuiTree::SampleHelper(const CLTNode &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const {
   std::uniform_real_distribution<double> rand_unif(0.0, 1.0);
 
   auto &sample_og = *sample_og_pointer;
 
   // Assign this node
-  if (node_at.HasParent()) {
-    bool parent_occu = sample_og[node_at.GetParentLocation()];
-    sample_og[node_at.GetLocation()] = rand_unif(*rand_engine) < node_at.GetConditionalProbability(parent_occu, true);
+  if (node_at.NumAncestors() > 0) {
+    bool parent_occu = sample_og[node_at.GetAncestorLocation(0)];
+    sample_og[node_at.GetLocation()] = rand_unif(*rand_engine) < node_at.GetConditionalProbability(true, 0, parent_occu);
   } else {
     sample_og[node_at.GetLocation()] = rand_unif(*rand_engine) < node_at.GetMarginalProbability(true);
   }
 
   // Process children
-  for (const auto &loc : node_at.GetChildren()) {
+  for (const auto &loc : node_at.GetChildrenLocations()) {
     auto it = nodes_.find(loc);
     BOOST_ASSERT(it != nodes_.end());
     SampleHelper(it->second, sample_og_pointer, rand_engine);
@@ -276,85 +278,44 @@ double ChowLuiTree::EvaluateLogProbability(const std::map<rt::Location, float> &
   for (const auto &p : parent_locs_) {
     auto it = nodes_.find(p);
     BOOST_ASSERT(it != nodes_.end());
-    log_prob += EvaluateLogProbabilityHelper(it->second, &my_og_map);
+    log_prob += EvaluateLogProbabilityHelper(it->second, &my_og_map, 0, -1);
   }
 
   return log_prob;
 }
 
-double ChowLuiTree::EvaluateLogProbabilityHelper(const ChowLuiTree::Node &node_at, std::map<rt::Location, float> *og_pointer) const {
+double ChowLuiTree::EvaluateLogProbabilityHelper(const CLTNode &node_at, std::map<rt::Location, float> *og_pointer, int level_at, int last_observed_parent) const {
   auto &og = *og_pointer;
 
   double log_prob = 0.0;
+  bool was_observed = og.count(node_at.GetLocation()) > 0;
 
-  if (og.count(node_at.GetLocation()) == 0) {
-    // If this node was not observed in the OccGrid, figure out our belief of it given the tree so we can evaluate the
-    // other observations
-    if (node_at.HasParent()) {
-      // Law of total probability
-      const auto &parent = node_at.GetParentLocation();
-      auto it_parent = og.find(parent);
-      BOOST_ASSERT(it_parent != og.end());
-
-      double p_parent_occu = it_parent->second;
-      double p_parent_free = 1 - p_parent_occu;
-
-      double p_occu_given_parent_occu = node_at.GetConditionalProbability(true, true);
-      double p_occu_given_parent_free = node_at.GetConditionalProbability(false, true);
-
-      double p_occu = p_occu_given_parent_occu * p_parent_occu + p_occu_given_parent_free * p_parent_free;
-      og[node_at.GetLocation()] = p_occu;
-    } else {
-      double p_occu = node_at.GetMarginalProbability(true);
-      og[node_at.GetLocation()] = p_occu;
-    }
-  } else {
-    // If this node was observed, evaluate its likelihood given our current belief in the state of the occ grid
+  // If this node was observed, evaluate its likelihood given its closest ancestor
+  if (was_observed) {
     bool obs = og[node_at.GetLocation()] > 0.5;
-    double update = 0.0;
+    double p_obs = 0.0;
 
-    if (node_at.HasParent()) {
-      // Law of total probability
-      const auto &parent = node_at.GetParentLocation();
-      auto it_parent = og.find(parent);
-      BOOST_ASSERT(it_parent != og.end());
-
-      double p_parent_occu = it_parent->second;
-      double p_parent_free = 1 - p_parent_occu;
-
-      double p_obs_given_parent_occu = node_at.GetConditionalProbability(true, obs);
-      double p_obs_given_parent_free = node_at.GetConditionalProbability(false, obs);
-
-      BOOST_ASSERT(p_parent_occu <= 1);
-      BOOST_ASSERT(p_parent_occu >= 0);
-
-      BOOST_ASSERT(p_parent_free <= 1);
-      BOOST_ASSERT(p_parent_free >= 0);
-
-      BOOST_ASSERT(p_obs_given_parent_occu <= 1);
-      BOOST_ASSERT(p_obs_given_parent_occu >= 0);
-
-      BOOST_ASSERT(p_obs_given_parent_free <= 1);
-      BOOST_ASSERT(p_obs_given_parent_free >= 0);
-
-      double p_obs = p_obs_given_parent_occu * p_parent_occu + p_obs_given_parent_free * p_parent_free;
-
-      BOOST_ASSERT(p_obs <= 1);
-      BOOST_ASSERT(p_obs >= 0);
-
-      update = log(p_obs);
+    if (last_observed_parent < 0) {
+      // If nothing was observed above this node, evaluate the marginal
+      p_obs = node_at.GetMarginalProbability(obs);
     } else {
-      double p_obs = node_at.GetMarginalProbability(obs);
-      update = log(p_obs);
+      int ancestor = level_at - last_observed_parent - 1;
+      bool obs_ancestor = og[node_at.GetAncestorLocation(ancestor)] > 0.5;
+      p_obs = node_at.GetConditionalProbability(obs, ancestor, obs_ancestor);
     }
+
+    double update = log(p_obs);
     log_prob += update;
+
+    // Update last observed
+    last_observed_parent = level_at;
   }
 
   // Process children
-  for (const auto &loc : node_at.GetChildren()) {
+  for (const auto &loc : node_at.GetChildrenLocations()) {
     auto it = nodes_.find(loc);
     BOOST_ASSERT(it != nodes_.end());
-    log_prob += EvaluateLogProbabilityHelper(it->second, &og);
+    log_prob += EvaluateLogProbabilityHelper(it->second, &og, level_at + 1, last_observed_parent);
   }
 
   return log_prob;

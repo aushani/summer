@@ -1,4 +1,4 @@
-#include "app/kitti_occ_grids/chow_lui_tree_node.h"
+#include "app/kitti_occ_grids/chow_lui_tree_osg_node.h"
 
 #include <algorithm>
 
@@ -8,7 +8,7 @@
 namespace app {
 namespace kitti_occ_grids {
 
-ChowLuiTreeNode::ChowLuiTreeNode(const ChowLuiTree &clt) : osg::Group() {
+ChowLuiTreeOSGNode::ChowLuiTreeOSGNode(const ChowLuiTree &clt) : osg::Group() {
   const auto parent_locs = clt.GetParentLocs();
 
   for (const auto &parent : parent_locs) {
@@ -16,15 +16,16 @@ ChowLuiTreeNode::ChowLuiTreeNode(const ChowLuiTree &clt) : osg::Group() {
   }
 }
 
-void ChowLuiTreeNode::Render(const rt::Location &loc, const ChowLuiTree &clt) {
+void ChowLuiTreeOSGNode::Render(const rt::Location &loc, const ChowLuiTree &clt) {
   const auto node = clt.GetNode(loc);
   double res = clt.GetResolution();
 
-  if (node.HasParent()) {
-    const auto &loc1 = node.GetParentLocation();
+  if (node.NumAncestors() > 0) {
+    const auto &loc1 = node.GetAncestorLocation(0);
     const auto &loc2 = loc;
 
-    double mi = node.GetMutualInformation();
+    //double mi = node.GetMutualInformation(0);
+    double mi = log(2);
 
     if (node.GetMarginalProbability(true) < 0.1) {
       // Don't render
@@ -34,8 +35,8 @@ void ChowLuiTreeNode::Render(const rt::Location &loc, const ChowLuiTree &clt) {
       printf("\t Marginal: %5.3f%%\n", node.GetMarginalProbability(true) * 100);
       printf("\t P   L-> F          T\n");
       printf("\t v ------------------\n");
-      printf("\t F | %5.3f%%  %5.3f%%\n", 100*node.GetConditionalProbability(false, false), 100*node.GetConditionalProbability(false, true));
-      printf("\t T | %5.3f%%  %5.3f%%\n", 100*node.GetConditionalProbability(true, false),  100*node.GetConditionalProbability(true, true));
+      printf("\t F | %5.3f%%  %5.3f%%\n", 100*node.GetConditionalProbability(false, 0, false), 100*node.GetConditionalProbability(true, 0, false));
+      printf("\t T | %5.3f%%  %5.3f%%\n", 100*node.GetConditionalProbability(false, 0, true),  100*node.GetConditionalProbability(true, 0, true ));
       printf("\n");
 
       osg::Vec3 sp(loc1.i*res, loc1.j*res, loc1.k*res);
@@ -73,7 +74,7 @@ void ChowLuiTreeNode::Render(const rt::Location &loc, const ChowLuiTree &clt) {
   }
 
   // Do same for children
-  for (const auto &child : node.GetChildren()) {
+  for (const auto &child : node.GetChildrenLocations()) {
     Render(child, clt);
   }
 }

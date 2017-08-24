@@ -4,7 +4,7 @@
 #include "library/viewer/viewer.h"
 
 #include "app/kitti_occ_grids/chow_lui_tree.h"
-#include "app/kitti_occ_grids/chow_lui_tree_node.h"
+#include "app/kitti_occ_grids/chow_lui_tree_osg_node.h"
 #include "app/kitti_occ_grids/model.h"
 #include "app/kitti_occ_grids/model_node.h"
 
@@ -45,7 +45,10 @@ int main(int argc, char** argv) {
   }
 
   kog::ChowLuiTree clt = kog::ChowLuiTree::Load(fn_clt.c_str());
-  osg::ref_ptr<kog::ChowLuiTreeNode> clt_node = new kog::ChowLuiTreeNode(clt);
+
+  printf("Have CLT of size %ld\n", clt.Size());
+
+  osg::ref_ptr<kog::ChowLuiTreeOSGNode> clt_node = new kog::ChowLuiTreeOSGNode(clt);
   v.AddChild(clt_node);
 
   v.Start();

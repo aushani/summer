@@ -8,7 +8,6 @@
 #include "library/viewer/viewer.h"
 
 #include "app/kitti_occ_grids/chow_lui_tree.h"
-#include "app/kitti_occ_grids/chow_lui_tree_node.h"
 #include "app/kitti_occ_grids/model.h"
 #include "app/kitti_occ_grids/model_node.h"
 
