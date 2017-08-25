@@ -67,9 +67,10 @@ class ChowLuiTree {
   const CLTNode& GetNode(const rt::Location &loc) const;
 
   enum class EvalType {
-    LOTP,
-    SC,
-    MARGINAL
+    DENSE,    // Dense evaluation of tree, assumes all nodes are known!
+    LOTP,     // Uses Law of Total Probability to approximate result for missing nodes
+    SC,       // Short-circuits from children to grandparents (and beyond) if parents missing (approximate, misses correlation between children)
+    MARGINAL  // Evaluates using only marginal probabilities
   };
 
   double EvaluateLogProbability(const rt::DenseOccGrid &dog, const EvalType &type) const;
@@ -77,12 +78,14 @@ class ChowLuiTree {
   rt::OccGrid Sample() const;
 
   size_t Size() const;
+  size_t NumRoots() const;
 
   void Save(const char *fn) const;
   static ChowLuiTree Load(const char *fn);
 
  private:
-  static constexpr double kMaxDistanceBetweenNodes_ = 1.0;
+  //static constexpr double kMaxDistanceBetweenNodes_ = 1.0;
+  static constexpr double kMaxDistanceBetweenNodes_ = -1.0; // disable
 
   double resolution_;
 

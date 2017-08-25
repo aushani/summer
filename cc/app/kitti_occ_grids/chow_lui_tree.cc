@@ -142,13 +142,16 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm,
         for (int i2 = i1; i2 < max_ij; i2++) {
           for (int j2 = j1; j2 < max_ij; j2++) {
             for (int k2 = k1; k2 < max_k; k2++) {
-              double di = i1 - i2;
-              double dj = j1 - j2;
-              double dk = k1 - k2;
 
-              double d2 = di*di + dj*dj + dk*dk;
-              if (sqrt(d2) > kMaxDistanceBetweenNodes_) {
-                continue;
+              if (kMaxDistanceBetweenNodes_ > 0) {
+                double di = i1 - i2;
+                double dj = j1 - j2;
+                double dk = k1 - k2;
+
+                double d2 = di*di + dj*dj + dk*dk;
+                if (sqrt(d2) > kMaxDistanceBetweenNodes_) {
+                  continue;
+                }
               }
 
               rt::Location loc2(i2, j2, k2);
@@ -173,6 +176,9 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm,
               int i_loc2 = loc_int_mapping[loc2];
 
               double mi = jm.ComputeMutualInformation(loc1, loc2);
+              if (mi < 0.01) {
+                continue;
+              }
               double weight = -mi; // because we have minimum spanning tree but want max
 
               edges.push_back(BoostEdge(i_loc1, i_loc2));
@@ -279,6 +285,33 @@ void ChowLuiTree::SampleHelper(const CLTNode &node_at, std::map<rt::Location, bo
 }
 
 double ChowLuiTree::EvaluateLogProbability(const rt::DenseOccGrid &dog, const EvalType &type) const {
+  if (type == EvalType::DENSE) {
+
+    double log_prob = 0;
+
+    // Go through all edges in tree (order doesn't matter)
+    for (const auto &it : nodes_) {
+      const auto &node = it.second;
+
+      bool obs = dog.GetProbability(node.GetLocation()) > 0.5;
+      double p_obs = 0.0;
+
+      if (node.NumAncestors() > 0) {
+        const auto &parent_loc = node.GetAncestorLocation(0);
+        BOOST_ASSERT(dog.IsKnown(parent_loc));
+
+        bool parent_obs = dog.GetProbability(parent_loc) > 0.5;
+        p_obs = node.GetConditionalProbability(obs, 0, parent_obs);
+      } else {
+        p_obs = node.GetMarginalProbability(obs);
+      }
+
+      log_prob += log(p_obs);
+    }
+
+    return log_prob;
+  }
+
   if (type == EvalType::LOTP) {
     rt::DenseOccGrid my_dog(dog);
 
@@ -454,6 +487,10 @@ double ChowLuiTree::EvaluateLogProbabilityHelperSC(const CLTNode &node_at, const
 
 size_t ChowLuiTree::Size() const {
   return nodes_.size();
+}
+
+size_t ChowLuiTree::NumRoots() const {
+  return parent_locs_.size();
 }
 
 void ChowLuiTree::Save(const char *fn) const {

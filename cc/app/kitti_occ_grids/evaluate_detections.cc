@@ -11,15 +11,17 @@ int main(int argc, char** argv) {
   printf("Evaluate Detections\n");
 
   if (argc < 4) {
-    printf("Usage: %s training_data/ testing_data/ eval_type\n", argv[0]);
-    printf("                                                \n");
-    printf("      eval_type   :=    [ LOTP | SC | MARGINAL ]\n");
+    printf("Usage: %s training_data/ testing_data/ eval_type        \n", argv[0]);
+    printf("                                                        \n");
+    printf("      eval_type   :=    [ DENSE | LOTP | SC | MARGINAL ]\n");
     return 1;
   }
 
   kog::ChowLuiTree::EvalType type = kog::ChowLuiTree::EvalType::MARGINAL;
   std::string string_type(argv[3]);
-  if (string_type == "LOTP") {
+  if (string_type == "DENSE") {
+    type = kog::ChowLuiTree::EvalType::DENSE;
+  } else if (string_type == "LOTP") {
     type = kog::ChowLuiTree::EvalType::LOTP;
   } else if (string_type == "SC") {
     type = kog::ChowLuiTree::EvalType::SC;

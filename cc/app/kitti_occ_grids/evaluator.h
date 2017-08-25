@@ -25,6 +25,7 @@ class Evaluator {
   void Finish();
 
   bool HaveWork() const;
+  size_t WorkLeft() const;
   void PrintConfusionMatrix() const;
 
   std::vector<std::string> GetClasses() const;
@@ -50,15 +51,24 @@ class Evaluator {
     Work(const fs::path &p, const std::string &cn) : path(p), classname(cn) { }
   };
 
-  std::deque<Work> work_queue_;
+  std::map<std::string, std::deque<Work> > work_queues_;
   mutable std::mutex work_queue_mutex_;
 
   std::vector<std::thread> threads_;
 
+  double dog_time_ms_ = 0;
+  double build_clt_time_ms_ = 0;
   double eval_time_ms_ = 0;
-  int eval_counts_ = 0;
+  double total_time_ms_ = 0;
+
+  int timing_counts_ = 0;
+
+  size_t num_clt_nodes_ = 0;
+  size_t num_clt_roots_ = 0;
+  size_t stats_counts_ = 0;
 
   void WorkerThread();
+  void ProcessWork(const Work &w);
 };
 
 } // namespace kitti_occ_grids
