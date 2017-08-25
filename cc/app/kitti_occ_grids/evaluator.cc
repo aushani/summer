@@ -25,19 +25,21 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const Ch
 
     printf("Found %s\n", classname.c_str());
 
-    fs::path p_clf = it->path() / fs::path("clt.clt");
+    //fs::path p_clf = it->path() / fs::path("clt.clt");
+    //auto clt = ChowLuiTree::Load(p_clf.string().c_str());
+    //printf("CLT size: %ld\n", clt.Size());
+    //clts_.insert({classname, clt});
 
-    auto clt = ChowLuiTree::Load(p_clf.string().c_str());
-    printf("CLT size: %ld\n", clt.Size());
-
-    clts_.insert({classname, clt});
+    fs::path p_jm = it->path() / fs::path("jm.jm");
+    auto jm = JointModel::Load(p_jm.string().c_str());
+    jms_.insert({classname, jm});
   }
-  printf("Loaded all clt's\n");
+  printf("Loaded all joint models\n");
 
   // Init confusion matrix
-  for (const auto it1 : clts_) {
+  for (const auto it1 : jms_) {
     const auto &classname1 = it1.first;
-    for (const auto it2 : clts_) {
+    for (const auto it2 : jms_) {
       const auto &classname2 = it2.first;
       confusion_matrix_[classname1][classname2] = 0;
     }
@@ -122,12 +124,23 @@ void Evaluator::WorkerThread() {
       double best_log_prob = 0.0;
 
       t.Start();
-      rt::DenseOccGrid dog(og, 5.0, 5.0, 5.0, true);
-      for (const auto it : clts_) {
-        const auto &classname = it.first;
-        const auto &clt = it.second;
 
+      rt::DenseOccGrid dog(og, 5.0, 5.0, 5.0, true);
+      //printf("Of %ld voxels, %5.3f %% known\n", dog.Size(), dog.FractionKnown()*100);
+
+      for (const auto it : jms_) {
+        const auto &classname = it.first;
+        const auto &jm = it.second;
+
+        // Make CLT
+        //library::timer::Timer t;
+        ChowLuiTree clt(jm, dog);
+        //printf("CLT construction took %5.3f ms \n", t.GetMs());
+
+        // Now use it for evaluation
+        //t.Start();
         double log_prob = clt.EvaluateLogProbability(dog, eval_type_);
+        //printf("Eval took %5.3f ms \n", t.GetMs());
 
         if (first || log_prob > best_log_prob) {
           best_log_prob = log_prob;
@@ -177,7 +190,7 @@ void Evaluator::PrintConfusionMatrix() const {
     for (const auto it2 : it1.second) {
       printf("%15.1f %%", 100.0 * it2.second/sum);
     }
-    printf("\n");
+    printf("\t(%05d Evaluations)\n", sum);
   }
 
   results_mutex_.unlock();
@@ -185,7 +198,7 @@ void Evaluator::PrintConfusionMatrix() const {
 
 std::vector<std::string> Evaluator::GetClasses() const {
   std::vector<std::string> classes;
-  for (auto it : clts_) {
+  for (auto it : jms_) {
     classes.push_back(it.first);
   }
 

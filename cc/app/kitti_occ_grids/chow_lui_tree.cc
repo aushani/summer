@@ -18,10 +18,21 @@ ChowLuiTree::ChowLuiTree() {
 
 ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution()) {
   // Make edges
-  auto edges = ConstructEdges(jm);
+  boost::optional<const rt::DenseOccGrid&> odog;
+  auto edges = ConstructEdges(jm, odog);
 
   // Make tree
   MakeTree(edges, jm);
+}
+
+ChowLuiTree::ChowLuiTree(const JointModel &jm, const rt::DenseOccGrid &dog) : resolution_(jm.GetResolution()) {
+  // Make edges
+  auto edges = ConstructEdges(jm, dog);
+
+  // Make tree
+  //library::timer::Timer t;
+  MakeTree(edges, jm);
+  //printf("Took %5.3f ms to make tree\n", t.GetMs());
 }
 
 void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointModel &jm) {
@@ -80,9 +91,8 @@ void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointM
   }
 }
 
-std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm) {
-  library::timer::Timer t;
-  t.Start();
+std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog) {
+  //library::timer::Timer t;
 
   // Adapted from boost example
 
@@ -108,12 +118,15 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm)
   int min_k = -jm.GetNZ() / 2;
   int max_k = min_k + jm.GetNZ();
 
-  size_t n_at = 0;
-
   for (int i1=min_ij; i1 < max_ij; i1++) {
     for (int j1=min_ij; j1 < max_ij; j1++) {
       for (int k1=min_k; k1 < max_k; k1++) {
         rt::Location loc1(i1, j1, k1);
+
+        // Make sure it's known in this occ grid
+        if (dog && !dog->IsKnown(loc1)) {
+          continue;
+        }
 
         if (loc_int_mapping.count(loc1) == 0) {
           loc_int_mapping[loc1] = int_loc_mapping.size();
@@ -123,30 +136,26 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm)
         int i_loc1 = loc_int_mapping[loc1];
 
         if (!jm.InRange(loc1)) {
-          printf("Out of range! %d, %d, %d\n",
-              loc1.i, loc1.j, loc1.k);
           continue;
         }
 
         for (int i2 = i1; i2 < max_ij; i2++) {
           for (int j2 = j1; j2 < max_ij; j2++) {
             for (int k2 = k1; k2 < max_k; k2++) {
-              n_at++;
-              if (n_at % (1000 * 1000) == 0) {
-                printf("At %ld M\n", n_at/(1000*1000));
-                printf("\tHave %ld edges, %ld nodes so far...\n",
-                    edges.size(), int_loc_mapping.size());
-              }
-
               double di = i1 - i2;
               double dj = j1 - j2;
               double dk = k1 - k2;
+
               double d2 = di*di + dj*dj + dk*dk;
               if (sqrt(d2) > kMaxDistanceBetweenNodes_) {
                 continue;
               }
 
               rt::Location loc2(i2, j2, k2);
+              // Make sure it's known in this occ grid
+              if (dog && !dog->IsKnown(loc2)) {
+                continue;
+              }
 
               if (loc1 == loc2) {
                 continue;
@@ -176,16 +185,16 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm)
   }
   size_t num_edges = edges.size();
   size_t num_nodes = int_loc_mapping.size();
-  printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_edges, num_nodes);
+  //printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_edges, num_nodes);
 
   Graph g(edges.begin(), edges.begin() + num_edges, weights.begin(), num_nodes);
 
   boost::property_map<Graph, boost::edge_weight_t>::type weight = get(boost::edge_weight, g);
   std::vector<EdgeDescriptor> spanning_tree;
 
-  t.Start();
+  //t.Start();
   boost::kruskal_minimum_spanning_tree(g, std::back_inserter(spanning_tree));
-  printf("kruskal done in %5.3f sec, have %ld edges\n", t.GetSeconds(), spanning_tree.size());
+  //printf("kruskal done in %5.3f sec, have %ld edges\n", t.GetSeconds(), spanning_tree.size());
 
   std::vector<Edge> clt_edges;
   for (std::vector < EdgeDescriptor >::iterator ei = spanning_tree.begin(); ei != spanning_tree.end(); ++ei) {
@@ -324,73 +333,80 @@ double ChowLuiTree::EvaluateLogProbabilityHelperLOTP(const CLTNode &node_at, rt:
 
   double log_prob = 0.0;
 
-  if (!dog.IsKnown(node_at.GetLocation())) {
-    // If this node was not observed in the DenseOccGrid, figure out our belief of it given the tree so we can evaluate
-    // the other observations
-    if (node_at.NumAncestors() > 0) {
-      // Law of total probability
-      const auto &parent_loc = node_at.GetAncestorLocation(0);
-      BOOST_ASSERT(dog.IsKnown(parent_loc));
-
-      double p_parent_occu = dog.GetProbability(parent_loc);
-      double p_parent_free = 1 - p_parent_occu;
-
-      double p_occu_given_parent_occu = node_at.GetConditionalProbability(true, 0, true);
-      double p_occu_given_parent_free = node_at.GetConditionalProbability(true, 0, false);
-
-      double p_occu = p_occu_given_parent_occu * p_parent_occu + p_occu_given_parent_free * p_parent_free;
-
-      dog.Set(node_at.GetLocation(), p_occu);
-    } else {
-      double p_occu = node_at.GetMarginalProbability(true);
-      dog.Set(node_at.GetLocation(), p_occu);
-    }
-  } else {
+  if (dog.IsKnown(node_at.GetLocation())) {
     // If this node was observed, evaluate its likelihood given our current belief in the state of the occ grid
     bool obs = dog.GetProbability(node_at.GetLocation()) > 0.5;
-    double update = 0.0;
+    double p_obs = 0.0;
 
     if (node_at.NumAncestors() > 0) {
-      // Law of total probability
-      const auto &parent_loc = node_at.GetAncestorLocation(0);
-      BOOST_ASSERT(dog.IsKnown(parent_loc));
+      // Condition on parent
+      int ancestor = 0;
 
-      double p_parent_occu = dog.GetProbability(parent_loc);
-      double p_parent_free = 1 - p_parent_occu;
+      const auto &ancestor_loc = node_at.GetAncestorLocation(ancestor);
+      BOOST_ASSERT(dog.IsKnown(ancestor_loc));
 
-      double p_obs_given_parent_occu = node_at.GetConditionalProbability(obs, 0, true);
-      double p_obs_given_parent_free = node_at.GetConditionalProbability(obs, 0, false);
-
-      BOOST_ASSERT(p_parent_occu <= 1);
-      BOOST_ASSERT(p_parent_occu >= 0);
-
-      BOOST_ASSERT(p_parent_free <= 1);
-      BOOST_ASSERT(p_parent_free >= 0);
-
-      BOOST_ASSERT(p_obs_given_parent_occu <= 1);
-      BOOST_ASSERT(p_obs_given_parent_occu >= 0);
-
-      BOOST_ASSERT(p_obs_given_parent_free <= 1);
-      BOOST_ASSERT(p_obs_given_parent_free >= 0);
-
-      double p_obs = p_obs_given_parent_occu * p_parent_occu + p_obs_given_parent_free * p_parent_free;
-
-      BOOST_ASSERT(p_obs <= 1);
-      BOOST_ASSERT(p_obs >= 0);
-
-      update = log(p_obs);
+      bool obs_ancestor = dog.GetProbability(ancestor_loc) > 0.5;
+      p_obs = node_at.GetConditionalProbability(obs, ancestor, obs_ancestor);
     } else {
-      double p_obs = node_at.GetMarginalProbability(obs);
-      update = log(p_obs);
+      // Just get the marginal
+      p_obs = node_at.GetMarginalProbability(obs);
     }
-    log_prob += update;
-  }
 
-  // Process children
-  for (const auto &loc : node_at.GetChildrenLocations()) {
-    auto it = nodes_.find(loc);
-    BOOST_ASSERT(it != nodes_.end());
-    log_prob += EvaluateLogProbabilityHelperLOTP(it->second, dog_pointer);
+    log_prob += log(p_obs);
+
+    // Now process children
+    for (const auto &loc : node_at.GetChildrenLocations()) {
+      auto it = nodes_.find(loc);
+      BOOST_ASSERT(it != nodes_.end());
+      log_prob += EvaluateLogProbabilityHelperLOTP(it->second, dog_pointer);
+    }
+  } else {
+    // To properly model correlation between children, we have to enumerate all states
+    double p_occu = 0.0;
+    double p_free = 0.0;
+    if (node_at.NumAncestors() > 0) {
+      // Condition on parent
+      int ancestor = 0;
+
+      const auto &ancestor_loc = node_at.GetAncestorLocation(ancestor);
+      BOOST_ASSERT(dog.IsKnown(ancestor_loc));
+
+      bool obs_ancestor = dog.GetProbability(ancestor_loc) > 0.5;
+      p_occu = node_at.GetConditionalProbability(true, ancestor, obs_ancestor);
+      p_free = node_at.GetConditionalProbability(false, ancestor, obs_ancestor);
+    } else {
+      // Just get the marginals
+      p_occu = node_at.GetMarginalProbability(true);
+      p_free = node_at.GetMarginalProbability(false);
+    }
+
+    // Evaluate for occupied
+    dog.Set(node_at.GetLocation(), 1.0);
+    double log_prob_occu = log(p_occu);
+    for (const auto &loc : node_at.GetChildrenLocations()) {
+      auto it = nodes_.find(loc);
+      BOOST_ASSERT(it != nodes_.end());
+      log_prob_occu += EvaluateLogProbabilityHelperLOTP(it->second, dog_pointer);
+    }
+
+    // Evaluate for free
+    dog.Set(node_at.GetLocation(), 0.0);
+    double log_prob_free = log(p_free);
+    for (const auto &loc : node_at.GetChildrenLocations()) {
+      auto it = nodes_.find(loc);
+      BOOST_ASSERT(it != nodes_.end());
+      log_prob_free += EvaluateLogProbabilityHelperLOTP(it->second, dog_pointer);
+    }
+
+    // Now combine the evaluations (Law of Total Probability)
+    double max_log_prob = std::max(log_prob_occu, log_prob_free);
+    double a = log_prob_occu - max_log_prob;
+    double b = log_prob_free - max_log_prob;
+
+    log_prob = max_log_prob + log(exp(a) + exp(b));
+
+    // Restore dog
+    dog.Clear(node_at.GetLocation());
   }
 
   return log_prob;

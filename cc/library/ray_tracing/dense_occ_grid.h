@@ -13,9 +13,12 @@ class DenseOccGrid {
   DenseOccGrid(const OccGrid &og, float max_x, float max_y, float max_z, bool make_binary);
 
   void Set(const Location &loc, float p);
+  void Clear(const Location &loc);
 
   float GetProbability(const Location &loc) const;
   bool IsKnown(const Location &loc) const;
+  double FractionKnown() const;
+  size_t Size() const;
 
   bool InRange(const Location &loc) const;
   float GetResolution() const;

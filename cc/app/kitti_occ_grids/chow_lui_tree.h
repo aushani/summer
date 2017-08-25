@@ -3,6 +3,7 @@
 #include <map>
 #include <vector>
 
+#include <boost/optional.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/vector.hpp>
 
@@ -58,6 +59,7 @@ class ChowLuiTree {
   };
 
   ChowLuiTree(const JointModel &jm);
+  ChowLuiTree(const JointModel &jm, const rt::DenseOccGrid &dog);
 
   double GetResolution() const;
 
@@ -90,7 +92,7 @@ class ChowLuiTree {
   // For convience with boost serialization
   ChowLuiTree();
 
-  std::vector<Edge> ConstructEdges(const JointModel &jm);
+  std::vector<Edge> ConstructEdges(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog);
   void MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointModel &jm);
 
   void SampleHelper(const CLTNode &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const;

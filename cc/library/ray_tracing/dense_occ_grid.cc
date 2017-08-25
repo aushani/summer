@@ -1,5 +1,6 @@
 #include "library/ray_tracing/dense_occ_grid.h"
 
+#include <algorithm>
 #include <cmath>
 #include <thread>
 
@@ -48,6 +49,15 @@ bool DenseOccGrid::IsKnown(const Location &loc) const {
   return known_[idx];
 }
 
+double DenseOccGrid::FractionKnown() const {
+  int count = std::count(known_.begin(), known_.end(), true);
+  return count / static_cast<double>(known_.size());
+}
+
+size_t DenseOccGrid::Size() const {
+  return known_.size();
+}
+
 bool DenseOccGrid::InRange(const Location &loc) const {
   return std::abs(loc.i) < nx_/2 &&
          std::abs(loc.j) < ny_/2 &&
@@ -71,6 +81,16 @@ void DenseOccGrid::Set(const Location &loc, float p) {
   size_t idx = GetIndex(loc);
   probs_[idx] = p;
   known_[idx] = true;
+}
+
+void DenseOccGrid::Clear(const Location &loc) {
+  if (!InRange(loc)) {
+    return;
+  }
+
+  size_t idx = GetIndex(loc);
+  probs_[idx] = 0.5;
+  known_[idx] = false;
 }
 
 void DenseOccGrid::PopulateDenseWorker(const OccGrid &og, size_t i0, size_t i1, bool make_binary) {

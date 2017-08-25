@@ -30,14 +30,16 @@ class Evaluator {
   std::vector<std::string> GetClasses() const;
 
  private:
-  static constexpr int kNumThreads_ = 1;
+  static constexpr int kNumThreads_ = 10;
 
   fs::path training_data_path_;
   fs::path testing_data_path_;
 
   ChowLuiTree::EvalType eval_type_;
 
-  std::map<std::string, ChowLuiTree> clts_;
+  //std::map<std::string, ChowLuiTree> clts_;
+  std::map<std::string, JointModel> jms_;
+
   std::map<std::string, std::map<std::string, int> > confusion_matrix_;
   mutable std::mutex results_mutex_;
 
