@@ -13,13 +13,18 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const Ch
 
   fs::directory_iterator end_it;
   for (fs::directory_iterator it(training_data_path_); it != end_it; it++) {
-    if (fs::is_regular_file(it->path())) {
+    if (!fs::is_regular_file(it->path())) {
       continue;
     }
 
-    std::string classname = it->path().filename().string();
+    if (it->path().extension() != ".jm") {
+      continue;
+    }
 
-    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "NOOBJ") ) {
+    std::string classname = it->path().stem().string();
+
+    //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background") ) {
+    if (! (classname == "Car" || classname == "Background") ) {
       continue;
     }
 
@@ -30,11 +35,12 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const Ch
     //printf("CLT size: %ld\n", clt.Size());
     //clts_.insert({classname, clt});
 
-    fs::path p_jm = it->path() / fs::path("jm.jm");
-    auto jm = JointModel::Load(p_jm.string().c_str());
+    library::timer::Timer t;
+    auto jm = JointModel::Load(it->path().string().c_str());
+    printf("\tTook %5.3f sec to load %s\n", t.GetSeconds(), it->path().string().c_str());
     jms_.insert({classname, jm});
   }
-  printf("Loaded all joint models\n");
+  printf("Loaded %ld joint models\n", jms_.size());
 
   // Init confusion matrix
   for (const auto it1 : jms_) {
@@ -121,6 +127,7 @@ void Evaluator::WorkerThread() {
     std::advance(it, queue_num);
     auto &work_queue = it->second;
 
+    work_queue_mutex_.lock();
     if (work_queue.size() > 0) {
       Work w = work_queue.front();
       work_queue.pop_front();
@@ -129,6 +136,8 @@ void Evaluator::WorkerThread() {
 
       //Process Work
       ProcessWork(w);
+    } else {
+      work_queue_mutex_.unlock();
     }
 
     count++;
@@ -139,6 +148,7 @@ void Evaluator::ProcessWork(const Work &w) {
   library::timer::Timer t_total;
   library::timer::Timer t_step;
 
+  //printf("loading %s\n", w.path.string().c_str());
   auto og = rt::OccGrid::Load(w.path.string().c_str());
 
   // Classify
