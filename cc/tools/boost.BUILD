@@ -87,3 +87,23 @@ cc_library(
       ":boost_system",
   ],
 )
+
+cc_library(
+  name = "boost_iostreams",
+  srcs = [
+          "boost_1_63_0/libs/iostreams/src/bzip2.cpp",
+          "boost_1_63_0/libs/iostreams/src/file_descriptor.cpp",
+          "boost_1_63_0/libs/iostreams/src/gzip.cpp",
+          "boost_1_63_0/libs/iostreams/src/mapped_file.cpp",
+          "boost_1_63_0/libs/iostreams/src/zlib.cpp",
+         ],
+  copts = [
+      "-Wno-unused-parameter",
+      "-fvisibility=hidden",
+  ],
+  linkopts = ["-lz"],
+  deps = [
+      ":boost_headers",
+      ":boost_system",
+  ],
+)

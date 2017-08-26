@@ -114,6 +114,7 @@ class JointModel {
 
   void Save(const char *fn) const;
   static JointModel Load(const char *fn);
+  static JointModel LoadGZ(const char *fn);
 
  private:
   // Just to make serialization easier

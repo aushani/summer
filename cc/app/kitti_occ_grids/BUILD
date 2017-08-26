@@ -20,6 +20,7 @@ cc_library(
             "//library/util",
             "//library/viewer",
             "@boost//:boost_serialization",
+            "@boost//:boost_iostreams",
            ],
 )
 

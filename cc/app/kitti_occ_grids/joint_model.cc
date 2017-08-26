@@ -7,6 +7,10 @@
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+
 namespace rt = library::ray_tracing;
 
 namespace app {
@@ -200,6 +204,20 @@ JointModel JointModel::Load(const char *fn) {
   ia >> m;
 
   return m;
+}
+
+JointModel JointModel::LoadGZ(const char *fn) {
+  JointModel jm;
+
+  std::ifstream ifs(fn);
+  boost::iostreams::filtering_stream<boost::iostreams::input> f;
+  f.push(boost::iostreams::gzip_decompressor());
+  f.push(ifs);
+
+  boost::archive::binary_iarchive ia(f);
+  ia >> jm;
+
+  return jm;
 }
 
 } // namespace kitti_occ_grids
