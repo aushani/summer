@@ -61,7 +61,8 @@ toolchain {
   cxx_builtin_include_directory: "/usr/local/include"
   cxx_builtin_include_directory: "/usr/include"
   cxx_builtin_include_directory: "/usr/lib/x86_64-linux-gnu"
-  cxx_builtin_include_directory: "/usr/local/cuda-8.0/targets/x86_64-linux/include"
+  cxx_builtin_include_directory: "/usr/local/cuda/include"
+  cxx_builtin_include_directory: "/usr/local/cuda/targets/x86_64-linux/include/"
 
   tool_path { name: "gcov" path: "/usr/bin/gcov" }
 

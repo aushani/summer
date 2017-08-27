@@ -1,13 +1,13 @@
 cc_library(
     name = "cuda",
-    hdrs = glob(["targets/x86_64-linux/include/**"]),
+    hdrs = glob(["include/**"]),
     data = ["bin/nvcc"],
     includes = [
-        "targets/x86_64-linux/include",
+        "include",
     ],
     linkopts = [
-        "-Wl,-rpath=/usr/local/cuda-8.0/targets/x86_64-linux/lib",
-        "-L/usr/local/cuda-8.0/targets/x86_64-linux/lib",
+        "-Wl,-rpath=/usr/local/cuda/lib64",
+        "-L/usr/local/cuda/lib64",
         "-lnppc",
         "-lnppi",
         "-lnpps",
