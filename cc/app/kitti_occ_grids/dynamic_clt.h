@@ -16,6 +16,7 @@ class DynamicCLT {
   DynamicCLT(const JointModel &jm);
 
   double BuildAndEvaluate(const rt::DenseOccGrid &dog) const;
+  double OldStyle(const rt::DenseOccGrid &dog) const;
 
  private:
   static constexpr double kMaxDistanceBetweenNodes_ = 1.0;

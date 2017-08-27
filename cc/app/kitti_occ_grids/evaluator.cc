@@ -183,6 +183,12 @@ void Evaluator::ProcessWork(const Work &w) {
     double log_prob = dclt->BuildAndEvaluate(dog);
     eval_time += t_step.GetMs();
 
+    //printf("\n");
+    //double os_log_prob = dclt->OldStyle(dog);
+    //printf("\n");
+    //
+    //printf("Dynamic %5.3f vs Old Style %5.3f\n", log_prob, os_log_prob);
+
     if (first || log_prob > best_log_prob) {
       best_log_prob = log_prob;
       best_classname = classes_[i];

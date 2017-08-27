@@ -1,8 +1,10 @@
-#include "dynamic_clt.h"
+#include "app/kitti_occ_grids/dynamic_clt.h"
 
 #include <boost/graph/kruskal_min_spanning_tree.hpp>
 
 #include "library/timer/timer.h"
+
+#include "app/kitti_occ_grids/chow_lui_tree.h"
 
 namespace rt = library::ray_tracing;
 
@@ -31,27 +33,31 @@ DynamicCLT::DynamicCLT(const JointModel &jm) :
           continue;
         }
 
-        int i_bound = std::min(i1 + max_dijk, max_ij);
-        int j_bound = std::min(j1 + max_dijk, max_ij);
-        int k_bound = std::min(k1 + max_dijk, max_k);
+        for (int di = -max_dijk; di <= max_dijk; di++) {
+          for (int dj = -max_dijk; dj <= max_dijk; dj++) {
+            for (int dk = -max_dijk; dk <= max_dijk; dk++) {
+              // Make location
+              int i2 = i1 + di;
+              int j2 = j1 + dj;
+              int k2 = k1 + dk;
+              rt::Location loc2(i2, j2, k2);
 
-        for (int i2 = i1; i2 < i_bound; i2++) {
-          for (int j2 = j1; j2 < j_bound; j2++) {
-            for (int k2 = k1; k2 < k_bound; k2++) {
-              double di = i1 - i2;
-              double dj = j1 - j2;
-              double dk = k1 - k2;
+              // Checks
+              if (!jm.InRange(loc2) || loc1 == loc2 || loc2 < loc1) {
+                continue;
+              }
 
-              double d2 = di*di + dj*dj + dk*dk;
+              // Check distance
+              double dx = di*jm.GetResolution();
+              double dy = dj*jm.GetResolution();
+              double dz = dk*jm.GetResolution();
+
+              double d2 = dx*dx + dy*dy + dz*dz;
               if (d2 > max_d2) {
                 continue;
               }
 
-              rt::Location loc2(i2, j2, k2);
-              if (loc1 == loc2) {
-                continue;
-              }
-
+              // Check num observations
               if (jm.GetNumObservations(loc1, loc2) < kMinNumObservations_) {
                 continue;
               }
@@ -123,7 +129,7 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
   // Now Make Tree
   t.Start();
   boost::kruskal_minimum_spanning_tree(g, std::back_inserter(spanning_tree));
-  //printf("kruskal done in %5.3f ms, have %ld edges\n", t.GetMs(), spanning_tree.size());
+  //printf("dclt kruskal done in %5.3f ms, have %ld edges, %ld nodes\n", t.GetMs(), spanning_tree.size(), num_nodes);
 
   // Make list of list of edges
   t.Start();
@@ -139,9 +145,12 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
 
   // Now traverse tree and evaluate edges
   double update = 0;
+  int num_updates = 0;
+  int edges_evaled = 0;
   std::vector<bool> visited(num_nodes, false);
 
   for (size_t i_loc = 0; i_loc < num_nodes; i_loc++) {
+    // Have we hit this node before?
     if (visited[i_loc]) {
       continue;
     }
@@ -152,8 +161,9 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
     // Evaluate as root to tree
     const rt::Location &loc_root = int_to_loc[i_loc];
     update += log(jm_.GetMarginalProbability(loc_root, dog.GetProbability(loc_root) > 0.5));
+    num_updates++;
 
-    // Visit and process all children
+    // Visit and process all connected nodes
     while (visit_queue.size() > 0) {
       int i_visit = visit_queue.front();
       visit_queue.pop_front();
@@ -171,15 +181,29 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
 
         const rt::Location &child = int_to_loc[i_child];
 
+        // Did we already eval this edge?
+        if (visited[i_child]) {
+          continue;
+        }
+
         // Evaluate conditional
         update += log(jm_.GetConditionalProbability(child, dog.GetProbability(child) > 0.5,
                                                     parent, dog.GetProbability(parent) > 0.5));
+        num_updates++;
+        edges_evaled++;
       }
     }
   }
   //printf("Took %5.3f ms to traverse\n", t.GetMs());
+  //printf("dclt evaled %d updates, %d edges, had %d nodes\n", num_updates, edges_evaled, num_nodes);
 
   return update;
+}
+
+double DynamicCLT::OldStyle(const rt::DenseOccGrid &dog) const {
+  ChowLuiTree clt(jm_, dog);
+
+  return clt.EvaluateLogProbability(dog, ChowLuiTree::EvalType::DENSE);
 }
 
 } // namespace kitti_occ_grids

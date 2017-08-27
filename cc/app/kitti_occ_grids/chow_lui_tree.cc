@@ -144,6 +144,7 @@ void ChowLuiTree::ConstructEdges(const JointModel &jm, const boost::optional<con
           continue;
         }
 
+        // TODO Bug, doesn't connect all locations, only 1/8th of them
         int i_bound = std::min(i1 + max_dijk, max_ij);
         int j_bound = std::min(j1 + max_dijk, max_ij);
         int k_bound = std::min(k1 + max_dijk, max_k);
@@ -260,6 +261,10 @@ void ChowLuiTree::ConstructEdges(const JointModel &jm, const boost::optional<con
         visit_queue.push_back(i_child);
 
         const rt::Location &child = int_loc_mapping[i_child];
+
+        if (nodes_.count(child) > 0) {
+          continue;
+        }
 
         // Add to parent's chidren
         const auto &it_parent = nodes_.find(parent);
