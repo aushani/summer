@@ -25,7 +25,10 @@ struct DeviceData {
   void CopyData(const std::vector<Eigen::Vector3d> &hits);
 
   // Centered on (0, 0)
-  __host__ __device__ int GetResultIndex(int classnum, int i, int j) const;
+  __host__ __device__ int GetLogProbsIndex(int classnum, int i, int j) const;
+  __host__ __device__ int GetModelsIndex(int classnum, int i, int j) const;
+
+  __device__ void PerformUpdate(int loc[3], bool occu);
 
   int num_observations = 0;
   int max_voxel_visits_per_ray = 0;
@@ -36,10 +39,14 @@ struct DeviceData {
   float *hit_y = nullptr;
   float *hit_z = nullptr;
 
-  float *result = nullptr;
+  float *log_probs_ = nullptr;
   int n_x = 0;
   int n_y = 0;
-  int n_classes = 0;
+  int n_classes = 4;
+
+  float *models = nullptr;
+  int model_n_x = 10;
+  int model_n_y = 10;
 };
 
 DeviceData::DeviceData(float range_x, float range_y, float resolution, int max_observations, float max_range)
@@ -56,7 +63,10 @@ DeviceData::DeviceData(float range_x, float range_y, float resolution, int max_o
 
   int n_x = 2*ceil(range_x / resolution) + 1;
   int n_y = 2*ceil(range_y / resolution) + 1;
-  err = cudaMalloc(&result, sizeof(float) * n_x * n_y * n_classes);
+  err = cudaMalloc(&log_probs_, sizeof(float) * n_x * n_y * n_classes);
+  BOOST_ASSERT(err == cudaSuccess);
+
+  err = cudaMalloc(&models, sizeof(float) * model_n_x * model_n_y * n_classes);
   BOOST_ASSERT(err == cudaSuccess);
 }
 
@@ -65,7 +75,7 @@ void DeviceData::FreeDeviceMemory() {
   cudaFree(hit_y);
   cudaFree(hit_z);
 
-  cudaFree(result);
+  cudaFree(log_probs_);
 }
 
 void DeviceData::CopyData(const std::vector<Eigen::Vector3d> &hits) {
@@ -107,7 +117,7 @@ void DeviceData::CopyData(const std::vector<Eigen::Vector3d> &hits) {
   cudaDeviceSynchronize();
 }
 
-__host__ __device__ int DeviceData::GetResultIndex(int classnum, int i, int j) const {
+__host__ __device__ int DeviceData::GetLogProbsIndex(int classnum, int i, int j) const {
   int di = i - n_x/2;
   int dj = j - n_y/2;
 
@@ -117,6 +127,36 @@ __host__ __device__ int DeviceData::GetResultIndex(int classnum, int i, int j) c
   }
 
   return (di * n_y + dj) * n_classes + classnum;
+}
+
+__host__ __device__ int DeviceData::GetModelsIndex(int classnum, int i, int j) const {
+  int di = i - model_n_x/2;
+  int dj = j - model_n_y/2;
+
+  if (di < 0 || di >= model_n_x ||
+      dj < 0 || dj >= model_n_y) {
+    return -1;
+  }
+
+  return (di * model_n_y + dj) * n_classes + classnum;
+}
+
+__device__ void DeviceData::PerformUpdate(int loc[3], bool occu) {
+  for (int di = -model_n_x/2; di < model_n_x/2; di++) {
+    for (int dj = -model_n_y/2; dj < model_n_y/2; dj++) {
+      for (int classnum = 0; classnum < n_classes; classnum++) {
+
+        int idx = GetLogProbsIndex(classnum, loc[0]+di, loc[1]+dj);
+
+        if (idx >= 0) {
+          int model_idx = GetModelsIndex(classnum, di, dj);
+          if (model_idx > 0) {
+            log_probs_[idx] += (occu ? 1:-1) * models[model_idx];
+          }
+        }
+      }
+    }
+  }
 }
 
 Builder::Builder(double range_x, double range_y, float resolution, int max_observations, float max_range)
@@ -177,12 +217,11 @@ __global__ void RayTracingKernel(DeviceData data) {
 
   // walk down ray
   bool valid = true;
-  for (int step = 0; step < (data.max_voxel_visits_per_ray - 1); ++step) {
+  while (true) {
     // Are we done? Have we reached the hit point?
-    // Don't quit the loop just yet. We need to 0 out the rest of log odds updates.
     if ((sgn[dominant_dim] > 0) ? (cur_loc[dominant_dim] >= end_loc[dominant_dim])
                                 : (cur_loc[dominant_dim] <= end_loc[dominant_dim])) {
-      valid = false;
+      break;
     }
 
     if (valid) {
@@ -206,29 +245,11 @@ __global__ void RayTracingKernel(DeviceData data) {
     }
 
     // Now write out to result
-    for (int classnum=0; classnum<4; classnum++) {
-      for (int di=-5; di<=5; di++) {
-        for (int dj=-5; dj<=5; dj++) {
-          int res_idx = data.GetResultIndex(classnum, cur_loc[0]+di, cur_loc[1]+dj);
-          if (res_idx >= 0) {
-            data.result[res_idx]++;
-          }
-        }
-      }
-    }
+    data.PerformUpdate(cur_loc, false);
   }
 
   // Done ray tracing, write out endpoint
-  for (int classnum=0; classnum<4; classnum++) {
-    for (int di=-5; di<=5; di++) {
-      for (int dj=-5; dj<=5; dj++) {
-        int res_idx = data.GetResultIndex(classnum, cur_loc[0]+di, cur_loc[1]+dj);
-        if (res_idx >= 0) {
-          data.result[res_idx]--;
-        }
-      }
-    }
-  }
+  data.PerformUpdate(end_loc, false);
 }
 
 void Builder::GenerateDetectionMap(const std::vector<Eigen::Vector3d> &hits) {
