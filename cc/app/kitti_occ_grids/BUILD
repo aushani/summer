@@ -4,6 +4,7 @@ cc_library(
             "chow_lui_tree.cc", "chow_lui_tree.h",
             "chow_lui_tree_osg_node.cc", "chow_lui_tree_osg_node.h",
             "clt_node.cc", "clt_node.h",
+            "dynamic_clt.cc", "dynamic_clt.h",
             "evaluator.cc", "evaluator.h",
             "model.cc", "model.h",
             "joint_model.cc", "joint_model.h",

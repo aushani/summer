@@ -19,19 +19,19 @@ ChowLuiTree::ChowLuiTree() {
 ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution()) {
   // Make edges
   boost::optional<const rt::DenseOccGrid&> odog;
-  auto edges = ConstructEdges(jm, odog);
+  ConstructEdges(jm, odog);
 
   // Make tree
-  MakeTree(edges, jm);
+  //MakeTree(edges, jm);
 }
 
 ChowLuiTree::ChowLuiTree(const JointModel &jm, const rt::DenseOccGrid &dog) : resolution_(jm.GetResolution()) {
   // Make edges
-  auto edges = ConstructEdges(jm, dog);
+  ConstructEdges(jm, dog);
 
   // Make tree
   //library::timer::Timer t;
-  MakeTree(edges, jm);
+  //MakeTree(edges, jm);
   //printf("Took %5.3f ms to make tree\n", t.GetMs());
 }
 
@@ -44,17 +44,19 @@ void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointM
     auto it = edges.begin();
     bool found = false;
     bool flip = false;
-    for ( ; it != edges.end(); it++) {
-      if (nodes_.count(it->loc1) > 0) {
-        found = true;
-        flip = false;
-        break;
-      }
+    if (nodes_.size() > 0) {
+      for ( ; it != edges.end(); it++) {
+        if (nodes_.count(it->loc1) > 0) {
+          found = true;
+          flip = false;
+          break;
+        }
 
-      if (nodes_.count(it->loc2) > 0) {
-        found = true;
-        flip = true;
-        break;
+        if (nodes_.count(it->loc2) > 0) {
+          found = true;
+          flip = true;
+          break;
+        }
       }
     }
 
@@ -91,8 +93,8 @@ void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointM
   }
 }
 
-std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog) {
-  //library::timer::Timer t;
+void ChowLuiTree::ConstructEdges(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog) {
+  library::timer::Timer t;
 
   // Adapted from boost example
 
@@ -118,6 +120,9 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm,
   int min_k = -jm.GetNZ() / 2;
   int max_k = min_k + jm.GetNZ();
 
+  int max_dijk = std::ceil(kMaxDistanceBetweenNodes_ / jm.GetResolution());
+  double max_d2 = kMaxDistanceBetweenNodes_*kMaxDistanceBetweenNodes_;
+
   for (int i1=min_ij; i1 < max_ij; i1++) {
     for (int j1=min_ij; j1 < max_ij; j1++) {
       for (int k1=min_k; k1 < max_k; k1++) {
@@ -139,19 +144,21 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm,
           continue;
         }
 
-        for (int i2 = i1; i2 < max_ij; i2++) {
-          for (int j2 = j1; j2 < max_ij; j2++) {
-            for (int k2 = k1; k2 < max_k; k2++) {
+        int i_bound = std::min(i1 + max_dijk, max_ij);
+        int j_bound = std::min(j1 + max_dijk, max_ij);
+        int k_bound = std::min(k1 + max_dijk, max_k);
 
-              if (kMaxDistanceBetweenNodes_ > 0) {
-                double di = i1 - i2;
-                double dj = j1 - j2;
-                double dk = k1 - k2;
+        for (int i2 = i1; i2 < i_bound; i2++) {
+          for (int j2 = j1; j2 < j_bound; j2++) {
+            for (int k2 = k1; k2 < k_bound; k2++) {
 
-                double d2 = di*di + dj*dj + dk*dk;
-                if (sqrt(d2) > kMaxDistanceBetweenNodes_) {
-                  continue;
-                }
+              double di = i1 - i2;
+              double dj = j1 - j2;
+              double dk = k1 - k2;
+
+              double d2 = di*di + dj*dj + dk*dk;
+              if (d2 > max_d2) {
+                continue;
               }
 
               rt::Location loc2(i2, j2, k2);
@@ -164,7 +171,7 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm,
                 continue;
               }
 
-              if (jm.GetNumObservations(loc1, loc2) < 100) {
+              if (jm.GetNumObservations(loc1, loc2) < kMinNumObservations_) {
                 continue;
               }
 
@@ -191,32 +198,81 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm,
   }
   size_t num_edges = edges.size();
   size_t num_nodes = int_loc_mapping.size();
-  //printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_edges, num_nodes);
+  printf("Took %5.3f ms to get %ld edges, %ld nodes\n", t.GetMs(), num_edges, num_nodes);
 
   Graph g(edges.begin(), edges.begin() + num_edges, weights.begin(), num_nodes);
 
   boost::property_map<Graph, boost::edge_weight_t>::type weight = get(boost::edge_weight, g);
   std::vector<EdgeDescriptor> spanning_tree;
 
-  //t.Start();
+  t.Start();
   boost::kruskal_minimum_spanning_tree(g, std::back_inserter(spanning_tree));
-  //printf("kruskal done in %5.3f sec, have %ld edges\n", t.GetSeconds(), spanning_tree.size());
+  printf("kruskal done in %5.3f ms, have %ld edges\n", t.GetMs(), spanning_tree.size());
 
-  std::vector<Edge> clt_edges;
+  // Make list of list of edges
+  t.Start();
+  std::vector<std::vector<int> > clt_edges(int_loc_mapping.size(), std::vector<int>());
   for (std::vector < EdgeDescriptor >::iterator ei = spanning_tree.begin(); ei != spanning_tree.end(); ++ei) {
     int i_loc1 = source(*ei, g);
     int i_loc2 = target(*ei, g);
 
-    const rt::Location &loc1 = int_loc_mapping[i_loc1];
-    const rt::Location &loc2 = int_loc_mapping[i_loc2];
+    //const rt::Location &loc1 = int_loc_mapping[i_loc1];
+    //const rt::Location &loc2 = int_loc_mapping[i_loc2];
 
-    double w = weight[*ei];
-    double mi = -w;
+    //double w = weight[*ei];
+    //double mi = -w;
 
-    clt_edges.emplace_back(loc1, loc2, mi);
+    clt_edges[i_loc1].push_back(i_loc2);
+    clt_edges[i_loc2].push_back(i_loc1);
   }
+  printf("Took %5.3f ms to make list of list of edges\n", t.GetMs());
 
-  return clt_edges;
+  // Traverse tree
+  std::vector<bool> visited(int_loc_mapping.size(), false);
+
+  for (size_t i_loc = 0; i_loc < visited.size(); i_loc++) {
+    if (visited[i_loc]) {
+      continue;
+    }
+
+    std::deque<int> visit_queue;
+    visit_queue.push_back(i_loc);
+
+    // Add as root to tree
+    CLTNode n(int_loc_mapping[i_loc], jm);
+    nodes_.insert({n.GetLocation(), n});
+    parent_locs_.push_back(n.GetLocation());
+
+    // Visit and process all children
+    while (visit_queue.size() > 0) {
+      int i_visit = visit_queue.front();
+      visit_queue.pop_front();
+
+      if (visited[i_visit]) {
+        continue;
+      }
+      visited[i_visit] = true;
+
+      const rt::Location &parent = int_loc_mapping[i_visit];
+
+      // Keep visiting children
+      for (int i_child : clt_edges[i_visit]) {
+        visit_queue.push_back(i_child);
+
+        const rt::Location &child = int_loc_mapping[i_child];
+
+        // Add to parent's chidren
+        const auto &it_parent = nodes_.find(parent);
+        BOOST_ASSERT(it_parent != nodes_.end());
+        auto &parent_node = it_parent->second;
+        parent_node.AddChild(n.GetLocation());
+
+        CLTNode n(child, parent_node, jm);
+        nodes_.insert({child, n});
+      }
+    }
+  }
+  printf("took %5.3f ms to traverse\n", t.GetMs());
 }
 
 double ChowLuiTree::GetResolution() const {

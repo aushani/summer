@@ -6,7 +6,7 @@
 
 #include <boost/filesystem.hpp>
 
-#include "app/kitti_occ_grids/chow_lui_tree.h"
+#include "app/kitti_occ_grids/dynamic_clt.h"
 
 namespace rt = library::ray_tracing;
 namespace fs = boost::filesystem;
@@ -16,7 +16,7 @@ namespace kitti_occ_grids {
 
 class Evaluator {
  public:
-  Evaluator(const char* training_dir, const char* testing_dir, const ChowLuiTree::EvalType &type);
+  Evaluator(const char* training_dir, const char* testing_dir);
   ~Evaluator();
 
   void QueueClass(const std::string &classname);
@@ -28,7 +28,7 @@ class Evaluator {
   size_t WorkLeft() const;
   void PrintConfusionMatrix() const;
 
-  std::vector<std::string> GetClasses() const;
+  const std::vector<std::string>& GetClasses() const;
 
  private:
   static constexpr int kNumThreads_ = 1;
@@ -36,10 +36,10 @@ class Evaluator {
   fs::path training_data_path_;
   fs::path testing_data_path_;
 
-  ChowLuiTree::EvalType eval_type_;
-
   //std::map<std::string, ChowLuiTree> clts_;
-  std::map<std::string, JointModel> jms_;
+  //std::map<std::string, JointModel> jms_;
+  std::vector<DynamicCLT*> dclts_;
+  std::vector<std::string> classes_;
 
   std::map<std::string, std::map<std::string, int> > confusion_matrix_;
   mutable std::mutex results_mutex_;
@@ -56,16 +56,11 @@ class Evaluator {
 
   std::vector<std::thread> threads_;
 
+  double load_time_ms_ = 0;
   double dog_time_ms_ = 0;
-  double build_clt_time_ms_ = 0;
   double eval_time_ms_ = 0;
   double total_time_ms_ = 0;
-
   int timing_counts_ = 0;
-
-  size_t num_clt_nodes_ = 0;
-  size_t num_clt_roots_ = 0;
-  size_t stats_counts_ = 0;
 
   void WorkerThread();
   void ProcessWork(const Work &w);

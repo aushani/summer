@@ -8,8 +8,8 @@ namespace fs = boost::filesystem;
 namespace app {
 namespace kitti_occ_grids {
 
-Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const ChowLuiTree::EvalType &type) :
- training_data_path_(training_dir), testing_data_path_(testing_dir), eval_type_(type) {
+Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
+ training_data_path_(training_dir), testing_data_path_(testing_dir) {
 
   fs::directory_iterator end_it;
   for (fs::directory_iterator it(training_data_path_); it != end_it; it++) {
@@ -21,10 +21,11 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const Ch
       continue;
     }
 
+    // TODO Using 2m jm's now...
     std::string classname = it->path().stem().string();
+    classname = classname.substr(0, classname.size() - 3);
 
-    //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background") ) {
-    if (! (classname == "Car" || classname == "Background") ) {
+    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background") ) {
       continue;
     }
 
@@ -36,17 +37,20 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const Ch
     //clts_.insert({classname, clt});
 
     library::timer::Timer t;
-    auto jm = JointModel::Load(it->path().string().c_str());
+    JointModel jm = JointModel::Load(it->path().string().c_str());
     printf("\tTook %5.3f sec to load %s\n", t.GetSeconds(), it->path().string().c_str());
-    jms_.insert({classname, jm});
+
+    t.Start();
+    dclts_.push_back(new DynamicCLT(jm));
+    printf("\tTook %5.3f ms to build Dynamic CLT\n", t.GetMs());
+
+    classes_.push_back(classname);
   }
-  printf("Loaded %ld joint models\n", jms_.size());
+  printf("Loaded %ld joint models\n", classes_.size());
 
   // Init confusion matrix
-  for (const auto it1 : jms_) {
-    const auto &classname1 = it1.first;
-    for (const auto it2 : jms_) {
-      const auto &classname2 = it2.first;
+  for (const auto classname1 : classes_) {
+    for (const auto classname2 : classes_) {
       confusion_matrix_[classname1][classname2] = 0;
     }
   }
@@ -54,6 +58,10 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const Ch
 
 Evaluator::~Evaluator() {
   Finish();
+
+  for (auto dclt: dclts_) {
+    delete dclt;
+  }
 }
 
 void Evaluator::QueueClass(const std::string &classname) {
@@ -149,7 +157,9 @@ void Evaluator::ProcessWork(const Work &w) {
   library::timer::Timer t_step;
 
   //printf("loading %s\n", w.path.string().c_str());
+  t_step.Start();
   auto og = rt::OccGrid::Load(w.path.string().c_str());
+  double t_load = t_step.GetMs();
 
   // Classify
   std::string best_classname = "";
@@ -163,37 +173,22 @@ void Evaluator::ProcessWork(const Work &w) {
   double dog_time = t_step.GetMs();
   //printf("Of %ld voxels, %5.3f %% known\n", dog.Size(), dog.FractionKnown()*100);
 
-  double build_time = 0;
   double eval_time = 0;
 
-  size_t nodes = 0;
-  size_t roots = 0;
-  size_t stats_counts = 0;
+  for (size_t i=0; i<classes_.size(); i++) {
+    const auto dclt = dclts_[i];
 
-  for (const auto it : jms_) {
-  const auto &classname = it.first;
-  const auto &jm = it.second;
+    // Evaluate
+    t_step.Start();
+    double log_prob = dclt->BuildAndEvaluate(dog);
+    eval_time += t_step.GetMs();
 
-  // Make CLT
-  t_step.Start();
-  ChowLuiTree clt(jm, dog);
-  build_time += t_step.GetMs();
+    if (first || log_prob > best_log_prob) {
+      best_log_prob = log_prob;
+      best_classname = classes_[i];
+    }
 
-  nodes += clt.Size();
-  roots += clt.NumRoots();
-  stats_counts++;
-
-  // Now use it for evaluation
-  t_step.Start();
-  double log_prob = clt.EvaluateLogProbability(dog, eval_type_);
-  eval_time += t_step.GetMs();
-
-  if (first || log_prob > best_log_prob) {
-    best_log_prob = log_prob;
-    best_classname = classname;
-  }
-
-  first = false;
+    first = false;
   }
   double total_ms = t_total.GetMs();
 
@@ -202,15 +197,11 @@ void Evaluator::ProcessWork(const Work &w) {
 
   confusion_matrix_[w.classname][best_classname]++;
 
+  load_time_ms_ += t_load;
   dog_time_ms_ += dog_time;
-  build_clt_time_ms_ += build_time;
   eval_time_ms_ += eval_time;
   total_time_ms_ += total_ms;
   timing_counts_++;
-
-  num_clt_nodes_ += nodes;
-  num_clt_roots_ += roots;
-  stats_counts_ += stats_counts;
 
   results_mutex_.unlock();
 }
@@ -219,12 +210,10 @@ void Evaluator::PrintConfusionMatrix() const {
   results_mutex_.lock();
 
   printf("Took %5.3f ms / evaluation\n",  total_time_ms_ / timing_counts_);
-  printf("\tBuild DOG     :  %9.3f ms\n", dog_time_ms_ / timing_counts_);
-  printf("\tBuild CLTs    :  %9.3f ms\n", build_clt_time_ms_ / timing_counts_);
-  printf("\tEvaluate CLTs :  %9.3f ms\n", eval_time_ms_ / timing_counts_);
+  printf("\tLoad SOG       :  %9.3f ms\n", load_time_ms_ / timing_counts_);
+  printf("\tBuild DOG      :  %9.3f ms\n", dog_time_ms_  / timing_counts_);
+  printf("\tEvaluate DCLTs :  %9.3f ms\n", eval_time_ms_ / timing_counts_);
   printf("\n");
-  printf("\tAverage number of nodes in CLT:   %9.3f\n", num_clt_nodes_/static_cast<double>(stats_counts_));
-  printf("\tAverage number of roots in CLT:   %9.3f\n", num_clt_roots_/static_cast<double>(stats_counts_));
 
   printf("%15s  ", "");
   for (const auto it1 : confusion_matrix_) {
@@ -251,13 +240,8 @@ void Evaluator::PrintConfusionMatrix() const {
   results_mutex_.unlock();
 }
 
-std::vector<std::string> Evaluator::GetClasses() const {
-  std::vector<std::string> classes;
-  for (auto it : jms_) {
-    classes.push_back(it.first);
-  }
-
-  return classes;
+const std::vector<std::string>& Evaluator::GetClasses() const {
+  return classes_;
 }
 
 } // namespace kitti_occ_grids

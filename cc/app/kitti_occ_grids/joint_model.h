@@ -106,6 +106,9 @@ class JointModel {
   int GetCount(const rt::Location &loc, bool occu) const;
   int GetCount(const rt::Location &loc1, const rt::Location &loc2, bool occu1, bool occu2) const;
 
+  double GetMarginalProbability(const rt::Location &loc, bool occu) const;
+  double GetConditionalProbability(const rt::Location &loc, bool loc_occu, const rt::Location &given, bool given_occu) const;
+
   double GetResolution() const;
 
   int GetNXY() const;

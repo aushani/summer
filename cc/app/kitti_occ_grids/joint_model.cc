@@ -191,6 +191,19 @@ int JointModel::GetCount(const rt::Location &loc1, const rt::Location &loc2, boo
   return c.GetCount(occu1, occu2);
 }
 
+double JointModel::GetMarginalProbability(const rt::Location &loc, bool occu) const {
+  double denom = GetNumObservations(loc, loc);
+  int count = GetCount(loc, occu);
+  return denom / count;
+}
+
+double JointModel::GetConditionalProbability(const rt::Location &loc, bool loc_occu, const rt::Location &given, bool given_occu) const {
+  double denom = GetCount(loc, given, true, given_occu) + GetCount(loc, given, false, given_occu);
+  int count = GetCount(loc, given, loc_occu, given_occu);
+
+  return count / denom;
+}
+
 void JointModel::Save(const char *fn) const {
   std::ofstream ofs(fn);
   boost::archive::binary_oarchive oa(ofs);

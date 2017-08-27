@@ -84,8 +84,8 @@ class ChowLuiTree {
   static ChowLuiTree Load(const char *fn);
 
  private:
-  //static constexpr double kMaxDistanceBetweenNodes_ = 1.0;
-  static constexpr double kMaxDistanceBetweenNodes_ = -1.0; // disable
+  static constexpr double kMaxDistanceBetweenNodes_ = 1.0;
+  static constexpr double kMinNumObservations_ = 100;
 
   double resolution_;
 
@@ -95,7 +95,7 @@ class ChowLuiTree {
   // For convience with boost serialization
   ChowLuiTree();
 
-  std::vector<Edge> ConstructEdges(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog);
+  void ConstructEdges(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog);
   void MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointModel &jm);
 
   void SampleHelper(const CLTNode &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const;
