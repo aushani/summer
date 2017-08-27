@@ -5,12 +5,14 @@
 #include <osg/MatrixTransform>
 
 #include "app/kitti_occ_grids/detector.h"
+#include "app/kitti_occ_grids/detection_map.h"
 
 namespace app {
 namespace kitti_occ_grids {
 
 class MapNode : public osg::Group {
  public:
+  MapNode(const DetectionMap &dm);
   MapNode(const Detector &detector);
 };
 

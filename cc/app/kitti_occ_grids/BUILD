@@ -7,6 +7,8 @@ cc_library(
             "evaluator.cc", "evaluator.h",
             "model.cc", "model.h",
             "marginal_model.cc", "marginal_model.h",
+            "marginal_detector.cc", "marginal_detector.h",
+            "detection_map.cc", "detection_map.h",
             "joint_model.cc", "joint_model.h",
             "detector.cc", "detector.h",
             "map_node.cc", "map_node.h",
@@ -124,6 +126,17 @@ cc_binary(
             "run_detector.cc",
            ],
     linkopts = ["-lpthread"],
+    deps = [
+            ":kitti_occ_grids_lib",
+            "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
+    name = "marginal_detector",
+    srcs = [
+            "run_marginal_detector.cc",
+           ],
     deps = [
             ":kitti_occ_grids_lib",
             "@boost//:boost_filesystem",

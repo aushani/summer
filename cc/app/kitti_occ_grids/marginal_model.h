@@ -19,6 +19,10 @@ class MarginalModel {
 
   double GetLogProbability(const rt::Location &loc, bool occ) const;
 
+  double GetResolution() const;
+  int GetNXY() const;
+  int GetNZ() const;
+
   void Save(const char *fn) const;
   static MarginalModel Load(const char *fn);
 
@@ -72,13 +76,19 @@ class MarginalModel {
   };
 
   double resolution_;
+  size_t n_xy_;
+  size_t n_z_;
 
-  std::map<rt::Location, MarginalDistribution> model_;
+  std::vector<MarginalDistribution> model_;
+
+  int GetIndex(const rt::Location &loc) const;
 
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /* file_version */){
     ar & resolution_;
+    ar & n_xy_;
+    ar & n_z_;
     ar & model_;
   }
 

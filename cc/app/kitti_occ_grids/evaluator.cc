@@ -24,7 +24,6 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
     std::string classname = it->path().stem().string();
 
     if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background") ) {
-    //if (! (classname == "Car" || classname == "Background") ) {
       continue;
     }
 
