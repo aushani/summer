@@ -19,7 +19,7 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const Ch
 
     std::string classname = it->path().filename().string();
 
-    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "NOOBJ") ) {
+    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background") ) {
       continue;
     }
 
@@ -113,6 +113,7 @@ void Evaluator::WorkerThread() {
 
   while (HaveWork()) {
     // Get work
+    work_queue_mutex_.lock();
 
     size_t num_queues = work_queues_.size();
     size_t queue_num = count % num_queues;
@@ -129,6 +130,9 @@ void Evaluator::WorkerThread() {
 
       //Process Work
       ProcessWork(w);
+
+    } else {
+      work_queue_mutex_.unlock();
     }
 
     count++;

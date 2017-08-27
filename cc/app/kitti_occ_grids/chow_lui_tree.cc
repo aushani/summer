@@ -139,9 +139,9 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm,
           continue;
         }
 
-        for (int i2 = i1; i2 < max_ij; i2++) {
-          for (int j2 = j1; j2 < max_ij; j2++) {
-            for (int k2 = k1; k2 < max_k; k2++) {
+        for (int i2 = min_ij; i2 < max_ij; i2++) {
+          for (int j2 = min_ij; j2 < max_ij; j2++) {
+            for (int k2 = min_k; k2 < max_k; k2++) {
 
               if (kMaxDistanceBetweenNodes_ > 0) {
                 double di = i1 - i2;
@@ -160,7 +160,7 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm,
                 continue;
               }
 
-              if (loc1 == loc2) {
+              if (loc1 == loc2 || loc2 < loc1) {
                 continue;
               }
 
