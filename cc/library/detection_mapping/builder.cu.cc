@@ -25,7 +25,7 @@ struct DeviceData {
   void CopyData(const std::vector<Eigen::Vector3d> &hits);
 
   // Centered on (0, 0)
-  __host__ __device__ int GetResultIndex(int i, int j) const;
+  __host__ __device__ int GetResultIndex(int classnum, int i, int j) const;
 
   int num_observations = 0;
   int max_voxel_visits_per_ray = 0;
@@ -39,6 +39,7 @@ struct DeviceData {
   float *result = nullptr;
   int n_x = 0;
   int n_y = 0;
+  int n_classes = 0;
 };
 
 DeviceData::DeviceData(float range_x, float range_y, float resolution, int max_observations, float max_range)
@@ -55,7 +56,7 @@ DeviceData::DeviceData(float range_x, float range_y, float resolution, int max_o
 
   int n_x = 2*ceil(range_x / resolution) + 1;
   int n_y = 2*ceil(range_y / resolution) + 1;
-  err = cudaMalloc(&result, sizeof(float) * n_x * n_y);
+  err = cudaMalloc(&result, sizeof(float) * n_x * n_y * n_classes);
   BOOST_ASSERT(err == cudaSuccess);
 }
 
@@ -106,7 +107,7 @@ void DeviceData::CopyData(const std::vector<Eigen::Vector3d> &hits) {
   cudaDeviceSynchronize();
 }
 
-__host__ __device__ int DeviceData::GetResultIndex(int i, int j) const {
+__host__ __device__ int DeviceData::GetResultIndex(int classnum, int i, int j) const {
   int di = i - n_x/2;
   int dj = j - n_y/2;
 
@@ -115,7 +116,7 @@ __host__ __device__ int DeviceData::GetResultIndex(int i, int j) const {
     return -1;
   }
 
-  return di * n_y + dj;
+  return (di * n_y + dj) * n_classes + classnum;
 }
 
 Builder::Builder(double range_x, double range_y, float resolution, int max_observations, float max_range)
@@ -205,22 +206,26 @@ __global__ void RayTracingKernel(DeviceData data) {
     }
 
     // Now write out to result
-    for (int di=-5; di<=5; di++) {
-      for (int dj=-5; dj<=5; dj++) {
-        int res_idx = data.GetResultIndex(cur_loc[0], cur_loc[1]);
-        if (res_idx >= 0) {
-          data.result[res_idx]++;
+    for (int classnum=0; classnum<4; classnum++) {
+      for (int di=-5; di<=5; di++) {
+        for (int dj=-5; dj<=5; dj++) {
+          int res_idx = data.GetResultIndex(classnum, cur_loc[0]+di, cur_loc[1]+dj);
+          if (res_idx >= 0) {
+            data.result[res_idx]++;
+          }
         }
       }
     }
   }
 
   // Done ray tracing, write out endpoint
-  for (int di=-5; di<=5; di++) {
-    for (int dj=-5; dj<=5; dj++) {
-      int res_idx = data.GetResultIndex(cur_loc[0], cur_loc[1]);
-      if (res_idx >= 0) {
-        data.result[res_idx]--;
+  for (int classnum=0; classnum<4; classnum++) {
+    for (int di=-5; di<=5; di++) {
+      for (int dj=-5; dj<=5; dj++) {
+        int res_idx = data.GetResultIndex(classnum, cur_loc[0]+di, cur_loc[1]+dj);
+        if (res_idx >= 0) {
+          data.result[res_idx]--;
+        }
       }
     }
   }
