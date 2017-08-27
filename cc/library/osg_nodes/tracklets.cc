@@ -50,13 +50,13 @@ Tracklets::Tracklets(kt::Tracklets *tracklets, int frame) :
       // std::cout << "type: " << type << std::endl;
 
       if (type == "Car") {
-        shape->setColor(osg::Vec4(0, 1, 0, 0.5));
+        shape->setColor(color_car_);
       } else if (type == "Pedestrian" || type == "Person") {
-        shape->setColor(osg::Vec4(1, 1, 0, 0.5));
+        shape->setColor(color_pedestrian_);
       } else if (type == "Cyclist") {
-        shape->setColor(osg::Vec4(1, 0, 0, 0.5));
+        shape->setColor(color_cyclist_);
       } else {
-        shape->setColor(osg::Vec4(1, 1, 1, 0.5));
+        shape->setColor(color_other_);
       }
 
       csg->addChild(shape);

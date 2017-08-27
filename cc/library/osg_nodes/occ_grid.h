@@ -21,7 +21,7 @@ namespace osg_nodes {
 
 class OccGrid : public osg::Group {
  public:
-  OccGrid(const rt::OccGrid &og);
+  OccGrid(const rt::OccGrid &og, double thresh_lo=0);
 };
 
 } // osg_nodes

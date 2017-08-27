@@ -40,4 +40,3 @@ PointCloud::PointCloud(const kt::VelodyneScan &scan) :
 
 } // osg_nodes
 } // library
-

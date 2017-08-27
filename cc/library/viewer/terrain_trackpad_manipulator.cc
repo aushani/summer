@@ -1,7 +1,7 @@
 // Adapted from dascar
-#include "app/viewer/terrain_trackpad_manipulator.h"
+#include "library/viewer/terrain_trackpad_manipulator.h"
 
-namespace app {
+namespace library {
 namespace viewer {
 
 TerrainTrackpadManipulator::TerrainTrackpadManipulator(int flags) : TerrainManipulator(flags) {}
@@ -26,7 +26,7 @@ bool TerrainTrackpadManipulator::performMovement() {
   // return if there is no movement.
   if (dx == 0. && dy == 0.) return false;
 
-  // call appropriate methods
+  // calllibraryropriate methods
   unsigned int buttonMask = _ga_t1->getButtonMask();
 
   // TerrainTrackpadManipulator
@@ -46,4 +46,4 @@ bool TerrainTrackpadManipulator::performMovement() {
 }
 
 }  // namespace viewer
-}  // namespace app
+}  // namespace library

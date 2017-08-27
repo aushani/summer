@@ -6,7 +6,8 @@
 namespace library {
 namespace osg_nodes {
 
-ColorfulBox::ColorfulBox(osg::Vec4 color) : osg::ShapeDrawable(new osg::Box(osg::Vec3(0, 0, 0), 0.5)) {
+ColorfulBox::ColorfulBox(osg::Vec4 color, osg::Vec3 pos, double scale) :
+ osg::ShapeDrawable(new osg::Box(pos, scale)) {
   setColor(color);
 
   osg::StateSet* set = getOrCreateStateSet();

@@ -1,4 +1,5 @@
-#include "app/viewer/viewer_window.h"
+// adapted from dascar
+#include "library/viewer/viewer_window.h"
 
 #include <iostream>
 
@@ -10,12 +11,12 @@
 
 #include "library/util/angle.h"
 
-#include "app/viewer/pick_handler.h"
-#include "app/viewer/terrain_trackpad_manipulator.h"
+#include "library/viewer/pick_handler.h"
+#include "library/viewer/terrain_trackpad_manipulator.h"
 
 namespace ut = library::util;
 
-namespace app {
+namespace library {
 namespace viewer {
 
 ViewerWindow::ViewerWindow(osg::ArgumentParser *args, QWidget *parent, Qt::WindowFlags f)
@@ -101,7 +102,23 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
 }
 
 void ViewerWindow::AddChild(osg::Node *n) {
+  auto ss = n->getOrCreateStateSet();
+  //ss->setMode(GL_BLEND, osg::StateAttribute::ON);
+  //ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+  ss->setRenderBinDetails(bin_at_++, "RenderBin");
+
   xform_car_->addChild(n);
+}
+
+void ViewerWindow::RemoveAllChildren() {
+  while (xform_car_->getNumChildren() > 0) {
+    xform_car_->removeChild(0, 1);
+  }
+}
+
+void ViewerWindow::AddHandler(osgGA::GUIEventHandler *h) {
+  osg::ref_ptr<osgViewer::View> view = vwidget_->GetView();
+  view->addEventHandler(h);
 }
 
 int ViewerWindow::Start() {
@@ -125,4 +142,4 @@ void ViewerWindow::RunThread() {
 }
 
 }  // namespace viewer
-}  // namespace app
+}  // namespace library

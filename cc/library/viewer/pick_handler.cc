@@ -1,8 +1,8 @@
 // from osgpick example
 //
-#include "app/viewer/pick_handler.h"
+#include "library/viewer/pick_handler.h"
 
-namespace app {
+namespace library {
 namespace viewer {
 
 bool PickHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa) {
@@ -68,4 +68,4 @@ void PickHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& ea) 
 }
 
 } // namespace viewer
-} // namespace app
+} // namespace library

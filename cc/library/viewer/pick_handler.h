@@ -5,7 +5,7 @@
 #include <osgGA/GUIEventHandler>
 #include <osgViewer/CompositeViewer>
 
-namespace app {
+namespace library {
 namespace viewer {
 
 // from osgpick example
@@ -24,4 +24,4 @@ class PickHandler : public osgGA::GUIEventHandler {
 };
 
 } // namespace viewer
-} // namespace app
+} // namespace library
