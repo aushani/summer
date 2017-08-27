@@ -6,6 +6,7 @@ cc_library(
             "clt_node.cc", "clt_node.h",
             "evaluator.cc", "evaluator.h",
             "model.cc", "model.h",
+            "marginal_model.cc", "marginal_model.h",
             "joint_model.cc", "joint_model.h",
             "detector.cc", "detector.h",
             "map_node.cc", "map_node.h",
@@ -73,6 +74,16 @@ cc_binary(
     deps = [
             ":kitti_occ_grids_lib",
             "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
+    name = "make_marginal_model",
+    srcs = [
+            "make_marginal_model.cc",
+           ],
+    deps = [
+            ":kitti_occ_grids_lib",
            ],
 )
 

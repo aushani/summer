@@ -8,8 +8,8 @@ namespace fs = boost::filesystem;
 namespace app {
 namespace kitti_occ_grids {
 
-Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const ChowLuiTree::EvalType &type) :
- training_data_path_(training_dir), testing_data_path_(testing_dir), eval_type_(type) {
+Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
+ training_data_path_(training_dir), testing_data_path_(testing_dir) {
 
   fs::directory_iterator end_it;
   for (fs::directory_iterator it(training_data_path_); it != end_it; it++) {
@@ -17,14 +17,14 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const Ch
       continue;
     }
 
-    if (it->path().extension() != ".jm") {
+    if (it->path().extension() != ".mm") {
       continue;
     }
 
     std::string classname = it->path().stem().string();
 
-    //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background") ) {
-    if (! (classname == "Car" || classname == "Background") ) {
+    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background") ) {
+    //if (! (classname == "Car" || classname == "Background") ) {
       continue;
     }
 
@@ -36,16 +36,16 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir, const Ch
     //clts_.insert({classname, clt});
 
     library::timer::Timer t;
-    auto jm = JointModel::Load(it->path().string().c_str());
+    auto mm = MarginalModel::Load(it->path().string().c_str());
     printf("\tTook %5.3f sec to load %s\n", t.GetSeconds(), it->path().string().c_str());
-    jms_.insert({classname, jm});
+    mms_.insert({classname, mm});
   }
-  printf("Loaded %ld joint models\n", jms_.size());
+  printf("Loaded %ld models\n", mms_.size());
 
   // Init confusion matrix
-  for (const auto it1 : jms_) {
+  for (const auto it1 : mms_) {
     const auto &classname1 = it1.first;
-    for (const auto it2 : jms_) {
+    for (const auto it2 : mms_) {
       const auto &classname2 = it2.first;
       confusion_matrix_[classname1][classname2] = 0;
     }
@@ -146,7 +146,6 @@ void Evaluator::WorkerThread() {
 
 void Evaluator::ProcessWork(const Work &w) {
   library::timer::Timer t_total;
-  library::timer::Timer t_step;
 
   //printf("loading %s\n", w.path.string().c_str());
   auto og = rt::OccGrid::Load(w.path.string().c_str());
@@ -158,42 +157,25 @@ void Evaluator::ProcessWork(const Work &w) {
 
   t_total.Start();
 
-  t_step.Start();
-  rt::DenseOccGrid dog(og, 5.0, 5.0, 5.0, true);
-  double dog_time = t_step.GetMs();
-  //printf("Of %ld voxels, %5.3f %% known\n", dog.Size(), dog.FractionKnown()*100);
+  const auto &locs = og.GetLocations();
+  const auto &los = og.GetLogOdds();
 
-  double build_time = 0;
-  double eval_time = 0;
+  for (const auto it : mms_) {
+    const auto &classname = it.first;
+    const auto &mm = it.second;
 
-  size_t nodes = 0;
-  size_t roots = 0;
-  size_t stats_counts = 0;
+    double log_prob = 0.0;
+    for (size_t i = 0; i < locs.size(); i++) {
+      const auto &loc = locs[i];
+      log_prob += mm.GetLogProbability(loc, los[i] > 0);
+    }
 
-  for (const auto it : jms_) {
-  const auto &classname = it.first;
-  const auto &jm = it.second;
+    if (first || log_prob > best_log_prob) {
+      best_log_prob = log_prob;
+      best_classname = classname;
+    }
 
-  // Make CLT
-  t_step.Start();
-  ChowLuiTree clt(jm, dog);
-  build_time += t_step.GetMs();
-
-  nodes += clt.Size();
-  roots += clt.NumRoots();
-  stats_counts++;
-
-  // Now use it for evaluation
-  t_step.Start();
-  double log_prob = clt.EvaluateLogProbability(dog, eval_type_);
-  eval_time += t_step.GetMs();
-
-  if (first || log_prob > best_log_prob) {
-    best_log_prob = log_prob;
-    best_classname = classname;
-  }
-
-  first = false;
+    first = false;
   }
   double total_ms = t_total.GetMs();
 
@@ -202,15 +184,8 @@ void Evaluator::ProcessWork(const Work &w) {
 
   confusion_matrix_[w.classname][best_classname]++;
 
-  dog_time_ms_ += dog_time;
-  build_clt_time_ms_ += build_time;
-  eval_time_ms_ += eval_time;
   total_time_ms_ += total_ms;
   timing_counts_++;
-
-  num_clt_nodes_ += nodes;
-  num_clt_roots_ += roots;
-  stats_counts_ += stats_counts;
 
   results_mutex_.unlock();
 }
@@ -219,12 +194,6 @@ void Evaluator::PrintConfusionMatrix() const {
   results_mutex_.lock();
 
   printf("Took %5.3f ms / evaluation\n",  total_time_ms_ / timing_counts_);
-  printf("\tBuild DOG     :  %9.3f ms\n", dog_time_ms_ / timing_counts_);
-  printf("\tBuild CLTs    :  %9.3f ms\n", build_clt_time_ms_ / timing_counts_);
-  printf("\tEvaluate CLTs :  %9.3f ms\n", eval_time_ms_ / timing_counts_);
-  printf("\n");
-  printf("\tAverage number of nodes in CLT:   %9.3f\n", num_clt_nodes_/static_cast<double>(stats_counts_));
-  printf("\tAverage number of roots in CLT:   %9.3f\n", num_clt_roots_/static_cast<double>(stats_counts_));
 
   printf("%15s  ", "");
   for (const auto it1 : confusion_matrix_) {
@@ -253,7 +222,7 @@ void Evaluator::PrintConfusionMatrix() const {
 
 std::vector<std::string> Evaluator::GetClasses() const {
   std::vector<std::string> classes;
-  for (auto it : jms_) {
+  for (auto it : mms_) {
     classes.push_back(it.first);
   }
 
