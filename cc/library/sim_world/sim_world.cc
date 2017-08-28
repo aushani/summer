@@ -17,9 +17,9 @@ SimWorld::SimWorld(size_t n_shapes) :
 
   std::uniform_real_distribution<double> x_pos(-20.0, 20.0);
   std::uniform_real_distribution<double> y_pos(-20.0, 20.0);
-  std::uniform_real_distribution<double> width(4.0, 6.0);
-  std::uniform_real_distribution<double> length(6.0, 8.0);
-  std::uniform_real_distribution<double> rand_size(1.5, 2.0);
+  std::uniform_real_distribution<double> width(3.0, 6.0);
+  std::uniform_real_distribution<double> length(4.0, 8.0);
+  std::uniform_real_distribution<double> rand_size(2.0, 4.0);
   std::uniform_real_distribution<double> rand_angle(-M_PI, M_PI);
   std::uniform_real_distribution<double> rand_shape(0.0, 1.0);
 
