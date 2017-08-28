@@ -18,13 +18,25 @@ namespace tr = library::timer;
 namespace library {
 namespace ray_tracing {
 
+struct Update {
+  int count_free = 0;
+  int count_occu = 0;
+
+  __host__ __device__ Update operator+(const Update &u2) const {
+    Update u;
+    u.count_free = count_free + u2.count_free;
+    u.count_occu = count_occu + u2.count_occu;
+
+    return u;
+  }
+};
+
 // This is the data we need to generate occupancy grids that
 // is passed to the device. Package it in this way so we can
 // take advantage of coalesced memory operations on the GPU
 // for faster performance.
 struct DeviceData {
-  DeviceData(float resolution, float max_range, int max_observations,
-      float logOddsFree, float logOddsOccupied, float logOddsUnknown);
+  DeviceData(float resolution, float max_range, int max_observations);
 
   void FreeDeviceMemory();
 
@@ -40,23 +52,17 @@ struct DeviceData {
   float *hit_z = nullptr;
 
   Location *locations = nullptr;
-  float *log_odds_updates = nullptr;
+  Update *updates = nullptr;
 
   Location *locations_reduced = nullptr;
-  float *log_odds_updates_reduced = nullptr;
+  Update *updates_reduced = nullptr;
 
   float pose_xyz[3] = {0.0f, 0.0f, 0.0f};
   float pose_theta = 0.0f;
-
-  const float kLogOddsFree;
-  const float kLogOddsOccupied;
-  const float kLogOddsUnknown;
 };
 
-DeviceData::DeviceData(float resolution, float max_range, int max_observations,
-    float logOddsFree, float logOddsOccupied, float logOddsUnknown)
-    : resolution(resolution), max_voxel_visits_per_ray(max_range / resolution),
-    kLogOddsFree(logOddsFree), kLogOddsOccupied(logOddsOccupied), kLogOddsUnknown(logOddsUnknown) {
+DeviceData::DeviceData(float resolution, float max_range, int max_observations)
+    : resolution(resolution), max_voxel_visits_per_ray(max_range / resolution) {
   // Allocate memory on the device.
   cudaError_t err = cudaMalloc(&hit_x, sizeof(float) * max_observations);
   BOOST_ASSERT(err == cudaSuccess);
@@ -70,13 +76,13 @@ DeviceData::DeviceData(float resolution, float max_range, int max_observations,
   err = cudaMalloc(&locations, sizeof(Location) * max_observations * max_voxel_visits_per_ray);
   BOOST_ASSERT(err == cudaSuccess);
 
-  err = cudaMalloc(&log_odds_updates, sizeof(float) * max_observations * max_voxel_visits_per_ray);
+  err = cudaMalloc(&updates, sizeof(float) * max_observations * max_voxel_visits_per_ray);
   BOOST_ASSERT(err == cudaSuccess);
 
   err = cudaMalloc(&locations_reduced, sizeof(Location) * max_observations * max_voxel_visits_per_ray);
   BOOST_ASSERT(err == cudaSuccess);
 
-  err = cudaMalloc(&log_odds_updates_reduced, sizeof(float) * max_observations * max_voxel_visits_per_ray);
+  err = cudaMalloc(&updates_reduced, sizeof(float) * max_observations * max_voxel_visits_per_ray);
   BOOST_ASSERT(err == cudaSuccess);
 }
 
@@ -85,9 +91,9 @@ void DeviceData::FreeDeviceMemory() {
   cudaFree(hit_y);
   cudaFree(hit_z);
   cudaFree(locations);
-  cudaFree(log_odds_updates);
+  cudaFree(updates);
   cudaFree(locations_reduced);
-  cudaFree(log_odds_updates_reduced);
+  cudaFree(updates_reduced);
 }
 
 void DeviceData::CopyData(const std::vector<Eigen::Vector3d> &hits) {
@@ -132,8 +138,7 @@ void DeviceData::CopyData(const std::vector<Eigen::Vector3d> &hits) {
 OccGridBuilder::OccGridBuilder(int max_observations, float resolution, float max_range)
     : max_observations_(max_observations),
       resolution_(resolution),
-      device_data_(new DeviceData(resolution, max_range, max_observations,
-            kLogOddsFree_, kLogOddsOccupied_, kLogOddsUnknown_)) {
+      device_data_(new DeviceData(resolution, max_range, max_observations)) {
 }
 
 OccGridBuilder::~OccGridBuilder() {
@@ -207,7 +212,6 @@ __global__ void RayTracingKernel(DeviceData data) {
   bool valid = true;
   for (int step = 0; step < (data.max_voxel_visits_per_ray - 1); ++step) {
     Location loc(cur_loc[0], cur_loc[1], cur_loc[2]);
-    float loUpdate = data.kLogOddsUnknown;
 
     // Are we done? Have we reached the hit point?
     // Don't quit the loop just yet. We need to 0 out the rest of log odds updates.
@@ -235,12 +239,15 @@ __global__ void RayTracingKernel(DeviceData data) {
         }
       }
 
-      loUpdate = data.kLogOddsFree;
+      data.updates[mem_idx].count_free = 1;
+      data.updates[mem_idx].count_occu = 0;
+    } else {
+      data.updates[mem_idx].count_free = 0;
+      data.updates[mem_idx].count_occu = 0;
     }
 
     // Now write out key value pair
     data.locations[mem_idx] = loc;
-    data.log_odds_updates[mem_idx] = loUpdate;
 
     mem_idx += mem_step_size;
   }
@@ -249,11 +256,14 @@ __global__ void RayTracingKernel(DeviceData data) {
 
   // Now write out key value pair
   data.locations[mem_idx] = loc;
-  data.log_odds_updates[mem_idx] = data.kLogOddsOccupied;
+  data.updates[mem_idx].count_free = 0;
+  data.updates[mem_idx].count_occu = 1;
 }
 
 struct NoUpdate {
-  __host__ __device__ bool operator()(const float x) const { return fabs(x) < 1e-6; }
+  __host__ __device__ bool operator()(const Update &update) const {
+    return update.count_free == 0 && update.count_occu == 0;
+  }
 };
 
 struct OutOfRange {
@@ -330,7 +340,7 @@ OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits
   // First prune unnecessary updates
   //t.Start();
   thrust::device_ptr<Location> dp_locations(device_data_->locations);
-  thrust::device_ptr<float> dp_updates(device_data_->log_odds_updates);
+  thrust::device_ptr<Update> dp_updates(device_data_->updates);
 
   auto dp_locations_end = thrust::remove_if(dp_locations, dp_locations + num_updates, dp_updates, NoUpdate());
   auto dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, NoUpdate());
@@ -355,21 +365,26 @@ OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits
 
   //t.Start();
   thrust::device_ptr<Location> dp_locs_reduced(device_data_->locations_reduced);
-  thrust::device_ptr<float> dp_lo_reduced(device_data_->log_odds_updates_reduced);
+  thrust::device_ptr<Update> dp_lo_reduced(device_data_->updates_reduced);
 
-  thrust::pair<thrust::device_ptr<Location>, thrust::device_ptr<float> > new_ends = thrust::reduce_by_key(
-      dp_locations, dp_locations + num_updates, dp_updates, dp_locs_reduced, dp_lo_reduced);
+  auto new_ends = thrust::reduce_by_key( dp_locations, dp_locations + num_updates, dp_updates, dp_locs_reduced, dp_lo_reduced);
   num_updates = new_ends.first - dp_locs_reduced;
   //printf("\tTook %5.3f to reduce\n", t.GetMs());
 
   // Copy result from GPU device to host
   //t.Start();
   std::vector<Location> location_vector(num_updates);
-  std::vector<float> lo_vector(num_updates);
+  std::vector<Update> update_vector(num_updates);
   cudaMemcpy(location_vector.data(), dp_locs_reduced.get(), sizeof(Location) * num_updates, cudaMemcpyDeviceToHost);
-  cudaMemcpy(lo_vector.data(), dp_lo_reduced.get(), sizeof(float) * num_updates, cudaMemcpyDeviceToHost);
+  cudaMemcpy(update_vector.data(), dp_lo_reduced.get(), sizeof(Update) * num_updates, cudaMemcpyDeviceToHost);
   err = cudaDeviceSynchronize();
   //printf("\tTook %5.3f to copy to host\n", t.GetMs());
+
+
+  std::vector<float> lo_vector(num_updates);
+  for (const auto &u : update_vector) {
+    lo_vector.push_back(u.count_free * kLogOddsFree_ + u.count_occu * kLogOddsOccupied_);
+  }
 
   return OccGrid(location_vector, lo_vector, resolution_);
 }
