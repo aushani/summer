@@ -3,10 +3,12 @@
 #include <map>
 #include <vector>
 
+#include <boost/optional.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/vector.hpp>
 
 #include "library/ray_tracing/occ_grid_location.h"
+#include "library/ray_tracing/dense_occ_grid.h"
 
 #include "app/sim_world_occ_grids/joint_model.h"
 
@@ -163,13 +165,16 @@ class ChowLuiTree {
   };
 
   ChowLuiTree(const JointModel &jm);
+  ChowLuiTree(const JointModel &jm, const rt::DenseOccGrid &dog);
 
   double GetResolution() const;
 
   const std::vector<rt::Location>& GetParentLocs() const;
   const Node& GetNode(const rt::Location &loc) const;
 
-  double EvaluateLogProbability(const std::map<rt::Location, float> &og_map) const;
+  double EvaluateLogProbability(const rt::DenseOccGrid &dog) const;
+  double EvaluateApproxLogProbability(const rt::DenseOccGrid &dog) const;
+  double EvaluateMarginalLogProbability(const rt::DenseOccGrid &dog) const;
 
   rt::OccGrid Sample() const;
 
@@ -179,7 +184,9 @@ class ChowLuiTree {
   static ChowLuiTree Load(const char *fn);
 
  private:
-  static constexpr double kMaxDistanceBetweenNodes_ = 1.0;
+  static constexpr double kMaxDistanceBetweenNodes_ = 100.0;
+  static constexpr int kMinObservations_ = 100;
+  static constexpr int kMinMutualInformation_ = 0.01;
 
   double resolution_;
 
@@ -189,12 +196,10 @@ class ChowLuiTree {
   // For convience with boost serialization
   ChowLuiTree();
 
-  std::vector<Edge> ConstructEdges(const JointModel &jm);
+  std::vector<Edge> ConstructEdges(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog);
   void MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointModel &jm);
 
   void SampleHelper(const Node &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const;
-
-  double EvaluateLogProbabilityHelper(const Node &node_at, std::map<rt::Location, float> *og_pointer) const;
 
   friend class boost::serialization::access;
   template<class Archive>

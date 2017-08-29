@@ -25,13 +25,13 @@ int main(int argc, char** argv) {
 
   while (evaluator.HaveWork()) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    evaluator.PrintConfusionMatrix();
+    evaluator.PrintResults();
     printf("\n");
   }
 
   printf("\nDone!\n");
 
-  evaluator.PrintConfusionMatrix();
+  evaluator.PrintResults();
 
   return 0;
 }

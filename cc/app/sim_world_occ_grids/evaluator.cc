@@ -1,5 +1,6 @@
 #include "app/sim_world_occ_grids/evaluator.h"
 
+#include "library/ray_tracing/dense_occ_grid.h"
 #include "library/timer/timer.h"
 
 namespace rt = library::ray_tracing;
@@ -25,21 +26,22 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
 
     printf("Found %s\n", classname.c_str());
 
-    fs::path p_clf = it->path() / fs::path("clt.clt");
+    fs::path p_jm = it->path() / fs::path("jm.jm");
+    auto jm = JointModel::Load(p_jm.string().c_str());
 
-    auto clt = ChowLuiTree::Load(p_clf.string().c_str());
-    printf("CLT size: %ld\n", clt.Size());
-
-    clts_.insert({classname, clt});
+    jms_.insert({classname, jm});
+    clts_.insert({classname, ChowLuiTree(jm)});
   }
-  printf("Loaded all clt's\n");
+  printf("Loaded all joint models\n");
 
   // Init confusion matrix
-  for (const auto it1 : clts_) {
+  for (const auto it1 : jms_) {
     const auto &classname1 = it1.first;
-    for (const auto it2 : clts_) {
+    for (const auto it2 : jms_) {
       const auto &classname2 = it2.first;
-      confusion_matrix_[classname1][classname2] = 0;
+      for (int eval=0; eval<3; eval++) {
+        confusion_matrix_[eval][classname1][classname2] = 0;
+      }
     }
   }
 }
@@ -115,54 +117,85 @@ void Evaluator::WorkerThread() {
 
       //Process Work
       auto og = rt::OccGrid::Load(w.path.string().c_str());
+      rt::DenseOccGrid dog(og, 5.0, 5.0, 5.0, true);
 
       // Classify
-      std::string best_classname = "";
-      bool first = true;
-      double best_log_prob = 0.0;
+      for (int eval = 0; eval<3; eval++) {
+        std::string best_classname = "";
+        bool first = true;
+        double best_log_prob = 0.0;
 
-      t.Start();
-      auto og_map = og.MakeMap();
-      for (const auto it : clts_) {
-        const auto &classname = it.first;
-        const auto &clt = it.second;
+        t.Start();
 
-        double log_prob = clt.EvaluateLogProbability(og_map);
+        for (const auto it : jms_) {
+          const auto &classname = it.first;
+          const auto &jm = it.second;
 
-        if (first || log_prob > best_log_prob) {
-          best_log_prob = log_prob;
-          best_classname = classname;
+          double log_prob = 0;
+
+          if (eval == 0) {
+            const auto it_clt = clts_.find(classname);
+            BOOST_ASSERT(it_clt != clts_.end());
+            log_prob = it_clt->second.EvaluateMarginalLogProbability(dog);
+          } else if (eval == 1) {
+            const auto it_clt = clts_.find(classname);
+            BOOST_ASSERT(it_clt != clts_.end());
+            log_prob = it_clt->second.EvaluateApproxLogProbability(dog);
+          } else if (eval == 2) {
+            ChowLuiTree clt(jm, dog);
+            log_prob = clt.EvaluateLogProbability(dog);
+          }
+
+          if (first || log_prob > best_log_prob) {
+            best_log_prob = log_prob;
+            best_classname = classname;
+          }
+
+          first = false;
         }
+        double ms = t.GetMs();
 
-        first = false;
+        // Add to results
+        results_mutex_.lock();
+        confusion_matrix_[eval][w.classname][best_classname]++;
+
+        eval_time_ms_[eval] += ms;
+        eval_counts_[eval]++;
+
+        results_mutex_.unlock();
       }
-      double ms = t.GetMs();
-
-      // Add to results
-      results_mutex_.lock();
-
-      confusion_matrix_[w.classname][best_classname]++;
-      eval_time_ms_ += ms;
-      eval_counts_++;
-
-      results_mutex_.unlock();
     }
   }
 }
 
-void Evaluator::PrintConfusionMatrix() const {
+void Evaluator::PrintResults() const {
   results_mutex_.lock();
 
-  printf("Took %5.3f ms / evaluation\n", eval_time_ms_ / eval_counts_);
+  printf("\nMarginal Only (1-gram)\n");
+  printf("Took %5.3f ms / evaluation\n", eval_time_ms_[0] / eval_counts_[0]);
+  PrintConfusionMatrix(confusion_matrix_[0]);
+
+  printf("\nApproximate CLT\n");
+  printf("Took %5.3f ms / evaluation\n", eval_time_ms_[1] / eval_counts_[1]);
+  PrintConfusionMatrix(confusion_matrix_[1]);
+
+  printf("\nRebuild CLT\n");
+  printf("Took %5.3f ms / evaluation\n", eval_time_ms_[2] / eval_counts_[2]);
+  PrintConfusionMatrix(confusion_matrix_[2]);
+
+  results_mutex_.unlock();
+}
+
+void Evaluator::PrintConfusionMatrix(const ConfusionMatrix &cm) const {
 
   printf("%15s  ", "");
-  for (const auto it1 : confusion_matrix_) {
+  for (const auto it1 : cm) {
     const auto &classname1 = it1.first;
     printf("%15s  ", classname1.c_str());
   }
   printf("\n");
 
-  for (const auto it1 : confusion_matrix_) {
+  for (const auto it1 : cm) {
     const auto &classname1 = it1.first;
     printf("%15s  ", classname1.c_str());
 
@@ -170,22 +203,17 @@ void Evaluator::PrintConfusionMatrix() const {
     for (const auto it2 : it1.second) {
       sum += it2.second;
     }
-    if (sum == 0) {
-      sum = 1.0;
-    }
 
     for (const auto it2 : it1.second) {
-      printf("%15.1f %%", 100.0 * it2.second/sum);
+      printf("%15.1f %%", sum == 0 ? 0:(100.0 * it2.second/sum));
     }
-    printf("\n");
+    printf("\t(%6d Evaluations)\n", sum);
   }
-
-  results_mutex_.unlock();
 }
 
 std::vector<std::string> Evaluator::GetClasses() const {
   std::vector<std::string> classes;
-  for (auto it : clts_) {
+  for (auto it : jms_) {
     classes.push_back(it.first);
   }
 
@@ -194,4 +222,3 @@ std::vector<std::string> Evaluator::GetClasses() const {
 
 } // namespace sim_world_occ_grids
 } // namespace app
-

@@ -7,6 +7,7 @@
 #include <boost/filesystem.hpp>
 
 #include "app/sim_world_occ_grids/chow_lui_tree.h"
+#include "app/sim_world_occ_grids/joint_model.h"
 
 namespace rt = library::ray_tracing;
 namespace fs = boost::filesystem;
@@ -25,18 +26,22 @@ class Evaluator {
   void Finish();
 
   bool HaveWork() const;
-  void PrintConfusionMatrix() const;
+  void PrintResults() const;
 
   std::vector<std::string> GetClasses() const;
 
  private:
-  static constexpr int kNumThreads_ = 10;
+  static constexpr int kNumThreads_ = 48;
 
   fs::path training_data_path_;
   fs::path testing_data_path_;
 
   std::map<std::string, ChowLuiTree> clts_;
-  std::map<std::string, std::map<std::string, int> > confusion_matrix_;
+  std::map<std::string, JointModel> jms_;
+
+  typedef std::map<std::string, std::map<std::string, int> > ConfusionMatrix;
+  ConfusionMatrix confusion_matrix_[3];
+
   mutable std::mutex results_mutex_;
 
   struct Work {
@@ -51,10 +56,11 @@ class Evaluator {
 
   std::vector<std::thread> threads_;
 
-  double eval_time_ms_ = 0;
-  int eval_counts_ = 0;
+  double eval_time_ms_[3] = {0, 0, 0};
+  int eval_counts_[3] = {0, 0, 0};
 
   void WorkerThread();
+  void PrintConfusionMatrix(const ConfusionMatrix &cm) const;
 };
 
 } // namespace sim_world_occ_grids
