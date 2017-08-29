@@ -169,11 +169,24 @@ class ChowLuiTree {
 
   double GetResolution() const;
 
-  const std::vector<rt::Location>& GetParentLocs() const;
+  const std::vector<rt::Location>& GetRootLocs() const;
   const Node& GetNode(const rt::Location &loc) const;
 
+  enum EvalType {
+    DENSE;                // Assume all nodes are known, densely evaluate
+    APPROX_MARGINAL;      // Approximate using the marginal of the missing parent
+    APPROX_CONDITONAL;    // Approximate using the conditional of the missing parent
+    APPROX_GREEDY;        // Approximate using the most likely estimate of the missing parent
+    MARGINAL;             // Just evaluate the marginals for all nodes
+  };
+
+  // Assumes all nodes are known
   double EvaluateLogProbability(const rt::DenseOccGrid &dog) const;
-  double EvaluateApproxLogProbability(const rt::DenseOccGrid &dog) const;
+
+  // Approximates using LOTP or greedy best guess for missing nodes
+  double EvaluateApproxLogProbability(const rt::DenseOccGrid &dog, bool greedy) const;
+
+  // Evaluates only marginals
   double EvaluateMarginalLogProbability(const rt::DenseOccGrid &dog) const;
 
   rt::OccGrid Sample() const;
@@ -191,7 +204,7 @@ class ChowLuiTree {
   double resolution_;
 
   std::map<rt::Location, Node> nodes_;
-  std::vector<rt::Location> parent_locs_;
+  std::vector<rt::Location> root_locs_;
 
   // For convience with boost serialization
   ChowLuiTree();
@@ -201,13 +214,15 @@ class ChowLuiTree {
 
   void SampleHelper(const Node &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const;
 
+  double EvaluateApproxLogProbabilityHelper(const Node &node, rt::DenseOccGrid *dog, bool greedy) const;
+
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /* file_version */){
     ar & resolution_;
 
     ar & nodes_;
-    ar & parent_locs_;
+    ar & root_locs_;
   }
 };
 

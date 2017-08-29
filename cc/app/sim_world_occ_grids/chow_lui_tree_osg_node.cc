@@ -9,10 +9,10 @@ namespace app {
 namespace sim_world_occ_grids {
 
 ChowLuiTreeOSGNode::ChowLuiTreeOSGNode(const ChowLuiTree &clt) : osg::Group() {
-  const auto parent_locs = clt.GetParentLocs();
+  const auto &root_locs = clt.GetRootLocs();
 
-  for (const auto &parent : parent_locs) {
-    Render(parent, clt);
+  for (const auto &root_loc : root_locs) {
+    Render(root, clt);
   }
 }
 

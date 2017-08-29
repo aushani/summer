@@ -64,7 +64,7 @@ void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointM
       Node n(it->loc1, jm);
 
       nodes_.insert({it->loc1, n});
-      parent_locs_.push_back(n.GetLocation());
+      root_locs_.push_back(n.GetLocation());
 
       found = true;
       flip = false;
@@ -221,8 +221,8 @@ double ChowLuiTree::GetResolution() const {
   return resolution_;
 }
 
-const std::vector<rt::Location>& ChowLuiTree::GetParentLocs() const {
-  return parent_locs_;
+const std::vector<rt::Location>& ChowLuiTree::GetRootLocs() const {
+  return root_locs_;
 }
 
 const ChowLuiTree::Node& ChowLuiTree::GetNode(const rt::Location &loc) const {
@@ -240,8 +240,8 @@ rt::OccGrid ChowLuiTree::Sample() const {
   // Occ grid map
   std::map<rt::Location, bool> sample_og;
 
-  // Start from parents and traverse tree
-  for (const auto &p : parent_locs_) {
+  // Start from roots and traverse tree
+  for (const auto &p : root_locs_) {
     auto it = nodes_.find(p);
     BOOST_ASSERT(it != nodes_.end());
     SampleHelper(it->second, &sample_og, &rand_engine);
@@ -296,7 +296,10 @@ double ChowLuiTree::EvaluateLogProbability(const rt::DenseOccGrid &dog) const {
     if (!node.HasParent()) {
       p_obs = node.GetMarginalProbability(obs);
     } else {
-      bool parent_obs = dog.GetProbability(node.GetParentLocation()) > 0.5;
+      const auto &parent_loc = node.GetParentLocation();
+      BOOST_ASSERT(dog.IsKnown(parent_loc));
+
+      bool parent_obs = dog.GetProbability(parent_loc) > 0.5;
       p_obs = node.GetConditionalProbability(parent_obs, obs);
     }
 
@@ -326,43 +329,74 @@ double ChowLuiTree::EvaluateMarginalLogProbability(const rt::DenseOccGrid &dog) 
   return log_prob;
 }
 
-double ChowLuiTree::EvaluateApproxLogProbability(const rt::DenseOccGrid &dog) const {
+double ChowLuiTree::EvaluateApproxLogProbability(const rt::DenseOccGrid &dog, bool greedy) const {
+  rt::DenseOccGrid my_dog(dog);
+
   double log_prob = 0;
 
-  for (const auto &kv : nodes_) {
-    const auto &loc = kv.first;
-    const auto &node = kv.second;
+  for (const auto &root_loc : root_locs_) {
+    const auto it_root = nodes_.find(root_loc);
+    BOOST_ASSERT(it_root != nodes_.end());
 
-    if (!dog.IsKnown(loc)) {
-      continue;
-    }
+    const auto &root_node = it_root->second;
+    log_prob += EvaluateApproxLogProbabilityHelper(root_node, &my_dog, greedy);
+  }
 
-    bool obs = dog.GetProbability(loc) > 0.5;
+  return log_prob;
+}
+
+double ChowLuiTree::EvaluateApproxLogProbabilityHelper(const Node &node, rt::DenseOccGrid *dog, bool greedy) const {
+  double log_prob = 0.0;
+
+  const auto &loc = node.GetLocation();
+  if (dog->IsKnown(loc)) {
+    // Evaluate this update
+    bool obs = dog->GetProbability(loc) > 0.5;
     double p_obs = 0.0;
 
-    if (!node.HasParent()) {
-      p_obs = node.GetMarginalProbability(obs);
-    } else {
+    if (node.HasParent()) {
       const auto &parent_loc = node.GetParentLocation();
+      BOOST_ASSERT(dog->IsKnown(parent_loc));
 
-      if (dog.IsKnown(parent_loc)) {
-        bool parent_obs = dog.GetProbability(node.GetParentLocation()) > 0.5;
+      if (greedy) {
+        // Greedy approximation
+        bool parent_obs = dog->GetProbability(parent_loc) > 0.5;
         p_obs = node.GetConditionalProbability(parent_obs, obs);
       } else {
-        double p_obs_occu = node.GetConditionalProbability(true, obs);
-        double p_obs_free = node.GetConditionalProbability(false, obs);
+        // LOTP appromixation
+        double p_parent_occu = dog->GetProbability(parent_loc);
+        double p_parent_free = 1 - p_parent_occu;
 
-        const auto it_parent = nodes_.find(parent_loc);
-        BOOST_ASSERT(it_parent != nodes_.end());
+        double p_obs_parent_occu = node.GetConditionalProbability(true, obs);
+        double p_obs_parent_free = node.GetConditionalProbability(false, obs);
 
-        double p_parent_occu = it_parent->second.GetMarginalProbability(true);
-        double p_parent_free = it_parent->second.GetMarginalProbability(false);
-
-        p_obs = p_obs_occu * p_parent_occu + p_obs_free * p_parent_free;
+        p_obs = p_obs_parent_occu * p_parent_occu + p_obs_parent_free * p_parent_free;
       }
+    } else {
+      p_obs = node.GetMarginalProbability(obs);
     }
 
     log_prob += log(p_obs);
+  } else {
+    // Put best guess of this location in the map so children can use it
+    if (node.HasParent()) {
+      const auto &parent_loc = node.GetParentLocation();
+      BOOST_ASSERT(dog->IsKnown(parent_loc));
+
+      bool parent_obs = dog->GetProbability(parent_loc) > 0.5;
+      dog->Set(loc, node.GetConditionalProbability(parent_obs, true));
+    } else {
+      dog->Set(loc, node.GetMarginalProbability(true));
+    }
+  }
+
+  // Evaluate children
+  for (const auto &child_loc : node.GetChildren()) {
+    const auto it_child = nodes_.find(child_loc);
+    BOOST_ASSERT(it_child != nodes_.end());
+
+    const auto &child_node = it_child->second;
+    log_prob += EvaluateApproxLogProbabilityHelper(child_node, dog, greedy);
   }
 
   return log_prob;

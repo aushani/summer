@@ -1,5 +1,7 @@
 #include "library/ray_tracing/dense_occ_grid.h"
 
+#include <boost/assert.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <thread>
@@ -8,9 +10,9 @@ namespace library {
 namespace ray_tracing {
 
 DenseOccGrid::DenseOccGrid(const OccGrid &og, float max_x, float max_y, float max_z, bool make_binary) :
- nx_(2*ceil(max_x / og.GetResolution()) + 1),
- ny_(2*ceil(max_y / og.GetResolution()) + 1),
- nz_(2*ceil(max_z / og.GetResolution()) + 1),
+ nx_(2*std::ceil(max_x / og.GetResolution()) + 1),
+ ny_(2*std::ceil(max_y / og.GetResolution()) + 1),
+ nz_(2*std::ceil(max_z / og.GetResolution()) + 1),
  resolution_(og.GetResolution()),
  probs_(nx_*ny_*nz_),
  known_(nx_*ny_*nz_, false) {
@@ -59,18 +61,26 @@ size_t DenseOccGrid::Size() const {
 }
 
 bool DenseOccGrid::InRange(const Location &loc) const {
-  return std::abs(loc.i) < nx_/2 &&
-         std::abs(loc.j) < ny_/2 &&
-         std::abs(loc.k) < nz_/2;
-}
-
-
-size_t DenseOccGrid::GetIndex(const Location &loc) const {
   size_t ix = loc.i + nx_/2;
   size_t iy = loc.j + ny_/2;
   size_t iz = loc.k + nz_/2;
 
-  return (ix*ny_ + iy)*nz_ + iz;
+  return ix < nx_ && iy < ny_ && iz < nz_;
+}
+
+
+size_t DenseOccGrid::GetIndex(const Location &loc) const {
+  BOOST_ASSERT(InRange(loc));
+
+  size_t ix = loc.i + nx_/2;
+  size_t iy = loc.j + ny_/2;
+  size_t iz = loc.k + nz_/2;
+
+  size_t idx = (ix*ny_ + iy)*nz_ + iz;
+
+  BOOST_ASSERT(idx < probs_.size());
+
+  return idx;
 }
 
 void DenseOccGrid::Set(const Location &loc, float p) {

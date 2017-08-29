@@ -32,6 +32,7 @@ class Evaluator {
 
  private:
   static constexpr int kNumThreads_ = 48;
+  static constexpr int kEvals_ = 4;
 
   fs::path training_data_path_;
   fs::path testing_data_path_;
@@ -40,7 +41,7 @@ class Evaluator {
   std::map<std::string, JointModel> jms_;
 
   typedef std::map<std::string, std::map<std::string, int> > ConfusionMatrix;
-  ConfusionMatrix confusion_matrix_[3];
+  ConfusionMatrix confusion_matrix_[kEvals_];
 
   mutable std::mutex results_mutex_;
 
@@ -56,8 +57,8 @@ class Evaluator {
 
   std::vector<std::thread> threads_;
 
-  double eval_time_ms_[3] = {0, 0, 0};
-  int eval_counts_[3] = {0, 0, 0};
+  double eval_time_ms_[kEvals_] = {0.0, 0.0, 0.0, 0.0};
+  int eval_counts_[kEvals_] = {0, 0, 0, 0};
 
   void WorkerThread();
   void PrintConfusionMatrix(const ConfusionMatrix &cm) const;

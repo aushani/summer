@@ -28,6 +28,8 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
 
     fs::path p_jm = it->path() / fs::path("jm.jm");
     auto jm = JointModel::Load(p_jm.string().c_str());
+    printf("Joint model is %dx%dx%d at %7.3f resolution\n",
+        jm.GetNXY(), jm.GetNXY(), jm.GetNZ(), jm.GetResolution());
 
     jms_.insert({classname, jm});
     clts_.insert({classname, ChowLuiTree(jm)});
@@ -39,7 +41,7 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
     const auto &classname1 = it1.first;
     for (const auto it2 : jms_) {
       const auto &classname2 = it2.first;
-      for (int eval=0; eval<3; eval++) {
+      for (int eval=0; eval<kEvals_; eval++) {
         confusion_matrix_[eval][classname1][classname2] = 0;
       }
     }
@@ -117,17 +119,21 @@ void Evaluator::WorkerThread() {
 
       //Process Work
       auto og = rt::OccGrid::Load(w.path.string().c_str());
-      rt::DenseOccGrid dog(og, 5.0, 5.0, 5.0, true);
+      rt::DenseOccGrid dog(og, 5.0, 5.0, 1.0, true); // clamp to binary
 
       // Classify
-      for (int eval = 0; eval<3; eval++) {
+      for (int eval = 0; eval<kEvals_; eval++) {
         std::string best_classname = "";
         bool first = true;
         double best_log_prob = 0.0;
 
         t.Start();
 
-        for (const auto it : jms_) {
+        for (const auto &it : jms_) {
+          if (eval == 3) {
+            continue;
+          }
+
           const auto &classname = it.first;
           const auto &jm = it.second;
 
@@ -140,8 +146,12 @@ void Evaluator::WorkerThread() {
           } else if (eval == 1) {
             const auto it_clt = clts_.find(classname);
             BOOST_ASSERT(it_clt != clts_.end());
-            log_prob = it_clt->second.EvaluateApproxLogProbability(dog);
+            log_prob = it_clt->second.EvaluateApproxLogProbability(dog, false);
           } else if (eval == 2) {
+            const auto it_clt = clts_.find(classname);
+            BOOST_ASSERT(it_clt != clts_.end());
+            log_prob = it_clt->second.EvaluateApproxLogProbability(dog, true);
+          } else if (eval == 3) {
             ChowLuiTree clt(jm, dog);
             log_prob = clt.EvaluateLogProbability(dog);
           }
@@ -157,6 +167,7 @@ void Evaluator::WorkerThread() {
 
         // Add to results
         results_mutex_.lock();
+
         confusion_matrix_[eval][w.classname][best_classname]++;
 
         eval_time_ms_[eval] += ms;
@@ -179,9 +190,13 @@ void Evaluator::PrintResults() const {
   printf("Took %5.3f ms / evaluation\n", eval_time_ms_[1] / eval_counts_[1]);
   PrintConfusionMatrix(confusion_matrix_[1]);
 
-  printf("\nRebuild CLT\n");
+  printf("\nGreedy Approximate CLT\n");
   printf("Took %5.3f ms / evaluation\n", eval_time_ms_[2] / eval_counts_[2]);
   PrintConfusionMatrix(confusion_matrix_[2]);
+
+  printf("\nRebuild CLT\n");
+  printf("Took %5.3f ms / evaluation\n", eval_time_ms_[3] / eval_counts_[3]);
+  PrintConfusionMatrix(confusion_matrix_[3]);
 
   results_mutex_.unlock();
 }
