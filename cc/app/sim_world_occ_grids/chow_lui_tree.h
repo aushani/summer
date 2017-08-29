@@ -203,6 +203,7 @@ class ChowLuiTree {
   ChowLuiTree();
 
   std::vector<Edge> ConstructEdges(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog);
+  void ConstructTreePrim(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog);
   void MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointModel &jm);
 
   void SampleHelper(const Node &node_at, std::map<rt::Location, bool> *sample_og_pointer, std::default_random_engine *rand_engine) const;

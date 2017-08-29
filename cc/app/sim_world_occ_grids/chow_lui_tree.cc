@@ -7,6 +7,7 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/kruskal_min_spanning_tree.hpp>
+#include <boost/graph/prim_minimum_spanning_tree.hpp>
 
 #include "library/timer/timer.h"
 
@@ -19,24 +20,28 @@ ChowLuiTree::ChowLuiTree() {
 ChowLuiTree::ChowLuiTree(const JointModel &jm) : resolution_(jm.GetResolution()) {
   boost::optional<const rt::DenseOccGrid&> dog;
 
-  // Make edges
-  auto edges = ConstructEdges(jm, dog);
+  //// Make edges
+  //auto edges = ConstructEdges(jm, dog);
 
-  // Make tree
-  MakeTree(edges, jm);
+  //// Make tree
+  //MakeTree(edges, jm);
+  ConstructTreePrim(jm, dog);
 }
 
 ChowLuiTree::ChowLuiTree(const JointModel &jm, const rt::DenseOccGrid &dog) : resolution_(jm.GetResolution()) {
-  // Make edges
-  auto edges = ConstructEdges(jm, dog);
+  //// Make edges
+  //auto edges = ConstructEdges(jm, dog);
 
-  // Make tree
-  MakeTree(edges, jm);
+  //// Make tree
+  //MakeTree(edges, jm);
+  ConstructTreePrim(jm, dog);
 }
 
 void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointModel &jm) {
   // Get tree edges
   std::vector<Edge> edges(e);
+
+  double sum_mi = 0;
 
   while (!edges.empty()) {
     // Find an edge we can process
@@ -84,10 +89,16 @@ void ChowLuiTree::MakeTree(const std::vector<ChowLuiTree::Edge> &e, const JointM
     p_n->second.AddChild(n);
 
     // Remove edge that we processed
+    // TODO O(n)
     edges.erase(it);
+
+    sum_mi += -edge.weight;
 
     // TODO what about nodes with no edges?
   }
+
+  printf("Have %ld nodes, %ld roots in tree, %5.3f sum MI\n", nodes_.size(), root_locs_.size(), sum_mi);
+
 }
 
 std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog) {
@@ -215,6 +226,159 @@ std::vector<ChowLuiTree::Edge> ChowLuiTree::ConstructEdges(const JointModel &jm,
   }
 
   return clt_edges;
+}
+
+void ChowLuiTree::ConstructTreePrim(const JointModel &jm, const boost::optional<const rt::DenseOccGrid&> &dog) {
+  double max_mi = log(2);
+
+  library::timer::Timer t;
+  t.Start();
+
+  // Adapted from boost example
+
+  // Typedef's for convience
+  typedef boost::adjacency_list<boost::vecS, boost::vecS,
+          boost::undirectedS, boost::no_property,
+          boost::property<boost::edge_weight_t, double> > Graph;
+  typedef boost::graph_traits<Graph>::vertex_descriptor VertexDescriptor;
+  typedef std::pair<int, int> BoostEdge;
+
+  // Making graph for boost;
+  std::vector<BoostEdge> edges;
+  std::vector<double> weights;
+
+  // Mapping from node id (int) to location
+  std::map<rt::Location, int> loc_int_mapping;
+  std::vector<rt::Location> int_loc_mapping;
+
+  // Get all edges
+  int min_ij = -jm.GetNXY() / 2;
+  int max_ij = min_ij + jm.GetNXY();
+
+  int min_k = -jm.GetNZ() / 2;
+  int max_k = min_k + jm.GetNZ();
+
+  for (int i1=min_ij; i1 < max_ij; i1++) {
+    for (int j1=min_ij; j1 < max_ij; j1++) {
+      for (int k1=min_k; k1 < max_k; k1++) {
+        rt::Location loc1(i1, j1, k1);
+
+        if (dog && !dog->IsKnown(loc1)) {
+          continue;
+        }
+
+        if (loc_int_mapping.count(loc1) == 0) {
+          loc_int_mapping[loc1] = int_loc_mapping.size();
+          int_loc_mapping.push_back(loc1);
+        }
+
+        int i_loc1 = loc_int_mapping[loc1];
+
+        if (!jm.InRange(loc1)) {
+          //printf("Out of range! %d, %d, %d\n",
+          //    loc1.i, loc1.j, loc1.k);
+          continue;
+        }
+
+        for (int i2 = min_ij; i2 < max_ij; i2++) {
+          for (int j2 = min_ij; j2 < max_ij; j2++) {
+            for (int k2 = min_k; k2 < max_k; k2++) {
+              double di = i1 - i2;
+              double dj = j1 - j2;
+              double dk = k1 - k2;
+              double d2 = di*di + dj*dj + dk*dk;
+              if (sqrt(d2) > kMaxDistanceBetweenNodes_) {
+                continue;
+              }
+
+              rt::Location loc2(i2, j2, k2);
+
+              if (loc1 == loc2 || loc2 < loc1) {
+                continue;
+              }
+
+              if (dog && !dog->IsKnown(loc2)) {
+                continue;
+              }
+
+              if (jm.GetNumObservations(loc1, loc2) < kMinObservations_) {
+                continue;
+              }
+
+              if (loc_int_mapping.count(loc2) == 0) {
+                loc_int_mapping[loc2] = int_loc_mapping.size();
+                int_loc_mapping.push_back(loc2);
+              }
+
+              int i_loc2 = loc_int_mapping[loc2];
+
+              double mi = jm.ComputeMutualInformation(loc1, loc2);
+              if (mi < kMinMutualInformation_) {
+                continue;
+              }
+
+              double weight = max_mi - mi; // because we have minimum spanning tree but want max
+
+              edges.push_back(BoostEdge(i_loc1, i_loc2));
+              weights.push_back(weight);
+            }
+          }
+        }
+      }
+    }
+  }
+  size_t num_edges = edges.size();
+  size_t num_nodes = int_loc_mapping.size();
+  //printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_edges, num_nodes);
+
+  Graph g(edges.begin(), edges.begin() + num_edges, weights.begin(), num_nodes);
+
+  std::vector<VertexDescriptor> p(num_nodes);
+
+  t.Start();
+  boost::prim_minimum_spanning_tree(g, &p[0]);
+  //printf("prim done in %5.3f sec\n", t.GetSeconds());
+
+  double sum_mi = 0;
+
+  for (size_t i = 0; i < p.size(); i++) {
+    int int_my_loc = i;
+    int int_parent_loc = p[i];
+
+    if (int_my_loc == int_parent_loc) {
+      // Is root node
+      const auto &my_loc = int_loc_mapping[int_my_loc];
+
+      Node node(my_loc, jm);
+      nodes_.insert({my_loc, node});
+
+      root_locs_.push_back(my_loc);
+    } else {
+      // Is child node
+      const auto &my_loc = int_loc_mapping[int_my_loc];
+      const auto &parent_loc = int_loc_mapping[int_parent_loc];
+
+      Node node(my_loc, parent_loc, jm);
+      nodes_.insert({my_loc, node});
+
+      sum_mi += jm.ComputeMutualInformation(parent_loc, my_loc);
+    }
+  }
+
+  //printf("Have %ld nodes, %ld roots in tree, %5.3f sum MI\n", nodes_.size(), root_locs_.size(), sum_mi);
+
+  // Add children to parents
+  for (const auto &it : nodes_) {
+    const auto &node = it.second;
+    if (node.HasParent()) {
+      const auto &parent_loc = node.GetParentLocation();
+
+      const auto &it_parent = nodes_.find(parent_loc);
+      BOOST_ASSERT(it_parent != nodes_.end());
+
+      it_parent->second.AddChild(node);
+    }
+  }
 }
 
 double ChowLuiTree::GetResolution() const {
