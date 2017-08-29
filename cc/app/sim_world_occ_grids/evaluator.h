@@ -21,6 +21,8 @@ class Evaluator {
   ~Evaluator();
 
   void QueueClass(const std::string &classname);
+  void QueueEvalType(const ChowLuiTree::EvalType &type);
+  void QueueEvalType(const std::string &string);
 
   void Start();
   void Finish();
@@ -32,18 +34,12 @@ class Evaluator {
 
  private:
   static constexpr int kNumThreads_ = 48;
-  static constexpr int kEvals_ = 4;
 
   fs::path training_data_path_;
   fs::path testing_data_path_;
 
   std::map<std::string, ChowLuiTree> clts_;
   std::map<std::string, JointModel> jms_;
-
-  typedef std::map<std::string, std::map<std::string, int> > ConfusionMatrix;
-  ConfusionMatrix confusion_matrix_[kEvals_];
-
-  mutable std::mutex results_mutex_;
 
   struct Work {
     fs::path path;
@@ -57,11 +53,57 @@ class Evaluator {
 
   std::vector<std::thread> threads_;
 
-  double eval_time_ms_[kEvals_] = {0.0, 0.0, 0.0, 0.0};
-  int eval_counts_[kEvals_] = {0, 0, 0, 0};
+  struct Results {
+    std::map<std::string, std::map<std::string, int> > cm;
+
+    double time_ms;
+    int count;
+
+    double AverageTime() const {
+      return time_ms / count;
+    }
+
+    void CountTime(double t) {
+      time_ms += t;
+      count++;
+    }
+
+    void MarkResult(const std::string &true_class, const std::string &labeled_class) {
+      cm[true_class][labeled_class]++;
+    }
+
+    void Print() const {
+      printf("Took %5.3f ms / evaluation\n", AverageTime());
+
+      printf("%15s  ", "");
+      for (const auto it1 : cm) {
+        const auto &classname1 = it1.first;
+        printf("%15s  ", classname1.c_str());
+      }
+      printf("\n");
+
+      for (const auto it1 : cm) {
+        const auto &classname1 = it1.first;
+        printf("%15s  ", classname1.c_str());
+
+        int sum = 0;
+        for (const auto it2 : it1.second) {
+          sum += it2.second;
+        }
+
+        for (const auto it2 : it1.second) {
+          printf("%15.1f %%", sum == 0 ? 0:(100.0 * it2.second/sum));
+        }
+        printf("\t(%6d Evaluations)\n", sum);
+      }
+    }
+  };
+
+  std::map<ChowLuiTree::EvalType, Results> results_;
+  mutable std::mutex results_mutex_;
 
   void WorkerThread();
-  void PrintConfusionMatrix(const ConfusionMatrix &cm) const;
+  std::string GetEvalTypeString(const ChowLuiTree::EvalType &type) const;
 };
 
 } // namespace sim_world_occ_grids
