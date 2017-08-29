@@ -80,12 +80,10 @@ void Evaluator::QueueEvalType(const std::string &type_str) {
 
 void Evaluator::QueueEvalType(const ChowLuiTree::EvalType &type) {
   work_queue_mutex_.lock();
-  results_mutex_.lock();
 
   // Init results matrix
-  results_[type] = Results();
+  results_[type] = std::shared_ptr<Results>(new Results());
 
-  results_mutex_.unlock();
   work_queue_mutex_.unlock();
 }
 
@@ -175,26 +173,18 @@ void Evaluator::WorkerThread() {
         double ms = t.GetMs();
 
         // Add to results
-        results_mutex_.lock();
-
-        results.CountTime(ms);
-        results.MarkResult(w.classname, best_classname);
-
-        results_mutex_.unlock();
+        results->CountTime(ms);
+        results->MarkResult(w.classname, best_classname);
       }
     }
   }
 }
 
 void Evaluator::PrintResults() const {
-  results_mutex_.lock();
-
   for (const auto &it_results : results_) {
     printf("\n%s\n", GetEvalTypeString(it_results.first).c_str());
-    it_results.second.Print();
+    it_results.second->Print();
   }
-
-  results_mutex_.unlock();
 }
 
 std::vector<std::string> Evaluator::GetClasses() const {

@@ -28,9 +28,9 @@ int main(int argc, char** argv) {
   evaluator.Start();
 
   while (evaluator.HaveWork()) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::this_thread::sleep_for(std::chrono::seconds(10));
     evaluator.PrintResults();
-    printf("\n");
+    printf("\n----\n");
   }
 
   printf("\nDone!\n");

@@ -55,52 +55,92 @@ class Evaluator {
 
   struct Results {
     std::map<std::string, std::map<std::string, int> > cm;
+    mutable std::mutex mutex;
 
     double time_ms;
     int count;
+
+    void Lock() const {
+      mutex.lock();
+    }
+
+    void Unlock() const {
+      mutex.unlock();
+    }
 
     double AverageTime() const {
       return time_ms / count;
     }
 
     void CountTime(double t) {
+      Lock();
+
       time_ms += t;
       count++;
+
+      Unlock();
     }
 
     void MarkResult(const std::string &true_class, const std::string &labeled_class) {
+      Lock();
+
       cm[true_class][labeled_class]++;
+
+      Unlock();
+    }
+
+    int GetCount(const std::string &true_class, const std::string &labeled_class) const {
+      const auto &it1 = cm.find(true_class);
+      if (it1 == cm.end()) {
+        return 0;
+      }
+
+      const auto &row = it1->second;
+      const auto &it2 = row.find(labeled_class);
+      if (it2 == row.end()) {
+        return 0;
+      }
+
+      return it2->second;
     }
 
     void Print() const {
+      Lock();
+
       printf("Took %5.3f ms / evaluation\n", AverageTime());
 
+      std::vector<std::string> classes;
+
       printf("%15s  ", "");
-      for (const auto it1 : cm) {
+      for (const auto &it1 : cm) {
         const auto &classname1 = it1.first;
         printf("%15s  ", classname1.c_str());
+        classes.push_back(classname1);
       }
       printf("\n");
 
-      for (const auto it1 : cm) {
-        const auto &classname1 = it1.first;
+      for (const auto classname1 : classes) {
         printf("%15s  ", classname1.c_str());
 
         int sum = 0;
-        for (const auto it2 : it1.second) {
-          sum += it2.second;
+        const auto &it_row = cm.find(classname1);
+        if (it_row != cm.end()) {
+          for (const auto &it2 : it_row->second) {
+            sum += it2.second;
+          }
         }
 
-        for (const auto it2 : it1.second) {
-          printf("%15.1f %%", sum == 0 ? 0:(100.0 * it2.second/sum));
+        for (const auto &classname2 : classes) {
+          printf("%15.1f %%", sum == 0 ? 0:(100.0 * GetCount(classname1, classname2)/sum));
         }
         printf("\t(%6d Evaluations)\n", sum);
       }
+
+      Unlock();
     }
   };
 
-  std::map<ChowLuiTree::EvalType, Results> results_;
-  mutable std::mutex results_mutex_;
+  std::map<ChowLuiTree::EvalType, std::shared_ptr<Results> > results_;
 
   void WorkerThread();
   std::string GetEvalTypeString(const ChowLuiTree::EvalType &type) const;
