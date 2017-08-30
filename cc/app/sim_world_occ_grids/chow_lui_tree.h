@@ -191,7 +191,7 @@ class ChowLuiTree {
 
  private:
   static constexpr double kMaxDistanceBetweenNodes_ = 100.0;
-  static constexpr int kMinObservations_ = 100;
+  static constexpr int kMinObservations_ = 20;
   static constexpr int kMinMutualInformation_ = 0.01;
 
   double resolution_;

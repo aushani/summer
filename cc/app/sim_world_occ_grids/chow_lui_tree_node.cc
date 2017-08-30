@@ -10,6 +10,7 @@ namespace sim_world_occ_grids {
 
 ChowLuiTreeNode::ChowLuiTreeNode(const ChowLuiTree &clt) : osg::Group() {
   const auto root_locs = clt.GetRootLocs();
+  printf("have %d roots\n", root_locs.size());
 
   for (const auto &root : root_locs) {
     Render(root, clt);
@@ -26,7 +27,7 @@ void ChowLuiTreeNode::Render(const rt::Location &loc, const ChowLuiTree &clt) {
 
     double mi = node.GetMutualInformation();
 
-    if (node.GetMarginalProbability(true) < 0.1) {
+    if (node.GetMarginalProbability(true) < 0.20 || clt.GetNode(loc1).GetMarginalProbability(true) < 0.20) {
       // Don't render
     } else {
 

@@ -7,7 +7,7 @@ cc_library(
             "joint_model.cc", "joint_model.h",
             #"detector.cc", "detector.h",
             #"map_node.cc", "map_node.h",
-            #"model_node.cc", "model_node.h",
+            "model_node.cc", "model_node.h",
            ],
     deps = [
             "//library/kitti",
@@ -44,6 +44,16 @@ cc_binary(
             ":sim_world_occ_grids_lib",
             "//library/ray_tracing",
             "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
+    name = "view_model",
+    srcs = [
+            "view_model.cc",
+           ],
+    deps = [
+            ":sim_world_occ_grids_lib",
            ],
 )
 
@@ -112,16 +122,6 @@ cc_binary(
     name = "view_og",
     srcs = [
             "view_occ_grid.cc",
-           ],
-    deps = [
-            ":sim_world_occ_grids_lib",
-           ],
-)
-
-cc_binary(
-    name = "view_model",
-    srcs = [
-            "view_model.cc",
            ],
     deps = [
             ":sim_world_occ_grids_lib",

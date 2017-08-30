@@ -14,7 +14,7 @@ OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
  data_manager_(32, false, false),
  rand_engine_(std::chrono::system_clock::now().time_since_epoch().count()),
  save_base_fn_(save_base_fn) {
-  og_builder_.ConfigureSizeInPixels(64, 64, 1);
+  og_builder_.ConfigureSizeInPixels(50, 50, 1);
 
   classes_.push_back("BOX");
   classes_.push_back("STAR");
@@ -49,16 +49,16 @@ void OccGridExtractor::Run() {
     for (const auto &shape : shapes) {
       for (int ex=0; ex<kEntriesPerObj_; ex++) {
         // Jitter
-        double dx = jitter_pos(rand_engine_);
-        double dy = jitter_pos(rand_engine_);
-        double dt = jitter_angle(rand_engine_);
+        //double dx = jitter_pos(rand_engine_);
+        //double dy = jitter_pos(rand_engine_);
+        //double dt = jitter_angle(rand_engine_);
 
         double x = shape.GetCenter()(0);
         double y = shape.GetCenter()(1);
         double z = 0;
         double t = shape.GetAngle();
 
-        og_builder_.SetPose(Eigen::Vector3d(x + dx, y + dy, z), t + dt);
+        og_builder_.SetPose(Eigen::Vector3d(x, y, z), t);
 
         // Make occ grid
         rt::OccGrid og = og_builder_.GenerateOccGrid(scan);
@@ -71,37 +71,37 @@ void OccGridExtractor::Run() {
     }
 
     // Save background examples
-    for (int neg=0; neg<kEntriesPerObj_; neg++) {
-      double x = unif(rand_engine_);
-      double y = unif(rand_engine_);
-      double z = 0;
-      double t = 0;
+    //for (int neg=0; neg<kEntriesPerObj_; neg++) {
+    //  double x = unif(rand_engine_);
+    //  double y = unif(rand_engine_);
+    //  double z = 0;
+    //  double t = 0;
 
-      // Check if too close to existing object
-      bool too_close = false;
-      for (auto &shape : shapes) {
-        const auto &center = shape.GetCenter();
+    //  // Check if too close to existing object
+    //  bool too_close = false;
+    //  for (auto &shape : shapes) {
+    //    const auto &center = shape.GetCenter();
 
-        double dx = center(0) - x;
-        double dy = center(1) - y;
+    //    double dx = center(0) - x;
+    //    double dy = center(1) - y;
 
-        if (dx*dx + dy*dy < pr2) {
-          too_close = true;
-          break;
-        }
-      }
+    //    if (dx*dx + dy*dy < pr2) {
+    //      too_close = true;
+    //      break;
+    //    }
+    //  }
 
-      if (!too_close) {
-        // Build og and save
-        og_builder_.SetPose(Eigen::Vector3d(x, y, z), t);
-        rt::OccGrid og = og_builder_.GenerateOccGrid(scan);
+    //  if (!too_close) {
+    //    // Build og and save
+    //    og_builder_.SetPose(Eigen::Vector3d(x, y, z), t);
+    //    rt::OccGrid og = og_builder_.GenerateOccGrid(scan);
 
-        // Save Occ Grid
-        char fn[1000];
-        sprintf(fn, "%s/BACKGROUND/%06d.og", save_base_fn_.c_str(), class_counts_["BACKGROUND"]++);
-        og.Save(fn);
-      }
-    }
+    //    // Save Occ Grid
+    //    char fn[1000];
+    //    sprintf(fn, "%s/BACKGROUND/%06d.og", save_base_fn_.c_str(), class_counts_["BACKGROUND"]++);
+    //    og.Save(fn);
+    //  }
+    //}
 
     // Check for counts
     bool keep_going = false;

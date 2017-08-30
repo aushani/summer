@@ -3,12 +3,12 @@
 
 #include "library/viewer/viewer.h"
 
-#include "app/sim_world_occ_grids/model.h"
+#include "app/sim_world_occ_grids/joint_model.h"
 #include "app/sim_world_occ_grids/model_node.h"
 
 namespace vw = library::viewer;
 
-namespace kog = app::sim_world_occ_grids;
+namespace swog = app::sim_world_occ_grids;
 
 int main(int argc, char** argv) {
   osg::ArgumentParser args(&argc, argv);
@@ -41,11 +41,11 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  kog::JointModel jm = kog::JointModel::Load(fn.c_str());
+  swog::JointModel jm = swog::JointModel::Load(fn.c_str());
 
   vw::Viewer v(&args);
 
-  osg::ref_ptr<kog::ModelNode> node = new kog::ModelNode(jm);
+  osg::ref_ptr<swog::ModelNode> node = new swog::ModelNode(jm);
 
   v.AddChild(node);
 

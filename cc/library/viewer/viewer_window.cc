@@ -38,8 +38,8 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
   osg::ref_ptr<osgViewer::View> view = vwidget_->GetView();
 
   // TODO: magic numbers
-  //view->getCamera()->setClearColor(osg::Vec4d(1, 1, 1, 0)); // white
-  view->getCamera()->setClearColor(osg::Vec4d(0, 0, 0, 0)); // black
+  view->getCamera()->setClearColor(osg::Vec4d(1, 1, 1, 0)); // white
+  //view->getCamera()->setClearColor(osg::Vec4d(0, 0, 0, 0)); // black
 
   osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> ksm = new osgGA::KeySwitchMatrixManipulator();
 

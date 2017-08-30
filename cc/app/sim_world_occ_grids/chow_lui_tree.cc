@@ -329,7 +329,7 @@ void ChowLuiTree::ConstructTreePrim(const JointModel &jm, const boost::optional<
   }
   size_t num_edges = edges.size();
   size_t num_nodes = int_loc_mapping.size();
-  //printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_edges, num_nodes);
+  printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_edges, num_nodes);
 
   Graph g(edges.begin(), edges.begin() + num_edges, weights.begin(), num_nodes);
 
@@ -337,7 +337,7 @@ void ChowLuiTree::ConstructTreePrim(const JointModel &jm, const boost::optional<
 
   t.Start();
   boost::prim_minimum_spanning_tree(g, &p[0]);
-  //printf("prim done in %5.3f sec\n", t.GetSeconds());
+  printf("prim done in %5.3f sec\n", t.GetSeconds());
 
   double sum_mi = 0;
 
@@ -365,7 +365,7 @@ void ChowLuiTree::ConstructTreePrim(const JointModel &jm, const boost::optional<
     }
   }
 
-  //printf("Have %ld nodes, %ld roots in tree, %5.3f sum MI\n", nodes_.size(), root_locs_.size(), sum_mi);
+  printf("Have %ld nodes, %ld roots in tree, %5.3f sum MI\n", nodes_.size(), root_locs_.size(), sum_mi);
 
   // Add children to parents
   for (const auto &it : nodes_) {
