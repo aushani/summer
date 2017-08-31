@@ -122,11 +122,7 @@ void JointModel::MarkObservationsWorker(const rt::OccGrid &og, size_t idx1_start
 
       bool occ2 = los[idx2] > 0.5;
 
-      int val = counts_[GetIndex(loc1, loc2)].GetCount(occ1, occ2);
       counts_[GetIndex(loc1, loc2)].Count(occ1, occ2);
-      int new_val = counts_[GetIndex(loc1, loc2)].GetCount(occ1, occ2);
-      BOOST_ASSERT(new_val == val + 1);
-      //printf("Count is now: %d\n", counts_[GetIndex(loc1, loc2)].GetTotalCount());
     }
   }
 }

@@ -7,6 +7,7 @@
 
 #include "library/chow_liu_tree/joint_model.h"
 #include "library/ray_tracing/dense_occ_grid.h"
+#include "library/ray_tracing/occ_grid_location.h"
 
 namespace rt = library::ray_tracing;
 
@@ -20,8 +21,14 @@ class DynamicCLT {
   double BuildAndEvaluate(const rt::DenseOccGrid &dog) const;
   double EvaluateMarginal(const rt::DenseOccGrid &dog) const;
 
+  const std::map<rt::Location, rt::Location>& GetFullTree() const;
+
+  double GetMarginal(const rt::Location &loc, bool occu) const;
+
  private:
-  static constexpr int kMinObservations_ = 10;
+  //static constexpr int kMinObservations_ = 10;
+  //static constexpr double kMinMutualInformation_ = 0.01;
+  static constexpr int kMinObservations_ = 100;
   static constexpr double kMinMutualInformation_ = 0.01;
 
   struct MarginalDistribution {
@@ -30,15 +37,10 @@ class DynamicCLT {
     MarginalDistribution(const rt::Location &loc, const JointModel &jm) {
       int c_t = jm.GetCount(loc, true);
       int c_f = jm.GetCount(loc, false);
-      double denom = c_t + c_f;
+      double denom = jm.GetNumObservations(loc);
 
-      log_p[GetIndex(false)] = log(c_t/denom);
-      log_p[GetIndex(true)] = log(c_f/denom);
-    }
-
-    MarginalDistribution(double p_free, double p_occu) {
-      log_p[GetIndex(false)] = log(p_free);
-      log_p[GetIndex(true)] = log(p_occu);
+      log_p[GetIndex(true)] = log(c_t/denom);
+      log_p[GetIndex(false)] = log(c_f/denom);
     }
 
     double GetLogProb(bool occ) const {
@@ -62,8 +64,9 @@ class DynamicCLT {
 
           int count = jm.GetCount(loc, occ, loc_parent, parent);
           int count_other = jm.GetCount(loc, !occ, loc_parent, parent);
+          double denom = count + count_other;
 
-          log_p[GetIndex(occ, parent)] = log(count / (static_cast<double>(count + count_other)));
+          log_p[GetIndex(occ, parent)] = log(count/denom);
         }
       }
     }
@@ -110,12 +113,18 @@ class DynamicCLT {
   };
 
   std::vector<rt::Location> all_locs_;
+  std::map<rt::Location, int> loc_to_int_;
+
   std::vector<Edge> all_edges_;
 
-  std::map<rt::Location ,MarginalDistribution> marginals_;
+  std::map<rt::Location, MarginalDistribution> marginals_;
+
+  std::map<rt::Location, rt::Location> full_tree_;
 
   // First is child, second is parent
   std::map<std::pair<rt::Location, rt::Location>, ConditionalDistribution> conditionals_;
+
+  void BuildFullTree();
 };
 
 } // namespace chow_liu_tree

@@ -37,6 +37,7 @@ class Evaluator {
   fs::path training_data_path_;
   fs::path testing_data_path_;
 
+  std::map<std::string, clt::JointModel> jms_;
   std::map<std::string, clt::DynamicCLT> clts_;
 
   struct Work {
@@ -55,8 +56,8 @@ class Evaluator {
     std::map<std::string, std::map<std::string, int> > cm;
     mutable std::mutex mutex;
 
-    double time_ms;
-    int count;
+    double time_ms = 0;
+    int count = 0;
 
     void Lock() const {
       mutex.lock();
@@ -117,7 +118,7 @@ class Evaluator {
       }
       printf("\n");
 
-      for (const auto classname1 : classes) {
+      for (const auto &classname1 : classes) {
         printf("%15s  ", classname1.c_str());
 
         int sum = 0;

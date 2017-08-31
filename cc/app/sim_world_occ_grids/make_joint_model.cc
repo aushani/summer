@@ -34,10 +34,15 @@ int main(int argc, char** argv) {
       continue;
     }
 
+    if (it->path().extension().string() != ".og") {
+      printf("skipping extension %s\n", it->path().extension().string().c_str());
+      continue;
+    }
+
     rt::OccGrid og = rt::OccGrid::Load(it->path().string().c_str());
 
     if (model == nullptr) {
-      model = new clt::JointModel(5.0, 0.0, og.GetResolution());
+      model = new clt::JointModel(4.5, 0.0, og.GetResolution());
     }
 
     BOOST_ASSERT(model->GetResolution() == og.GetResolution());

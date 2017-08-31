@@ -33,6 +33,7 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
         jm.GetNXY(), jm.GetNXY(), jm.GetNZ(), jm.GetResolution());
 
     clts_.insert({classname, clt::DynamicCLT(jm)});
+    jms_.insert({classname, jm});
   }
   printf("Loaded all joint models\n");
 }
@@ -116,12 +117,15 @@ void Evaluator::WorkerThread() {
       double best_log_prob = 0.0;
 
       t.Start();
+      //printf("%s\n", w.classname.c_str());
 
       for (const auto &it : clts_) {
         const auto &classname = it.first;
         const auto &clt = it.second;
 
         double log_prob = clt.BuildAndEvaluate(dog);
+        //double log_prob = clt.EvaluateMarginal(dog);
+        //printf("\tscore for %s is %f\n", classname.c_str(), log_prob);
 
         if (first || log_prob > best_log_prob) {
           best_log_prob = log_prob;
@@ -131,6 +135,7 @@ void Evaluator::WorkerThread() {
         first = false;
       }
       double ms = t.GetMs();
+      //printf("\tbest score for %s is %s (%f)\n", w.classname.c_str(), best_classname.c_str(), best_log_prob);
 
       // Add to results
       results_.CountTime(ms);

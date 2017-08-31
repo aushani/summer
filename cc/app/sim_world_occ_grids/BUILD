@@ -48,19 +48,20 @@ cc_binary(
 #            "@boost//:boost_filesystem",
 #           ],
 #)
-#
-#cc_binary(
-#    name = "view_chow_lui_tree",
-#    srcs = [
-#            "view_chow_lui_tree.cc",
-#            "chow_lui_tree_node.cc", "chow_lui_tree_node.h",
-#           ],
-#    deps = [
-#            "//library/chow_liu_tree",
-#            "//library/viewer",
-#           ],
-#)
-#
+
+cc_binary(
+    name = "view_chow_liu_tree",
+    srcs = [
+            "view_chow_liu_tree.cc",
+           ],
+    deps = [
+            "//library/chow_liu_tree",
+            "//library/osg_nodes",
+            "//library/viewer",
+            "@boost//:boost_filesystem",
+           ],
+)
+
 cc_binary(
     name = "evaluate_detections",
     srcs = [
