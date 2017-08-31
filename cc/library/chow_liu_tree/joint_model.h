@@ -17,7 +17,12 @@ class JointModel {
 
   void MarkObservations(const rt::OccGrid &og);
 
+  int GetCount(const rt::Location &loc, bool occ) const;
   int GetCount(const rt::Location &loc1, bool occ1, const rt::Location &loc2, bool occ2) const;
+
+  int GetNumObservations(const rt::Location &loc1) const;
+  int GetNumObservations(const rt::Location &loc1, const rt::Location &loc2) const;
+
   double GetMutualInformation(const rt::Location &loc1, const rt::Location &loc2) const;
 
   double GetResolution() const;
@@ -39,6 +44,10 @@ class JointModel {
 
     int GetCount(bool occ1, bool occ2) const {
       return counts[GetIndex(occ1, occ2)];
+    }
+
+    int GetTotalCount() const {
+      return counts[0] + counts[1] + counts[2] + counts[3];
     }
 
     double GetMutualInformation() const {
@@ -111,7 +120,6 @@ class JointModel {
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /* file_version */) {
     ar & resolution_;
-
     ar & range_xy_;
     ar & range_z_;
 

@@ -1,20 +1,3 @@
-cc_library(
-    name = "sim_world_occ_grids_lib",
-    srcs = [
-            "chow_lui_tree.cc", "chow_lui_tree.h",
-            "joint_model.cc", "joint_model.h",
-           ],
-    deps = [
-            "//library/kitti",
-            "//library/osg_nodes",
-            "//library/ray_tracing",
-            "//library/timer",
-            "//library/util",
-            "//library/viewer",
-            "@boost//:boost_serialization",
-           ],
-)
-
 cc_binary(
     name = "run_extractor",
     srcs = [
@@ -36,34 +19,48 @@ cc_binary(
             "make_joint_model.cc",
            ],
     deps = [
-            ":sim_world_occ_grids_lib",
+            "//library/chow_liu_tree",
             "//library/ray_tracing",
             "@boost//:boost_filesystem",
            ],
 )
 
 cc_binary(
-    name = "make_chow_lui_tree",
+    name = "view_joint_model",
     srcs = [
-            "make_chow_lui_tree.cc",
+            "view_joint_model.cc",
            ],
     deps = [
-            ":sim_world_occ_grids_lib",
+            "//library/chow_liu_tree",
+            "//library/osg_nodes",
+            "//library/viewer",
             "@boost//:boost_filesystem",
            ],
 )
 
-cc_binary(
-    name = "view_chow_lui_tree",
-    srcs = [
-            "view_chow_lui_tree.cc",
-            "chow_lui_tree_node.cc", "chow_lui_tree_node.h",
-           ],
-    deps = [
-            ":sim_world_occ_grids_lib",
-           ],
-)
-
+#cc_binary(
+#    name = "make_chow_lui_tree",
+#    srcs = [
+#            "make_chow_lui_tree.cc",
+#           ],
+#    deps = [
+#            "//library/chow_liu_tree",
+#            "@boost//:boost_filesystem",
+#           ],
+#)
+#
+#cc_binary(
+#    name = "view_chow_lui_tree",
+#    srcs = [
+#            "view_chow_lui_tree.cc",
+#            "chow_lui_tree_node.cc", "chow_lui_tree_node.h",
+#           ],
+#    deps = [
+#            "//library/chow_liu_tree",
+#            "//library/viewer",
+#           ],
+#)
+#
 cc_binary(
     name = "evaluate_detections",
     srcs = [
@@ -71,7 +68,7 @@ cc_binary(
             "evaluator.cc", "evaluator.h",
            ],
     deps = [
-            ":sim_world_occ_grids_lib",
+            "//library/chow_liu_tree",
             "@boost//:boost_filesystem",
            ],
 )

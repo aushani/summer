@@ -10,11 +10,11 @@ namespace app {
 namespace sim_world_occ_grids {
 
 OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
- og_builder_(10000, 0.10, 100.0),
+ og_builder_(10000, 0.30, 100.0),
  data_manager_(32, false, false),
  rand_engine_(std::chrono::system_clock::now().time_since_epoch().count()),
  save_base_fn_(save_base_fn) {
-  og_builder_.ConfigureSizeInPixels(64, 64, 1);
+  og_builder_.ConfigureSizeInPixels(16, 16, 1);
 
   classes_.push_back("BOX");
   classes_.push_back("STAR");
@@ -56,7 +56,7 @@ void OccGridExtractor::Run() {
         double x = shape.GetCenter()(0);
         double y = shape.GetCenter()(1);
         double z = 0;
-        double t = shape.GetAngle();
+        double t = -shape.GetAngle();
 
         og_builder_.SetPose(Eigen::Vector3d(x + dx, y + dy, z), t + dt);
 

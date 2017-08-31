@@ -6,9 +6,10 @@
 
 #include <boost/filesystem.hpp>
 
-#include "app/sim_world_occ_grids/chow_lui_tree.h"
-#include "app/sim_world_occ_grids/joint_model.h"
+#include "library/chow_liu_tree/dynamic_clt.h"
+#include "library/chow_liu_tree/joint_model.h"
 
+namespace clt = library::chow_liu_tree;
 namespace rt = library::ray_tracing;
 namespace fs = boost::filesystem;
 
@@ -21,8 +22,6 @@ class Evaluator {
   ~Evaluator();
 
   void QueueClass(const std::string &classname);
-  void QueueEvalType(const ChowLuiTree::EvalType &type);
-  void QueueEvalType(const std::string &string);
 
   void Start();
   void Finish();
@@ -38,8 +37,7 @@ class Evaluator {
   fs::path training_data_path_;
   fs::path testing_data_path_;
 
-  std::map<std::string, ChowLuiTree> clts_;
-  std::map<std::string, JointModel> jms_;
+  std::map<std::string, clt::DynamicCLT> clts_;
 
   struct Work {
     fs::path path;
@@ -140,10 +138,10 @@ class Evaluator {
     }
   };
 
-  std::map<ChowLuiTree::EvalType, std::shared_ptr<Results> > results_;
+  //std::map<ChowLuiTree::EvalType, std::shared_ptr<Results> > results_;
+  Results results_;
 
   void WorkerThread();
-  std::string GetEvalTypeString(const ChowLuiTree::EvalType &type) const;
 };
 
 } // namespace sim_world_occ_grids

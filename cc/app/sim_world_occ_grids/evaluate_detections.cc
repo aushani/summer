@@ -10,8 +10,8 @@ namespace swog = app::sim_world_occ_grids;
 int main(int argc, char** argv) {
   printf("Evaluate Detections\n");
 
-  if (argc < 3) {
-    printf("Usage: %s training_data/ testing_data/ eval_types... \n", argv[0]);
+  if (argc < 2) {
+    printf("Usage: %s training_data/ testing_data/ \n", argv[0]);
     return 1;
   }
 
@@ -19,10 +19,6 @@ int main(int argc, char** argv) {
 
   for (const std::string &cn : evaluator.GetClasses()) {
     evaluator.QueueClass(cn);
-  }
-
-  for (int i=3; i<argc; i++) {
-    evaluator.QueueEvalType(argv[i]);
   }
 
   evaluator.Start();

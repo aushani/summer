@@ -44,6 +44,10 @@ void JointModel::MarkObservations(const rt::OccGrid &og) {
   }
 }
 
+int JointModel::GetCount(const rt::Location &loc, bool occ) const {
+  return GetCount(loc, occ, loc, occ);
+}
+
 int JointModel::GetCount(const rt::Location &loc1, bool occ1, const rt::Location &loc2, bool occ2) const {
   BOOST_ASSERT(InRange(loc1));
   BOOST_ASSERT(InRange(loc2));
@@ -51,6 +55,19 @@ int JointModel::GetCount(const rt::Location &loc1, bool occ1, const rt::Location
   size_t idx = GetIndex(loc1, loc2);
 
   return counts_[idx].GetCount(occ1, occ2);
+}
+
+int JointModel::GetNumObservations(const rt::Location &loc1) const {
+  return GetNumObservations(loc1, loc1);
+}
+
+int JointModel::GetNumObservations(const rt::Location &loc1, const rt::Location &loc2) const {
+  BOOST_ASSERT(InRange(loc1));
+  BOOST_ASSERT(InRange(loc2));
+
+  size_t idx = GetIndex(loc1, loc2);
+
+  return counts_[idx].GetTotalCount();
 }
 
 double JointModel::GetMutualInformation(const rt::Location &loc1, const rt::Location &loc2) const {
@@ -105,7 +122,11 @@ void JointModel::MarkObservationsWorker(const rt::OccGrid &og, size_t idx1_start
 
       bool occ2 = los[idx2] > 0.5;
 
+      int val = counts_[GetIndex(loc1, loc2)].GetCount(occ1, occ2);
       counts_[GetIndex(loc1, loc2)].Count(occ1, occ2);
+      int new_val = counts_[GetIndex(loc1, loc2)].GetCount(occ1, occ2);
+      BOOST_ASSERT(new_val == val + 1);
+      //printf("Count is now: %d\n", counts_[GetIndex(loc1, loc2)].GetTotalCount());
     }
   }
 }

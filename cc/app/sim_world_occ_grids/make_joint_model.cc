@@ -5,12 +5,11 @@
 #include <boost/assert.hpp>
 #include <boost/filesystem.hpp>
 
+#include "library/chow_liu_tree/joint_model.h"
 #include "library/ray_tracing/occ_grid.h"
 #include "library/timer/timer.h"
 
-#include "app/sim_world_occ_grids/joint_model.h"
-
-namespace swog = app::sim_world_occ_grids;
+namespace clt = library::chow_liu_tree;
 namespace rt = library::ray_tracing;
 namespace fs = boost::filesystem;
 
@@ -22,7 +21,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  swog::JointModel *model = nullptr;
+  clt::JointModel *model = nullptr;
 
   int count = 0;
   library::timer::Timer t;
@@ -38,7 +37,7 @@ int main(int argc, char** argv) {
     rt::OccGrid og = rt::OccGrid::Load(it->path().string().c_str());
 
     if (model == nullptr) {
-      model = new swog::JointModel(5.0, 0.0, og.GetResolution());
+      model = new clt::JointModel(5.0, 0.0, og.GetResolution());
     }
 
     BOOST_ASSERT(model->GetResolution() == og.GetResolution());

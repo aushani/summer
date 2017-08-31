@@ -3,6 +3,7 @@
 #include "library/ray_tracing/dense_occ_grid.h"
 #include "library/timer/timer.h"
 
+namespace clt = library::chow_liu_tree;
 namespace rt = library::ray_tracing;
 namespace fs = boost::filesystem;
 
@@ -27,12 +28,11 @@ Evaluator::Evaluator(const char* training_dir, const char *testing_dir) :
     printf("Found %s\n", classname.c_str());
 
     fs::path p_jm = it->path() / fs::path("jm.jm");
-    auto jm = JointModel::Load(p_jm.string().c_str());
-    printf("Joint model is %dx%dx%d at %7.3f resolution\n",
+    const clt::JointModel jm = clt::JointModel::Load(p_jm.string().c_str());
+    printf("Joint model is %ldx%ldx%ld at %7.3f resolution\n",
         jm.GetNXY(), jm.GetNXY(), jm.GetNZ(), jm.GetResolution());
 
-    jms_.insert({classname, jm});
-    clts_.insert({classname, ChowLuiTree(jm)});
+    clts_.insert({classname, clt::DynamicCLT(jm)});
   }
   printf("Loaded all joint models\n");
 }
@@ -58,31 +58,6 @@ void Evaluator::QueueClass(const std::string &classname) {
 
     work_queue_.push_back(Work(it->path(), classname));
   }
-
-  work_queue_mutex_.unlock();
-}
-
-void Evaluator::QueueEvalType(const std::string &type_str) {
-  if (type_str == "DENSE") {
-    QueueEvalType(ChowLuiTree::DENSE);
-  } else if (type_str == "APPROX_MARGINAL") {
-    QueueEvalType(ChowLuiTree::APPROX_MARGINAL);
-  } else if (type_str == "APPROX_CONDITIONAL") {
-    QueueEvalType(ChowLuiTree::APPROX_CONDITIONAL);
-  } else if (type_str == "APPROX_GREEDY") {
-    QueueEvalType(ChowLuiTree::APPROX_GREEDY);
-  } else if (type_str == "MARGINAL") {
-    QueueEvalType(ChowLuiTree::MARGINAL);
-  } else {
-    BOOST_ASSERT(false);
-  }
-}
-
-void Evaluator::QueueEvalType(const ChowLuiTree::EvalType &type) {
-  work_queue_mutex_.lock();
-
-  // Init results matrix
-  results_[type] = std::shared_ptr<Results>(new Results());
 
   work_queue_mutex_.unlock();
 }
@@ -133,92 +108,49 @@ void Evaluator::WorkerThread() {
 
       //Process Work
       auto og = rt::OccGrid::Load(w.path.string().c_str());
-      rt::DenseOccGrid dog(og, 5.0, 5.0, 1.0, true); // clamp to binary
+      rt::DenseOccGrid dog(og, 5.0, 5.0, 0.0, true); // clamp to binary
 
       // Classify
-      for (auto &it_results : results_) {
-        const auto &type = it_results.first;
-        auto &results = it_results.second;
+      std::string best_classname = "";
+      bool first = true;
+      double best_log_prob = 0.0;
 
-        std::string best_classname = "";
-        bool first = true;
-        double best_log_prob = 0.0;
+      t.Start();
 
-        t.Start();
+      for (const auto &it : clts_) {
+        const auto &classname = it.first;
+        const auto &clt = it.second;
 
-        for (const auto &it : jms_) {
-          const auto &classname = it.first;
-          const auto &jm = it.second;
+        double log_prob = clt.BuildAndEvaluate(dog);
 
-          double log_prob = 0;
-
-          if (type == ChowLuiTree::DENSE) {
-            // Have to rebuild CLT
-            ChowLuiTree clt(jm, dog);
-            log_prob = clt.EvaluateLogProbability(dog, type);
-          } else {
-            const auto &it_clt = clts_.find(classname);
-            BOOST_ASSERT(it_clt != clts_.end());
-
-            log_prob = it_clt->second.EvaluateLogProbability(dog, type);
-          }
-
-          if (first || log_prob > best_log_prob) {
-            best_log_prob = log_prob;
-            best_classname = classname;
-          }
-
-          first = false;
+        if (first || log_prob > best_log_prob) {
+          best_log_prob = log_prob;
+          best_classname = classname;
         }
-        double ms = t.GetMs();
 
-        // Add to results
-        results->CountTime(ms);
-        results->MarkResult(w.classname, best_classname);
+        first = false;
       }
+      double ms = t.GetMs();
+
+      // Add to results
+      results_.CountTime(ms);
+      results_.MarkResult(w.classname, best_classname);
     }
   }
 }
 
 void Evaluator::PrintResults() const {
-  for (const auto &it_results : results_) {
-    printf("\n%s\n", GetEvalTypeString(it_results.first).c_str());
-    it_results.second->Print();
-  }
+  printf("Result:\n");
+  results_.Print();
 }
 
 std::vector<std::string> Evaluator::GetClasses() const {
   std::vector<std::string> classes;
-  for (auto it : jms_) {
+  for (auto it : clts_) {
     classes.push_back(it.first);
   }
 
   return classes;
-}
-
-std::string Evaluator::GetEvalTypeString(const ChowLuiTree::EvalType &type) const {
-  if (type == ChowLuiTree::DENSE) {
-    return "DENSE";
-  }
-
-  if (type == ChowLuiTree::APPROX_MARGINAL) {
-    return "APPROX_MARGINAL";
-  }
-
-  if (type == ChowLuiTree::APPROX_CONDITIONAL) {
-    return "APPROX_CONDITIONAL";
-  }
-
-  if (type == ChowLuiTree::APPROX_GREEDY) {
-    return "APPROX_GREEDY";
-  }
-
-  if (type == ChowLuiTree::MARGINAL) {
-    return "MARGINAL";
-  }
-
-  BOOST_ASSERT(false);
-  return "invalid";
 }
 
 } // namespace sim_world_occ_grids
