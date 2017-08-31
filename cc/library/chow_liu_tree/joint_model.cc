@@ -1,0 +1,144 @@
+#include "library/chow_liu_tree/joint_model.h"
+
+#include <thread>
+#include <iostream>
+#include <fstream>
+
+#include <boost/assert.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+
+namespace rt = library::ray_tracing;
+
+namespace library {
+namespace chow_liu_tree {
+
+JointModel::JointModel() : JointModel(0, 0, 0) {
+}
+
+JointModel::JointModel(double range_xy, double range_z, double res) :
+ resolution_(res), range_xy_(range_xy), range_z_(range_z),
+ n_xy_(2*std::ceil(range_xy_ / resolution_) + 1),
+ n_z_(2*std::ceil(range_z_ / resolution_) + 1),
+ n_loc_(n_xy_ * n_xy_ * n_z_),
+ counts_(n_loc_ * n_loc_) {
+  printf("Allocated %ld elements\n", counts_.size());
+}
+
+void JointModel::MarkObservations(const rt::OccGrid &og) {
+  BOOST_ASSERT(og.GetResolution() == GetResolution());
+
+  size_t sz = og.GetLocations().size();
+
+  int num_threads = 48;
+
+  std::vector<std::thread> threads;
+  for (int i=0; i<num_threads; i++) {
+    size_t start = i * sz / num_threads;
+    size_t end = (i+1) * sz / num_threads;
+    threads.emplace_back(&JointModel::MarkObservationsWorker, this, og, start, end);
+  }
+
+  for (auto &t : threads) {
+    t.join();
+  }
+}
+
+int JointModel::GetCount(const rt::Location &loc1, bool occ1, const rt::Location &loc2, bool occ2) const {
+  BOOST_ASSERT(InRange(loc1));
+  BOOST_ASSERT(InRange(loc2));
+
+  size_t idx = GetIndex(loc1, loc2);
+
+  return counts_[idx].GetCount(occ1, occ2);
+}
+
+double JointModel::GetMutualInformation(const rt::Location &loc1, const rt::Location &loc2) const {
+  BOOST_ASSERT(InRange(loc1));
+  BOOST_ASSERT(InRange(loc2));
+
+  size_t idx = GetIndex(loc1, loc2);
+
+  return counts_[idx].GetMutualInformation();
+}
+
+double JointModel::GetResolution() const {
+  return resolution_;
+}
+
+size_t JointModel::GetNXY() const {
+  return n_xy_;
+}
+
+size_t JointModel::GetNZ() const {
+  return n_z_;
+}
+
+bool JointModel::InRange(const rt::Location &loc) const {
+  int x = loc.i + n_xy_ / 2;
+  int y = loc.j + n_xy_ / 2;
+  int z = loc.k + n_z_ / 2;
+
+  return x >= 0 && x < n_xy_ &&
+         y >= 0 && y < n_xy_ &&
+         z >= 0 && z < n_z_;
+}
+
+void JointModel::MarkObservationsWorker(const rt::OccGrid &og, size_t idx1_start, size_t idx1_end) {
+  const auto &locs = og.GetLocations();
+  const auto &los = og.GetLogOdds();
+
+  for (size_t idx1 = idx1_start; idx1 < idx1_end; idx1++) {
+    const auto &loc1 = locs[idx1];
+    if (!InRange(loc1)) {
+      continue;
+    }
+
+    bool occ1 = los[idx1] > 0.5;
+
+    for (size_t idx2 = 0; idx2 < locs.size(); idx2++) {
+      const auto &loc2 = locs[idx2];
+
+      if (!InRange(loc2)) {
+        continue;
+      }
+
+      bool occ2 = los[idx2] > 0.5;
+
+      counts_[GetIndex(loc1, loc2)].Count(occ1, occ2);
+    }
+  }
+}
+
+size_t JointModel::GetIndex(const rt::Location &loc1, const rt::Location &loc2) const {
+  int x1 = loc1.i + n_xy_ / 2;
+  int y1 = loc1.j + n_xy_ / 2;
+  int z1 = loc1.k + n_z_ / 2;
+  size_t idx1 = (x1 * n_xy_ + y1) * n_z_ + z1;
+
+  int x2 = loc2.i + n_xy_ / 2;
+  int y2 = loc2.j + n_xy_ / 2;
+  int z2 = loc2.k + n_z_ / 2;
+  size_t idx2 = (x2 * n_xy_ + y2) * n_z_ + z2;
+
+  return idx1 * n_loc_ + idx2;
+}
+
+void JointModel::Save(const char *fn) const {
+  std::ofstream ofs(fn);
+  boost::archive::binary_oarchive oa(ofs);
+  oa << (*this);
+}
+
+JointModel JointModel::Load(const char *fn) {
+  JointModel jm;
+
+  std::ifstream ifs(fn);
+  boost::archive::binary_iarchive ia(ifs);
+  ia >> jm;
+
+  return jm;
+}
+
+} // namespace chow_liu_tree
+} // namespace library
