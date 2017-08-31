@@ -38,17 +38,6 @@ cc_binary(
            ],
 )
 
-#cc_binary(
-#    name = "make_chow_lui_tree",
-#    srcs = [
-#            "make_chow_lui_tree.cc",
-#           ],
-#    deps = [
-#            "//library/chow_liu_tree",
-#            "@boost//:boost_filesystem",
-#           ],
-#)
-
 cc_binary(
     name = "view_chow_liu_tree",
     srcs = [
