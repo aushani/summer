@@ -111,7 +111,7 @@ void JointModel::MarkObservationsWorker(const rt::OccGrid &og, size_t idx1_start
       continue;
     }
 
-    bool occ1 = los[idx1] > 0.5;
+    bool occ1 = los[idx1] > 0.0;
 
     for (size_t idx2 = 0; idx2 < locs.size(); idx2++) {
       const auto &loc2 = locs[idx2];
@@ -120,7 +120,7 @@ void JointModel::MarkObservationsWorker(const rt::OccGrid &og, size_t idx1_start
         continue;
       }
 
-      bool occ2 = los[idx2] > 0.5;
+      bool occ2 = los[idx2] > 0.0;
 
       counts_[GetIndex(loc1, loc2)].Count(occ1, occ2);
     }
