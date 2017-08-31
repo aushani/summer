@@ -1,8 +1,8 @@
 // Adapted from dascar
 #pragma once
 
+#include <map>
 #include <vector>
-#include <boost/serialization/vector.hpp>
 
 #include "library/ray_tracing/occ_grid_location.h"
 
@@ -16,6 +16,8 @@ struct OccGridData {
   std::vector<float> log_odds;
 
   float resolution = 0.0;
+
+  OccGridData() {;}
 
   OccGridData(const std::vector<Location> &locs, const std::vector<float> &los, float res) :
     locations(locs), log_odds(los), resolution(res) {
@@ -38,13 +40,20 @@ class OccGrid {
   OccGrid(const std::vector<Location> &locs, const std::vector<float> &los, float res);
   OccGrid(const OccGridData &ogd);
 
-  float GetLogOdds(Location loc) const;
+  float GetProbability(const Location &loc) const;
+  float GetProbability(float x, float y, float z) const;
+
+  float GetLogOdds(const Location &loc) const;
   float GetLogOdds(float x, float y, float z) const;
 
   const std::vector<Location>& GetLocations() const;
   const std::vector<float>& GetLogOdds() const;
   float GetResolution() const;
-  const OccGridData& GetData() const;
+
+  std::map<Location, float> MakeMap() const;
+
+  void Save(const char* fn) const;
+  static OccGrid Load(const char* fn);
 
  private:
   const OccGridData data_;

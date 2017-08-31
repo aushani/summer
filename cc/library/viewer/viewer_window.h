@@ -1,15 +1,17 @@
+// adapted from dascar
 #pragma once
 
 #include <thread>
 
 #include <QtGui/QMainWindow>
 #include <osg/MatrixTransform>
+#include <osgGA/GUIEventHandler>
 #include <osgQt/GraphicsWindowQt>
 #include <osgViewer/CompositeViewer>
 
-#include "app/viewer/viewer_widget.h"
+#include "library/viewer/viewer_widget.h"
 
-namespace app {
+namespace library {
 namespace viewer {
 
 class ViewerWindow : public QMainWindow {
@@ -21,6 +23,9 @@ class ViewerWindow : public QMainWindow {
   int Start();
 
   void AddChild(osg::Node *n);
+  void RemoveAllChildren();
+
+  void AddHandler(osgGA::GUIEventHandler *h);
 
  public slots:
   void SlotCleanup();
@@ -30,10 +35,12 @@ class ViewerWindow : public QMainWindow {
   std::thread run_thread_;
   osg::ref_ptr<osg::MatrixTransform> xform_car_;
 
+  int bin_at_ = 0;
+
   void Init(osg::ArgumentParser *args);
 
   void RunThread();
 };
 
 }  // namespace viewer
-}  // namespace app
+}  // namespace library

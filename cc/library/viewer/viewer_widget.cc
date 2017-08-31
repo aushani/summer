@@ -1,10 +1,9 @@
 // adapted from dascar
-
 #include <iostream>
 
-#include "app/viewer/viewer_widget.h"
+#include "library/viewer/viewer_widget.h"
 
-namespace app {
+namespace library {
 namespace viewer {
 
 ViewerWidget::ViewerWidget(QWidget* parent, Qt::WindowFlags f, osgViewer::ViewerBase::ThreadingModel tm)
@@ -70,4 +69,4 @@ osg::ref_ptr<osgQt::GraphicsWindowQt> ViewerWidget::create_graphics_window(int x
 }
 
 } // namespace viewer
-} // namespace app
+} // namespace library
