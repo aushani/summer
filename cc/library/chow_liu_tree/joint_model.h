@@ -65,8 +65,8 @@ class JointModel {
         for (int j=0; j<2; j++) {
           bool occ2 = (j==0);
 
-          double p_xy = GetCount(occ1, occ2) / c_total;
           double p_y = (GetCount(true, occ2) + GetCount(false, occ2)) / c_total;
+          double p_xy = GetCount(occ1, occ2) / c_total;
 
           if (p_xy < 1e-10) {
             continue;

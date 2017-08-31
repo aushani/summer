@@ -31,10 +31,6 @@ JointModel::JointModel(const clt::JointModel &jm) : osg::Group() {
 
         double p_occ = c_t / (static_cast<double>(c_t + c_f));
 
-        if (p_occ < 0.1) {
-          continue;
-        }
-
         double x = loc.i * jm.GetResolution();
         double y = loc.j * jm.GetResolution();
         double z = loc.k * jm.GetResolution();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <vector>
 #include <map>
 
@@ -28,8 +29,8 @@ class DynamicCLT {
  private:
   //static constexpr int kMinObservations_ = 10;
   //static constexpr double kMinMutualInformation_ = 0.01;
-  static constexpr int kMinObservations_ = 100;
-  static constexpr double kMinMutualInformation_ = 0.01;
+  static constexpr int kMinObservations_ = 10;
+  static constexpr double kMinMutualInformation_ = 0;
 
   struct MarginalDistribution {
     float log_p[2] = {0.0, 0.0};
@@ -112,8 +113,33 @@ class DynamicCLT {
     }
   };
 
+  // for convience, mapping from loc to int
+  struct LocIntMapper {
+    std::map<rt::Location, int> loc_to_int;
+    std::vector<rt::Location> int_to_loc;
+
+    size_t size() {
+      return int_to_loc.size();
+    }
+
+    rt::Location GetLocation(int i) {
+      BOOST_ASSERT(i < int_to_loc.size());
+      return int_to_loc[i];
+    }
+
+    int GetInt(const rt::Location &loc) {
+      if (loc_to_int.count(loc) == 0) {
+        loc_to_int[loc] = int_to_loc.size();
+
+        //BOOST_ASSERT(std::find(int_to_loc.begin(), int_to_loc.end(), loc) == int_to_loc.end());
+        int_to_loc.push_back(loc);
+      }
+
+      return loc_to_int[loc];
+    }
+  };
+
   std::vector<rt::Location> all_locs_;
-  std::map<rt::Location, int> loc_to_int_;
 
   //std::vector<Edge> all_edges_;
   std::map<rt::Location, std::vector<Edge>> all_edges_;

@@ -32,7 +32,7 @@ class Evaluator {
   std::vector<std::string> GetClasses() const;
 
  private:
-  static constexpr int kNumThreads_ = 1;
+  static constexpr int kNumThreads_ = 48;
 
   fs::path training_data_path_;
   fs::path testing_data_path_;

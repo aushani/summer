@@ -26,9 +26,6 @@ DynamicCLT::DynamicCLT(const JointModel &jm) {
       for (int k=min_k; k < max_k; k++) {
         rt::Location loc(i, j, k);
 
-        // Int to loc mapping
-        loc_to_int_[loc] = all_locs_.size();
-
         all_locs_.push_back(loc);
 
         // Marginals
@@ -66,7 +63,7 @@ DynamicCLT::DynamicCLT(const JointModel &jm) {
     }
   }
   size_t num_nodes = all_locs_.size();
-  printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_total_edges_, num_nodes);
+  //printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_total_edges_, num_nodes);
 
   BuildFullTree();
 }
@@ -77,18 +74,20 @@ void DynamicCLT::BuildFullTree() {
   std::vector<BoostEdge> edges;
   std::vector<double> weights;
 
+  LocIntMapper mapper;
+
   // Get edges and nodes that are known
   double max_mi = log(2); // max mutual information
   for (const auto &kv : all_edges_) {
     for (const auto &e : kv.second) {
-      edges.emplace_back(loc_to_int_[e.loc1], loc_to_int_[e.loc2]);
+      edges.emplace_back(mapper.GetInt(e.loc1), mapper.GetInt(e.loc2));
       weights.push_back(max_mi - e.mutual_information); // minimum spanning tree vs maximum spanning tree
     }
   }
 
   size_t num_edges = edges.size();
-  size_t num_nodes = all_locs_.size();
-  printf("have %ld edges and %ld nodes\n", num_edges, num_nodes);
+  size_t num_nodes = mapper.size();
+  //printf("have %ld edges and %ld nodes\n", num_edges, num_nodes);
 
   // Now get MST
   Graph g(edges.begin(), edges.begin() + num_edges, weights.begin(), num_nodes);
@@ -97,7 +96,7 @@ void DynamicCLT::BuildFullTree() {
 
   t.Start();
   boost::prim_minimum_spanning_tree(g, &p[0]);
-  printf("prim done in %5.3f ms\n", t.GetMs());
+  //printf("prim done in %5.3f ms\n", t.GetMs());
 
   // Build tree
   for (size_t i = 0; i < p.size(); i++) {
@@ -122,6 +121,8 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
   std::vector<BoostEdge> edges;
   std::vector<double> weights;
 
+  LocIntMapper mapper;
+
   // Get edges and nodes that are known
   double max_mi = log(2); // max mutual information
   for (const auto &kv : all_edges_) {
@@ -131,22 +132,19 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
 
     for (const auto &e : kv.second) {
       if (dog.IsKnown(e.loc2)) {
-        const auto &it1 = loc_to_int_.find(e.loc1);
-        BOOST_ASSERT(it1 != loc_to_int_.end());
-
-        const auto &it2 = loc_to_int_.find(e.loc2);
-        BOOST_ASSERT(it2 != loc_to_int_.end());
-
-        edges.emplace_back(it1->second, it2->second);
+        edges.emplace_back(mapper.GetInt(e.loc1), mapper.GetInt(e.loc2));
         weights.push_back(max_mi - e.mutual_information); // minimum spanning tree vs maximum spanning tree
-        //printf("\tedge %d - %d with weight %f\n", edges[edges.size()-1].first, edges[edges.size()-1].second, weights[weights.size()-1]);
       }
     }
   }
 
   size_t num_edges = edges.size();
-  size_t num_nodes = all_locs_.size();
-  //printf("have %ld edges and %ld nodes in %7.3f ms\n", num_edges, num_nodes, t.GetMs());
+  size_t num_nodes = mapper.size();
+  //printf("have %ld / %ld edges and %ld nodes in %7.3f ms\n", num_edges, num_total_edges_, num_nodes, t.GetMs());
+
+  if (num_nodes == 0) {
+    return 0.0;
+  }
 
   // Now get MST
   Graph g(edges.begin(), edges.begin() + num_edges, weights.begin(), num_nodes);
@@ -161,29 +159,28 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
 
   t.Start();
   for (size_t i = 0; i < p.size(); i++) {
-    int int_my_loc = i;
-    int int_parent_loc = p[i];
+    BOOST_ASSERT(p[i] < num_nodes);
 
-    const auto &my_loc = all_locs_[int_my_loc];
+    const auto &my_loc = mapper.GetLocation(i);
+    BOOST_ASSERT(dog.IsKnown(my_loc));
+
     bool occu = dog.GetProbability(my_loc) > 0.5;
 
-    if (int_my_loc == int_parent_loc) {
+    if (i == p[i]) {
       // Is root node
-      if (dog.IsKnown(my_loc)) {
-        const auto &it = marginals_.find(my_loc);
-        BOOST_ASSERT(it != marginals_.end());
+      const auto &it = marginals_.find(my_loc);
+      BOOST_ASSERT(it != marginals_.end());
 
-        log_p += it->second.GetLogProb(occu);
-      }
+      log_p += it->second.GetLogProb(occu);
     } else {
       // Is child node
-      const auto &parent_loc = all_locs_[int_parent_loc];
-      BOOST_ASSERT(dog.IsKnown(my_loc));
+      const auto &parent_loc = mapper.GetLocation(p[i]);
       BOOST_ASSERT(dog.IsKnown(parent_loc));
 
-      bool occu_parent = dog.GetProbability(my_loc) > 0.5;
+      bool occu_parent = dog.GetProbability(parent_loc) > 0.5;
 
-      const auto &it = conditionals_.find({my_loc, parent_loc});
+      std::pair<rt::Location, rt::Location> key(my_loc, parent_loc);
+      const auto &it = conditionals_.find(key);
       BOOST_ASSERT(it != conditionals_.end());
 
       log_p += it->second.GetLogProb(occu, occu_parent);

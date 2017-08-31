@@ -125,7 +125,6 @@ void Evaluator::WorkerThread() {
 
         double log_prob = clt.BuildAndEvaluate(dog);
         //double log_prob = clt.EvaluateMarginal(dog);
-        //printf("\tscore for %s is %f\n", classname.c_str(), log_prob);
 
         if (first || log_prob > best_log_prob) {
           best_log_prob = log_prob;
