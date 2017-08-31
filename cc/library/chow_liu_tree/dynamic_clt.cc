@@ -53,7 +53,9 @@ DynamicCLT::DynamicCLT(const JointModel &jm) {
         continue;
       }
 
-      all_edges_.emplace_back(loc1, loc2, mi);
+      //all_edges_.emplace_back(loc1, loc2, mi);
+      all_edges_[loc1].emplace_back(loc1, loc2, mi);
+      num_total_edges_++;
 
       // Conditionals
       std::pair<rt::Location, rt::Location> key_1(loc1, loc2);
@@ -63,9 +65,8 @@ DynamicCLT::DynamicCLT(const JointModel &jm) {
       conditionals_.insert({key_flipped, ConditionalDistribution(loc2, loc1, jm)});
     }
   }
-  size_t num_edges = all_edges_.size();
   size_t num_nodes = all_locs_.size();
-  printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_edges, num_nodes);
+  printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_total_edges_, num_nodes);
 
   BuildFullTree();
 }
@@ -78,9 +79,11 @@ void DynamicCLT::BuildFullTree() {
 
   // Get edges and nodes that are known
   double max_mi = log(2); // max mutual information
-  for (const auto &e : all_edges_) {
-    edges.emplace_back(loc_to_int_[e.loc1], loc_to_int_[e.loc2]);
-    weights.push_back(max_mi - e.mutual_information); // minimum spanning tree vs maximum spanning tree
+  for (const auto &kv : all_edges_) {
+    for (const auto &e : kv.second) {
+      edges.emplace_back(loc_to_int_[e.loc1], loc_to_int_[e.loc2]);
+      weights.push_back(max_mi - e.mutual_information); // minimum spanning tree vs maximum spanning tree
+    }
   }
 
   size_t num_edges = edges.size();
@@ -121,23 +124,29 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
 
   // Get edges and nodes that are known
   double max_mi = log(2); // max mutual information
-  for (const auto &e : all_edges_) {
-    if (dog.IsKnown(e.loc1) && dog.IsKnown(e.loc2)) {
-      const auto &it1 = loc_to_int_.find(e.loc1);
-      BOOST_ASSERT(it1 != loc_to_int_.end());
+  for (const auto &kv : all_edges_) {
+    if (!dog.IsKnown(kv.first)) {
+      continue;
+    }
 
-      const auto &it2 = loc_to_int_.find(e.loc2);
-      BOOST_ASSERT(it2 != loc_to_int_.end());
+    for (const auto &e : kv.second) {
+      if (dog.IsKnown(e.loc2)) {
+        const auto &it1 = loc_to_int_.find(e.loc1);
+        BOOST_ASSERT(it1 != loc_to_int_.end());
 
-      edges.emplace_back(it1->second, it2->second);
-      weights.push_back(max_mi - e.mutual_information); // minimum spanning tree vs maximum spanning tree
-      //printf("\tedge %d - %d with weight %f\n", edges[edges.size()-1].first, edges[edges.size()-1].second, weights[weights.size()-1]);
+        const auto &it2 = loc_to_int_.find(e.loc2);
+        BOOST_ASSERT(it2 != loc_to_int_.end());
+
+        edges.emplace_back(it1->second, it2->second);
+        weights.push_back(max_mi - e.mutual_information); // minimum spanning tree vs maximum spanning tree
+        //printf("\tedge %d - %d with weight %f\n", edges[edges.size()-1].first, edges[edges.size()-1].second, weights[weights.size()-1]);
+      }
     }
   }
 
   size_t num_edges = edges.size();
   size_t num_nodes = all_locs_.size();
-  //printf("have %ld edges and %ld nodes\n", num_edges, num_nodes);
+  //printf("have %ld edges and %ld nodes in %7.3f ms\n", num_edges, num_nodes, t.GetMs());
 
   // Now get MST
   Graph g(edges.begin(), edges.begin() + num_edges, weights.begin(), num_nodes);
@@ -145,12 +154,12 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
 
   t.Start();
   boost::prim_minimum_spanning_tree(g, &p[0]);
-  //printf("prim done in %5.3f ms\n", t.GetMs());
+  //printf("prim done in %7.3f ms\n", t.GetMs());
 
   // Evaluate MST
   double log_p = 0;
-  size_t roots = 0;
 
+  t.Start();
   for (size_t i = 0; i < p.size(); i++) {
     int int_my_loc = i;
     int int_parent_loc = p[i];
@@ -165,7 +174,6 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
         BOOST_ASSERT(it != marginals_.end());
 
         log_p += it->second.GetLogProb(occu);
-        roots++;
       }
     } else {
       // Is child node
@@ -181,7 +189,7 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
       log_p += it->second.GetLogProb(occu, occu_parent);
     }
   }
-  //printf("have %ld / %ld root nodes\n", roots, num_nodes);
+  //printf("Traversed tree in %7.3f ms\n", t.GetMs());
 
   return log_p;
 }

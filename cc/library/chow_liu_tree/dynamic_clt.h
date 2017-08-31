@@ -115,7 +115,9 @@ class DynamicCLT {
   std::vector<rt::Location> all_locs_;
   std::map<rt::Location, int> loc_to_int_;
 
-  std::vector<Edge> all_edges_;
+  //std::vector<Edge> all_edges_;
+  std::map<rt::Location, std::vector<Edge>> all_edges_;
+  size_t num_total_edges_ = 0;
 
   std::map<rt::Location, MarginalDistribution> marginals_;
 
