@@ -14,6 +14,8 @@ namespace osg_nodes {
 class ChowLiuTree : public osg::Group {
  public:
   ChowLiuTree(const clt::DynamicCLT &clt);
+
+  void Render(const clt::DynamicCLT &clt, const std::shared_ptr<clt::CLTNode> &node);
 };
 
 } // osg_nodes

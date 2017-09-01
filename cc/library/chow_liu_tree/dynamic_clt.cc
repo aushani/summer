@@ -99,18 +99,28 @@ void DynamicCLT::BuildFullTree() {
   //printf("prim done in %5.3f ms\n", t.GetMs());
 
   // Build tree
+
+  // Build nodes
+  std::vector<std::shared_ptr<CLTNode> > nodes;
+  for (size_t i = 0; i < p.size(); i++) {
+    int int_my_loc = i;
+
+    const auto &my_loc = all_locs_[int_my_loc];
+    nodes.emplace_back(new CLTNode(my_loc));
+  }
+
+  // Assign children and get root(s)
   for (size_t i = 0; i < p.size(); i++) {
     int int_my_loc = i;
     int int_parent_loc = p[i];
 
     if (int_my_loc == int_parent_loc) {
-      continue;
+      // Root node
+      full_tree_.push_back(nodes[i]);
+    } else {
+      // Child node
+      nodes[i]->SetParent(nodes[p[i]]);
     }
-
-    const auto &my_loc = all_locs_[int_my_loc];
-    const auto &parent_loc = all_locs_[int_parent_loc];
-
-    full_tree_[my_loc] = parent_loc;
   }
 }
 
@@ -205,7 +215,7 @@ double DynamicCLT::EvaluateMarginal(const rt::DenseOccGrid &dog) const {
   return log_p;
 }
 
-const std::map<rt::Location, rt::Location>& DynamicCLT::GetFullTree() const {
+const std::vector<std::shared_ptr<CLTNode> >& DynamicCLT::GetFullTree() const {
   return full_tree_;
 }
 
