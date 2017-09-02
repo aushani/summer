@@ -97,7 +97,7 @@ class DynamicCLT {
   // First is child, second is parent
   std::map<std::pair<rt::Location, rt::Location>, ConditionalDistribution> conditionals_;
 
-  void BuildFullTree();
+  void BuildFullTree(const JointModel &jm);
 };
 
 } // namespace chow_liu_tree

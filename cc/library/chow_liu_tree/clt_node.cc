@@ -7,12 +7,8 @@ namespace rt = library::ray_tracing;
 namespace library {
 namespace chow_liu_tree {
 
-CLTNode::CLTNode(const rt::Location &loc) :
- loc_(loc) {}
-
-CLTNode::CLTNode(const rt::Location &loc, CLTNode *parent) :
- loc_(loc), parent_(parent) {
-  parent_->children_.push_back(shared_from_this());
+CLTNode::CLTNode(const rt::Location &loc, const JointModel &jm) :
+ loc_(loc), marginal_(loc, jm) {
 }
 
 bool CLTNode::HasParent() const {
@@ -22,9 +18,10 @@ bool CLTNode::HasParent() const {
   return false;
 }
 
-void CLTNode::SetParent(const std::shared_ptr<CLTNode> &parent) {
+void CLTNode::SetParent(const std::shared_ptr<CLTNode> &parent, const JointModel &jm) {
   parent_ = parent;
   parent_->children_.push_back(shared_from_this());
+  conditional_ = ConditionalDistribution(loc_, parent->GetLocation(), jm);
 }
 
 const std::shared_ptr<CLTNode>& CLTNode::GetParent() const {
@@ -38,6 +35,15 @@ const std::vector<std::shared_ptr<CLTNode> >& CLTNode::GetChildren() const {
 
 const rt::Location& CLTNode::GetLocation() const {
   return loc_;
+}
+
+double CLTNode::GetMarginalLogProb(bool occu) const {
+  return marginal_.GetLogProb(occu);
+}
+
+double CLTNode::GetConditionalLogProb(bool occu, bool parent) const {
+  BOOST_ASSERT(HasParent());
+  return conditional_->GetLogProb(occu, parent);
 }
 
 } // namespace chow_liu_tree

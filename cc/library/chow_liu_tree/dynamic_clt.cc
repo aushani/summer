@@ -65,10 +65,10 @@ DynamicCLT::DynamicCLT(const JointModel &jm) {
   size_t num_nodes = all_locs_.size();
   //printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_total_edges_, num_nodes);
 
-  BuildFullTree();
+  BuildFullTree(jm);
 }
 
-void DynamicCLT::BuildFullTree() {
+void DynamicCLT::BuildFullTree(const JointModel &jm) {
   library::timer::Timer t;
 
   std::vector<BoostEdge> edges;
@@ -106,7 +106,7 @@ void DynamicCLT::BuildFullTree() {
     int int_my_loc = i;
 
     const auto &my_loc = all_locs_[int_my_loc];
-    nodes.emplace_back(new CLTNode(my_loc));
+    nodes.emplace_back(new CLTNode(my_loc, jm));
   }
 
   // Assign children and get root(s)
@@ -119,7 +119,7 @@ void DynamicCLT::BuildFullTree() {
       full_tree_.push_back(nodes[i]);
     } else {
       // Child node
-      nodes[i]->SetParent(nodes[p[i]]);
+      nodes[i]->SetParent(nodes[p[i]], jm);
     }
   }
 }

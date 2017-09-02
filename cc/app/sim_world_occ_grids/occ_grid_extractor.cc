@@ -10,11 +10,11 @@ namespace app {
 namespace sim_world_occ_grids {
 
 OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
- og_builder_(10000, 1.0, 100.0),
- data_manager_(32, false, false),
+ og_builder_(10000, 0.3, 100.0),
+ data_manager_(4, false, false),
  rand_engine_(std::chrono::system_clock::now().time_since_epoch().count()),
  save_base_fn_(save_base_fn) {
-  og_builder_.ConfigureSizeInPixels(5, 5, 1);
+  og_builder_.ConfigureSizeInPixels(16, 16, 1);
 
   classes_.push_back("BOX");
   classes_.push_back("STAR");
@@ -106,7 +106,7 @@ void OccGridExtractor::Run() {
     // Check for counts
     bool keep_going = false;
     for (const auto &kv : class_counts_) {
-      if (kv.second < 100000) {
+      if (kv.second < 10000) {
         keep_going = true;
         break;
       }

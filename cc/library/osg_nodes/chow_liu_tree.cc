@@ -12,18 +12,22 @@ ChowLiuTree::ChowLiuTree(const clt::DynamicCLT &clt) : osg::Group() {
   const auto &tree = clt.GetFullTree();
 
   for (const auto &root_node : tree) {
-    Render(clt, root_node);
+    Render(root_node);
   }
 }
 
-void ChowLiuTree::Render(const clt::DynamicCLT &clt, const std::shared_ptr<clt::CLTNode> &node) {
+void ChowLiuTree::Render(const std::shared_ptr<clt::CLTNode> &node) {
+  double thresh = log(0.1);
 
   // Render this node
   if (node->HasParent()) {
-    const auto &child_loc = node->GetLocation();
-    const auto &parent_loc = node->GetParent()->GetLocation();
+    double lp1 = node->GetMarginalLogProb(true);
+    double lp2 = node->GetParent()->GetMarginalLogProb(true);
 
-    if (clt.GetMarginal(child_loc, true) > 0.1 && clt.GetMarginal(parent_loc, true) > 0.1) {
+    if (lp1 > thresh && lp2 > thresh) {
+      const auto &child_loc = node->GetLocation();
+      const auto &parent_loc = node->GetParent()->GetLocation();
+
       osg::Vec3 sp(child_loc.i, child_loc.j, child_loc.k);
       osg::Vec3 ep(parent_loc.i, parent_loc.j, parent_loc.k);
 
@@ -59,7 +63,7 @@ void ChowLiuTree::Render(const clt::DynamicCLT &clt, const std::shared_ptr<clt::
 
   // Render children
   for (const auto &child : node->GetChildren()) {
-    Render(clt, child);
+    Render(child);
   }
 }
 
