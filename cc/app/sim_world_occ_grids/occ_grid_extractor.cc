@@ -103,10 +103,13 @@ void OccGridExtractor::Run() {
       }
     }
 
+    // Cleanup
+    delete data;
+
     // Check for counts
     bool keep_going = false;
     for (const auto &kv : class_counts_) {
-      if (kv.second < 10000) {
+      if (kv.second < 100000) {
         keep_going = true;
         break;
       }
