@@ -19,7 +19,7 @@ MarginalModel::MarginalModel() : MarginalModel(0, 0, 0) {
 MarginalModel::MarginalModel(const JointModel &jm) :
  MarginalModel(jm.GetRangeXY(), jm.GetRangeZ(), jm.GetResolution()) {
 
-  // Get all locaitnos
+  // Get all locations
   int min_ij = - (jm.GetNXY() / 2);
   int max_ij = min_ij + jm.GetNXY();
 
@@ -69,11 +69,14 @@ void MarginalModel::MarkObservations(const rt::OccGrid &og) {
 }
 
 int MarginalModel::GetCount(const rt::Location &loc, bool occ) const {
-  return GetCount(loc, occ);
+  BOOST_ASSERT(InRange(loc));
+
+  return counts_[GetIndex(loc)].GetCount(occ);
 }
 
 int MarginalModel::GetNumObservations(const rt::Location &loc) const {
-  return GetNumObservations(loc);
+  BOOST_ASSERT(InRange(loc));
+  return counts_[GetIndex(loc)].GetTotalCount();
 }
 
 double MarginalModel::Evaluate(const rt::OccGrid &og) const {

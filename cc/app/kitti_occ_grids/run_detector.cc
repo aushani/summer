@@ -1,5 +1,7 @@
 #include <iostream>
+
 #include <osg/ArgumentParser>
+#include <boost/filesystem.hpp>
 
 #include "library/kitti/velodyne_scan.h"
 #include "library/osg_nodes/point_cloud.h"
@@ -12,13 +14,13 @@
 
 #include "app/kitti_occ_grids/detector.h"
 #include "app/kitti_occ_grids/map_node.h"
-#include "app/kitti_occ_grids/model.h"
 
 namespace kt = library::kitti;
 namespace rt = library::ray_tracing;
 namespace osgn = library::osg_nodes;
 namespace vw = library::viewer;
 namespace kog = app::kitti_occ_grids;
+namespace fs = boost::filesystem;
 
 kt::VelodyneScan LoadVelodyneScan(const std::string &kitti_log_dir,
                                   const std::string &kitti_log_date,
@@ -64,8 +66,7 @@ int main(int argc, char** argv) {
   au->addCommandLineOption("--kitti-log-date <dirname>", "KITTI date", "2011_09_26");
   au->addCommandLineOption("--log-num <num>", "KITTI log number", "18");
   au->addCommandLineOption("--frame-num <num>", "KITTI frame number", "0");
-  au->addCommandLineOption("--model <dir>", "Models to evaluate", "");
-  au->addCommandLineOption("--bg-model <dir>", "BG Models to evaluate", "");
+  au->addCommandLineOption("--models <dir>", "Models to evaluate", "");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -97,16 +98,9 @@ int main(int argc, char** argv) {
     printf("Using default KITTI frame number: %d\n", frame_num);
   }
 
-  std::string model_fn;
-  if (!args.read("--model", model_fn)) {
-    printf("no model given!\n");
-    return EXIT_FAILURE;
-  }
-
-  std::string bg_model_fn;
-  if (!args.read("--bg-model", bg_model_fn)) {
-    printf("no model given!\n");
-    return EXIT_FAILURE;
+  std::string model_dir = "/home/aushani/data/gen_data/training_data/";
+  if (!args.read("--models", model_dir)) {
+    printf("no model given, using default dir %s\n", model_dir.c_str());
   }
 
   // Load velodyne scan
@@ -114,11 +108,6 @@ int main(int argc, char** argv) {
   kt::VelodyneScan scan = LoadVelodyneScan(kitti_log_dir, kitti_log_date, log_num, frame_num);
   printf("Loading tracklets\n");
   kt::Tracklets tracklets = LoadTracklets(kitti_log_dir, kitti_log_date, log_num);
-
-  // Load model
-  printf("loading model %s\n", model_fn.c_str());
-  kog::Model model    = kog::Model::Load(model_fn.c_str());
-  kog::Model bg_model = kog::Model::Load(bg_model_fn.c_str());
 
   // Build occ grid
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
@@ -128,18 +117,42 @@ int main(int argc, char** argv) {
   printf("Took %5.3f ms to build occ grid\n", t.GetMs());
 
   t.Start();
-  rt::DenseOccGrid dog(og, 50.0, 50.0, 10.0, true);
+  rt::DenseOccGrid dog(og, 50.0, 50.0, 3.0, true);
   printf("Took %5.3f ms to make dense occ grid\n", t.GetMs());
 
-  kog::Detector detector(og.GetResolution(), 25, 25);
+  // Load models
+  kog::Detector detector(og.GetResolution(), 50, 50);
+  printf("loading models from %s\n", model_dir.c_str());
+
+  fs::directory_iterator end_it;
+  for (fs::directory_iterator it(model_dir); it != end_it; it++) {
+    if (fs::is_regular_file(it->path())) {
+      continue;
+    }
+
+    std::string classname = it->path().filename().string();
+
+    //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "NOOBJ")) {
+    if (! (classname == "Car" || classname == "NOOBJ")) {
+      continue;
+    }
+
+    printf("Found %s\n", classname.c_str());
+
+    fs::path p_mm = it->path() / fs::path("mm.mm");
+    clt::MarginalModel mm = clt::MarginalModel::Load(p_mm.string().c_str());
+    detector.AddModel(classname, mm);
+
+  }
+  printf("Loaded all models\n");
+
   kog::ObjectState os(-3.0, -5.0, 0.0);
   size_t idx = detector.GetIndex(os);
   kog::ObjectState os2 = detector.GetState(idx);
   printf("%5.3f %5.3f -> %ld -> %5.3f %5.3f\n", os.x, os.y, idx, os2.x, os2.y);
 
   t.Start();
-  detector.Evaluate(dog, model, bg_model);
-  //detector.Evaluate(og, model, bg_model);
+  detector.Evaluate(dog);
   printf("Took %5.3f ms to run detector with range +- %5.3f, +- %5.3f, res %5.3f\n",
       t.GetMs(), detector.GetRangeX(), detector.GetRangeY(), detector.GetRes());
 

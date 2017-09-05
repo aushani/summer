@@ -13,16 +13,18 @@ Detector::Detector(double res, double range_x, double range_y) :
  range_x_(range_x), range_y_(range_y),
   n_x_(2 * std::ceil(range_x / res) + 1),
   n_y_(2 * std::ceil(range_y / res) + 1),
-  res_(res),
-  scores_(n_x_*n_y_, 0.0) {
+  res_(res) {
 }
 
-void Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model) {
-  BOOST_ASSERT(scene.GetResolution() == model.GetResolution());
+void Detector::AddModel(const std::string &classname, const clt::MarginalModel &mm) {
+  class_scores_.insert({classname, std::vector<double>(n_x_*n_y_, 0.0)});
+  models_.insert({classname, mm});
+}
 
+void Detector::Evaluate(const rt::DenseOccGrid &scene) {
   std::deque<size_t> work_queue;
 
-  for (size_t i = 0; i< scores_.size(); i++) {
+  for (size_t i = 0; i < n_x_ * n_y_; i++) {
     work_queue.push_back(i);
   }
 
@@ -33,7 +35,7 @@ void Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, const
   std::vector<std::thread> threads;
   std::mutex mutex;
   for (int i=0; i<num_threads; i++) {
-    threads.push_back(std::thread(&Detector::EvaluateWorkerThread, this, scene, model, bg_model, &work_queue, &mutex));
+    threads.push_back(std::thread(&Detector::EvaluateWorkerThread, this, scene, &work_queue, &mutex));
   }
 
   for (auto &thread : threads) {
@@ -41,47 +43,7 @@ void Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, const
   }
 }
 
-void Detector::Evaluate(const rt::OccGrid &scene, const Model &model, const Model &bg_model) {
-  BOOST_ASSERT(scene.GetResolution() == model.GetResolution());
-
-  auto &locs = scene.GetLocations();
-  auto &los = scene.GetLogOdds();
-
-  printf("Have %ld voxels to evaluate\n", locs.size());
-
-  // TODO
-  double model_size = 5.0;
-  double res = scene.GetResolution();
-
-  for (size_t i = 0; i < locs.size(); i++) {
-    if (i % 1000 == 0) {
-      printf("at %ld / %ld\n", i, locs.size());
-    }
-
-    auto &loc = locs[i];
-    auto &lo = los[i];
-
-    double x = loc.i * res;
-    double y = loc.j * res;
-
-    for (double dix = -model_size/res; dix < model_size/res; dix++) {
-      for (double diy = -model_size/res; diy < model_size/res; diy++) {
-        double x_at = x + dix * res;
-        double y_at = y + diy * res;
-
-        rt::Location loc_at(dix, diy, loc.k);
-
-        double model_score = model.GetProbability(loc_at, lo);
-        double bg_score = bg_model.GetProbability(loc_at, lo);
-
-        size_t idx = GetIndex(ObjectState(x_at, y_at, 0));
-        scores_[idx] += log(model_score) - log(bg_score);
-      }
-    }
-  }
-}
-
-void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, std::deque<size_t> *work_queue, std::mutex *mutex) {
+void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, std::deque<size_t> *work_queue, std::mutex *mutex) {
   bool done = false;
 
   while (!done) {
@@ -94,65 +56,116 @@ void Detector::EvaluateWorkerThread(const rt::DenseOccGrid &scene, const Model &
       work_queue->pop_front();
       mutex->unlock();
 
-      ObjectState os = GetState(idx);
-      double score = Evaluate(scene, model, bg_model, os);
-
-      scores_[idx] = 1 / (1 + exp(-score));
+      Evaluate(scene, idx);
     }
   }
 }
 
-double Detector::Evaluate(const rt::DenseOccGrid &scene, const Model &model, const Model &bg_model, const ObjectState &state) {
-  auto counts = model.GetCounts();
-  auto bg_counts = bg_model.GetCounts();
+void Detector::Evaluate(const rt::DenseOccGrid &scene, size_t idx) {
+  ObjectState os = GetState(idx);
 
-  float res = model.GetResolution();
+  // Evaluate all locations for all models
+  for (const auto &kv : models_) {
+    const auto &classname = kv.first;
+    const auto &mm = kv.second;
 
-  double log_score = 0.0;
+    const auto &it_scores = class_scores_.find(classname);
+    BOOST_ASSERT(it_scores != class_scores_.end());
+    auto &scores = it_scores->second;
 
-  for (auto it = counts.cbegin(); it != counts.cend(); it++) {
-    // Check to make sure it exists in background
-    auto it_bg = bg_counts.find(it->first);
-    if (it_bg == bg_counts.end()) {
-      continue;
+    int min_ij = - (mm.GetNXY() / 2);
+    int max_ij = min_ij + mm.GetNXY();
+
+    int min_k = - (mm.GetNZ() / 2);
+    int max_k = min_k + mm.GetNZ();
+
+    for (int i=min_ij; i < max_ij; i++) {
+      for (int j=min_ij; j < max_ij; j++) {
+        for (int k=min_k; k < max_k; k++) {
+          rt::Location loc(i, j, k);
+          rt::Location loc_global(i + os.x/res_, j + os.y/res_, k);
+
+          if (!scene.IsKnown(loc_global)) {
+            continue;
+          }
+
+          bool occ = scene.GetProbability(loc_global) > 0.5;
+
+          int c = mm.GetCount(loc, occ);
+          double denom = mm.GetNumObservations(loc);
+
+          double p = c / denom;
+          scores[idx] += log(p);
+        }
+      }
     }
-
-    double dx = it->first.i * res;
-    double dy = it->first.j * res;
-    double dz = it->first.k * res;
-    rt::Location scene_loc(state.x + dx, state.y + dy, dz, res);
-
-    // Check if this is unknown
-    if (scene.IsKnown(scene_loc)) {
-      continue;
-    }
-
-    bool obs = scene.GetProbability(scene_loc) > 0.5;
-
-    double model_score = it->second.GetProbability(obs);
-    double bg_score = it_bg->second.GetProbability(obs);
-
-    if (model_score < 1e-3) {
-      model_score = 1e-3;
-    }
-
-    if (bg_score < 1e-3) {
-      bg_score = 1e-3;
-    }
-
-    log_score += log(model_score) - log(bg_score);
   }
-
-  return log_score;
 }
 
-double Detector::GetScore(const ObjectState &os) const {
+double Detector::GetScore(const std::string &classname, const ObjectState &os) const {
+  if (!InRange(os)) {
+    return 0.0;
+  }
+
+  const auto &it = class_scores_.find(classname);
+  BOOST_ASSERT(it != class_scores_.end());
+  const auto &scores = it->second;
+
+  size_t idx = GetIndex(os);
+  return scores[idx];
+}
+
+double Detector::GetProb(const std::string &classname, const ObjectState &os) const {
   if (!InRange(os)) {
     return 0.0;
   }
 
   size_t idx = GetIndex(os);
-  return scores_[idx];
+
+  const auto &it = class_scores_.find(classname);
+  BOOST_ASSERT(it != class_scores_.end());
+  const auto &scores = it->second;
+  double my_score = scores[idx];
+
+  double max_score = my_score;
+
+  for (const auto &kv : class_scores_) {
+    const auto &classname = kv.first;
+
+    const auto &it = class_scores_.find(classname);
+    BOOST_ASSERT(it != class_scores_.end());
+    const auto &scores = it->second;
+    double score = scores[idx];
+
+    if (score > max_score) {
+      max_score = score;
+    }
+  }
+
+  double sum = 0;
+
+  for (const auto &kv : class_scores_) {
+    const auto &classname = kv.first;
+
+    const auto &it = class_scores_.find(classname);
+    BOOST_ASSERT(it != class_scores_.end());
+    const auto &scores = it->second;
+    double score = scores[idx];
+
+    sum += exp(score - max_score);
+  }
+
+  double prob = exp(my_score - max_score) / sum;
+  double lo = -log(1/prob - 1);
+  if (lo > 10) {
+    lo = 10;
+  }
+
+  if (lo < -10) {
+    lo = -10;
+  }
+
+  return lo;
 }
 
 double Detector::GetRangeX() const {

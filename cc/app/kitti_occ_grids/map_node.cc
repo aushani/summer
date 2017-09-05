@@ -10,20 +10,24 @@ namespace kitti_occ_grids {
 MapNode::MapNode(const Detector &detector) : osg::Group() {
   for (double x = -detector.GetRangeX(); x < detector.GetRangeX(); x += detector.GetRes()) {
     for (double y = -detector.GetRangeY(); y < detector.GetRangeY(); y += detector.GetRes()) {
-      double p = detector.GetScore(ObjectState(x, y, 0));
 
-      double lo = -log(1/p - 1);
-      double alpha = (lo/1e2) + 0.5;
+      //double p_car = detector.GetProb("Car", ObjectState(x, y, 0));
+      ////double p_cyclist = detector.GetProb("Cyclist", ObjectState(x, y, 0));
+      ////double p_pedestrian = detector.GetProb("Pedestrian", ObjectState(x, y, 0));
+      //double p_cyclist = 0;
+      //double p_pedestrian = 0;
+      //double p_background = 1 - p_car;
+
+      //osg::Vec4 color(p_car, p_cyclist, p_pedestrian, 1-p_background);
+      osg::Vec3 pos(x, y, 0.0);
+
+      double lo_car = detector.GetProb("Car", ObjectState(x, y, 0));
+      double alpha = (lo_car / 10.0);
       if (alpha < 0) {
         alpha = 0;
       }
 
-      if (alpha > 1) {
-        alpha = 1;
-      }
-
-      osg::Vec4 color(0.9, 0.1, 0.1, alpha);
-      osg::Vec3 pos(x, y, 0.0);
+      osg::Vec4 color(1.0, 0, 0, alpha);
 
       osg::ref_ptr<osgn::ColorfulBox> box = new osgn::ColorfulBox(color, pos, 0.25); // TODO Magic Number
       addChild(box);
