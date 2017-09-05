@@ -29,7 +29,9 @@ class CLTNode : public std::enable_shared_from_this<CLTNode> {
 
   double GetMarginalLogProb(bool occu) const;
   double GetConditionalLogProb(bool occu, bool parent) const;
-  double GetMutualInformation() const;
+
+  double GetNodeMutualInformation() const;
+  double GetTreeMutualInformation() const;
 
  private:
   rt::Location loc_;

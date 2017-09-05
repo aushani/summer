@@ -18,6 +18,8 @@ namespace rt = library::ray_tracing;
 namespace library {
 namespace chow_liu_tree {
 
+typedef std::vector<std::shared_ptr<CLTNode> > Tree;
+
 class DynamicCLT {
  public:
   DynamicCLT(const JointModel &jm);
@@ -25,7 +27,7 @@ class DynamicCLT {
   double BuildAndEvaluate(const rt::DenseOccGrid &dog) const;
   double EvaluateMarginal(const rt::DenseOccGrid &dog) const;
 
-  const std::vector<std::shared_ptr<CLTNode> >& GetFullTree() const;
+  const Tree& GetFullTree() const;
 
   double GetMarginal(const rt::Location &loc, bool occu) const;
 
@@ -92,7 +94,7 @@ class DynamicCLT {
 
   std::map<rt::Location, MarginalDistribution> marginals_;
 
-  std::vector<std::shared_ptr<CLTNode> > full_tree_;
+  Tree full_tree_;
 
   // First is child, second is parent
   std::map<std::pair<rt::Location, rt::Location>, ConditionalDistribution> conditionals_;

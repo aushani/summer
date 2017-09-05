@@ -127,14 +127,14 @@ void DynamicCLT::BuildFullTree(const JointModel &jm) {
   }
 
   // How much mi?
-  double total_mi = 0;
-  for (const auto &node : nodes) {
-    double mi = node->GetMutualInformation();
-    printf("\tmi %f\n", mi);
-
-    total_mi += mi;
-  }
-  printf("Total MI: %f\n", total_mi);
+  //double total_mi = 0;
+  //for (const auto &node : nodes) {
+  //  double mi = node->GetNodeMutualInformation();
+  //  //printf("\tmi %f\n", mi);
+  //  total_mi += mi;
+  //}
+  //printf("Total MI: %f\n", total_mi);
+  //printf("Total MI: %f\n", full_tree_[0]->GetTreeMutualInformation());
 }
 
 double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {

@@ -46,6 +46,8 @@ int main(int argc, char** argv) {
 
   clt::JointModel jm = clt::JointModel::Load(fn_jm.c_str());
   clt::DynamicCLT clt = clt::DynamicCLT(jm);
+  clt::Tree t = clt.GetFullTree();
+  printf("Mutual Information: %f\n", t[0]->GetTreeMutualInformation());
 
   osg::ref_ptr<osgn::ChowLiuTree> clt_node = new osgn::ChowLiuTree(clt);
   v.AddChild(clt_node);

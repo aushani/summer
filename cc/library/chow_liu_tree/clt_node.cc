@@ -48,8 +48,18 @@ double CLTNode::GetConditionalLogProb(bool occu, bool parent) const {
   return conditional_->GetLogProb(occu, parent);
 }
 
-double CLTNode::GetMutualInformation() const {
+double CLTNode::GetNodeMutualInformation() const {
   return mutual_information_;
+}
+
+double CLTNode::GetTreeMutualInformation() const {
+  double mi = mutual_information_;
+
+  for (const auto &c : children_) {
+    mi += c->GetTreeMutualInformation();
+  }
+
+  return mi;
 }
 
 } // namespace chow_liu_tree
