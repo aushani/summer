@@ -32,8 +32,8 @@ class DynamicCLT {
  private:
   //static constexpr int kMinObservations_ = 10;
   //static constexpr double kMinMutualInformation_ = 0.01;
-  static constexpr int kMinObservations_ = 10;
-  static constexpr double kMinMutualInformation_ = 0;
+  static constexpr int kMinObservations_ = 100;
+  static constexpr double kMinMutualInformation_ = 0.01;
 
   // Typedef's for convience
   typedef boost::adjacency_list<boost::vecS, boost::vecS,

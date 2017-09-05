@@ -22,6 +22,8 @@ void CLTNode::SetParent(const std::shared_ptr<CLTNode> &parent, const JointModel
   parent_ = parent;
   parent_->children_.push_back(shared_from_this());
   conditional_ = ConditionalDistribution(loc_, parent->GetLocation(), jm);
+
+  mutual_information_ = jm.GetMutualInformation(loc_, parent_->GetLocation());
 }
 
 const std::shared_ptr<CLTNode>& CLTNode::GetParent() const {
@@ -44,6 +46,10 @@ double CLTNode::GetMarginalLogProb(bool occu) const {
 double CLTNode::GetConditionalLogProb(bool occu, bool parent) const {
   BOOST_ASSERT(HasParent());
   return conditional_->GetLogProb(occu, parent);
+}
+
+double CLTNode::GetMutualInformation() const {
+  return mutual_information_;
 }
 
 } // namespace chow_liu_tree

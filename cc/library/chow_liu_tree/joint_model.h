@@ -53,10 +53,7 @@ class JointModel {
     double GetMutualInformation() const {
       double mi = 0;
 
-      double c_total = 0;
-      for (int i=0; i<4; i++) {
-        c_total += counts[i];
-      }
+      double c_total = GetTotalCount();
 
       for (int i=0; i<2; i++) {
         bool occ1 = (i==0);

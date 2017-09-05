@@ -81,7 +81,10 @@ void DynamicCLT::BuildFullTree(const JointModel &jm) {
   for (const auto &kv : all_edges_) {
     for (const auto &e : kv.second) {
       edges.emplace_back(mapper.GetInt(e.loc1), mapper.GetInt(e.loc2));
-      weights.push_back(max_mi - e.mutual_information); // minimum spanning tree vs maximum spanning tree
+
+      double edge_weight = max_mi - e.mutual_information;
+      BOOST_ASSERT(edge_weight > 0);
+      weights.push_back(edge_weight); // minimum spanning tree vs maximum spanning tree
     }
   }
 
@@ -103,9 +106,8 @@ void DynamicCLT::BuildFullTree(const JointModel &jm) {
   // Build nodes
   std::vector<std::shared_ptr<CLTNode> > nodes;
   for (size_t i = 0; i < p.size(); i++) {
-    int int_my_loc = i;
-
-    const auto &my_loc = all_locs_[int_my_loc];
+    const auto &my_loc = mapper.GetLocation(i);
+    //const auto &my_loc = all_locs_[i];
     nodes.emplace_back(new CLTNode(my_loc, jm));
   }
 
@@ -116,12 +118,23 @@ void DynamicCLT::BuildFullTree(const JointModel &jm) {
 
     if (int_my_loc == int_parent_loc) {
       // Root node
-      full_tree_.push_back(nodes[i]);
+      full_tree_.push_back(nodes[int_my_loc]);
     } else {
       // Child node
-      nodes[i]->SetParent(nodes[p[i]], jm);
+      auto &parent = nodes[int_parent_loc];
+      nodes[i]->SetParent(parent, jm);
     }
   }
+
+  // How much mi?
+  double total_mi = 0;
+  for (const auto &node : nodes) {
+    double mi = node->GetMutualInformation();
+    printf("\tmi %f\n", mi);
+
+    total_mi += mi;
+  }
+  printf("Total MI: %f\n", total_mi);
 }
 
 double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
