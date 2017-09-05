@@ -15,7 +15,7 @@ cc_library(
 cc_library(
     name = "ray_tracing",
     srcs = glob(['*.cc'], exclude=["*.cu.cc"]),
-    hdrs = glob(["*.h"]),
+    hdrs = glob(["*.h"], exclude=["*.cu.h"]),
     visibility = ["//visibility:public"],
     linkopts = ["-lpthread"],
     deps = [

@@ -1,7 +1,8 @@
 // Adapted from dascar
 #pragma once
 
-#include "occ_grid.h"
+#include "library/ray_tracing/occ_grid.h"
+#include "library/ray_tracing/device_occ_grid.h"
 
 #include <memory>
 
@@ -32,6 +33,8 @@ class OccGridBuilder {
 
   // Assumes that the hit origins are at (0, 0, 0)
   OccGrid GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits);
+
+  std::shared_ptr<DeviceOccGrid> GenerateOccGridDevice(const std::vector<Eigen::Vector3d> &hits);
 
  private:
   static constexpr float kLogOddsFree_ = -0.1;
