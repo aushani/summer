@@ -19,6 +19,9 @@ bool CLTNode::HasParent() const {
 }
 
 void CLTNode::SetParent(const std::shared_ptr<CLTNode> &parent, const JointModel &jm) {
+  // Make sure we haven't previously assigned a parent
+  BOOST_ASSERT(!HasParent());
+
   parent_ = parent;
   parent_->children_.push_back(shared_from_this());
   conditional_ = ConditionalDistribution(loc_, parent->GetLocation(), jm);

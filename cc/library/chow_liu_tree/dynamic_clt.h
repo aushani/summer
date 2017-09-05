@@ -28,6 +28,7 @@ class DynamicCLT {
   double EvaluateMarginal(const rt::DenseOccGrid &dog) const;
 
   const Tree& GetFullTree() const;
+  Tree GetGreedyTree(const JointModel &jm) const;
 
   double GetMarginal(const rt::Location &loc, bool occu) const;
 

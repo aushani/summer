@@ -49,6 +49,14 @@ int main(int argc, char** argv) {
   clt::Tree t = clt.GetFullTree();
   printf("Mutual Information: %f\n", t[0]->GetTreeMutualInformation());
 
+  clt::Tree t_greedy = clt.GetGreedyTree(jm);
+  double mi = 0;
+  for (const auto &n : t_greedy) {
+    mi += n->GetTreeMutualInformation();
+  }
+
+  printf("Mutual Information (greedy): %f, %ld roots\n", mi, t_greedy.size());
+
   osg::ref_ptr<osgn::ChowLiuTree> clt_node = new osgn::ChowLiuTree(clt);
   v.AddChild(clt_node);
 

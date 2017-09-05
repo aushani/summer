@@ -63,7 +63,7 @@ DynamicCLT::DynamicCLT(const JointModel &jm) {
     }
   }
   size_t num_nodes = all_locs_.size();
-  //printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_total_edges_, num_nodes);
+  printf("Took %5.3f seconds to get %ld edges, %ld nodes\n", t.GetSeconds(), num_total_edges_, num_nodes);
 
   BuildFullTree(jm);
 }
@@ -97,7 +97,7 @@ void DynamicCLT::BuildFullTree(const JointModel &jm) {
 
   std::vector<VertexDescriptor> p(num_nodes);
 
-  t.Start();
+  //t.Start();
   boost::prim_minimum_spanning_tree(g, &p[0]);
   //printf("prim done in %5.3f ms\n", t.GetMs());
 
@@ -135,6 +135,8 @@ void DynamicCLT::BuildFullTree(const JointModel &jm) {
   //}
   //printf("Total MI: %f\n", total_mi);
   //printf("Total MI: %f\n", full_tree_[0]->GetTreeMutualInformation());
+
+  printf("Took %7.3f ms to build full tree\n", t.GetMs());
 }
 
 double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
@@ -228,8 +230,54 @@ double DynamicCLT::EvaluateMarginal(const rt::DenseOccGrid &dog) const {
   return log_p;
 }
 
-const std::vector<std::shared_ptr<CLTNode> >& DynamicCLT::GetFullTree() const {
+const Tree& DynamicCLT::GetFullTree() const {
   return full_tree_;
+}
+
+Tree DynamicCLT::GetGreedyTree(const JointModel &jm) const {
+  library::timer::Timer t;
+  library::timer::Timer t_extra;
+  double ms_extra = 0;
+
+  Tree tree;
+
+  // Greedily build tree
+  std::map<rt::Location, std::shared_ptr<CLTNode> > nodes;
+  for (const auto &loc : all_locs_) {
+    std::shared_ptr<CLTNode> node(new CLTNode(loc, jm));
+
+    // Find best edge to nodes in tree
+    std::shared_ptr<CLTNode> best_node;
+    double best_mi = 0;
+    for (const auto &kv : nodes) {
+      t_extra.Start();
+      if (jm.GetNumObservations(loc, kv.second->GetLocation()) < kMinObservations_) {
+        continue;
+      }
+
+      double mi = jm.GetMutualInformation(loc, kv.second->GetLocation());
+      ms_extra += t_extra.GetMs();
+
+      if (mi > best_mi) {
+        best_mi = mi;
+        best_node = kv.second;
+      }
+    }
+
+    if (best_node) {
+      //printf("got %f mi\n", best_mi);
+      node->SetParent(best_node, jm);
+    } else {
+      //printf("no best node, root?\n");
+      tree.push_back(node);
+    }
+
+    nodes[loc] = node;
+  }
+
+  printf("Took %7.3f ms to build greedy tree\n", t.GetMs() - ms_extra);
+
+  return tree;
 }
 
 double DynamicCLT::GetMarginal(const rt::Location &loc, bool occu) const {
