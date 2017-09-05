@@ -28,6 +28,9 @@ class JointModel {
   double GetResolution() const;
   size_t GetNXY() const;
   size_t GetNZ() const;
+
+  double GetRangeXY() const;
+  double GetRangeZ() const;
   bool InRange(const rt::Location &loc) const;
 
   void Save(const char *fn) const;

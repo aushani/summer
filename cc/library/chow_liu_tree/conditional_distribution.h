@@ -10,6 +10,7 @@ namespace chow_liu_tree {
 
 struct ConditionalDistribution {
   float log_p[4] = {0.0, 0.0, 0.0, 0.0};
+  float mutual_information = 0.0;
 
   ConditionalDistribution(const rt::Location &loc, const rt::Location &loc_parent, const JointModel &jm) {
     for (int i=0; i<2; i++) {
@@ -25,6 +26,12 @@ struct ConditionalDistribution {
         log_p[GetIndex(occ, parent)] = log(count/denom);
       }
     }
+
+    mutual_information = jm.GetMutualInformation(loc, loc_parent);
+  }
+
+  double GetMutualInformation() const {
+    return mutual_information;
   }
 
   double GetLogProb(bool occ, bool given) const {

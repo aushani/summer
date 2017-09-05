@@ -60,9 +60,6 @@ DynamicCLT::DynamicCLT(const JointModel &jm) {
 
       std::pair<rt::Location, rt::Location> key_flipped(loc2, loc1);
       conditionals_.insert({key_flipped, ConditionalDistribution(loc2, loc1, jm)});
-
-      mutual_information_[{loc1, loc2}] = mi;
-      mutual_information_[{loc2, loc1}] = mi;
     }
   }
   size_t num_nodes = all_locs_.size();
@@ -230,25 +227,30 @@ double DynamicCLT::BuildAndEvaluateGreedy(const rt::OccGrid &og) const {
     const auto &loc1 = locs[i];
     const bool occ1 = los[i] > 0;
 
+    // In Range?
+    if (marginals_.count(loc1) == 0) {
+      continue;
+    }
+
     int best_idx = -1;
     double best_mi = 0;
 
     int start = 0;
-    if (i > 1) {
-      start = i - 1;
-    }
-    start = i;
+    //if (i > 1) {
+    //  start = i - 1;
+    //}
+    //start = i;
 
     for (size_t j=start; j<i; j++) {
       const auto &loc2 = locs[j];
 
       std::pair<rt::Location, rt::Location> key(loc1, loc2);
-      const auto &it = mutual_information_.find(key);
-      if (it == mutual_information_.end()) {
+      const auto &it = conditionals_.find(key);
+      if (it == conditionals_.end()) {
         continue;
       }
 
-      double mi = it->second;
+      double mi = it->second.GetMutualInformation();
 
       if (mi > best_mi || best_idx < 0) {
         best_idx = j;
@@ -298,46 +300,60 @@ const Tree& DynamicCLT::GetFullTree() const {
 
 Tree DynamicCLT::GetGreedyTree(const JointModel &jm) const {
   library::timer::Timer t;
-  library::timer::Timer t_extra;
-  double ms_extra = 0;
 
   Tree tree;
 
+  size_t sz = all_locs_.size();
+
   // Greedily build tree
-  std::map<rt::Location, std::shared_ptr<CLTNode> > nodes;
-  for (const auto &loc : all_locs_) {
-    std::shared_ptr<CLTNode> node(new CLTNode(loc, jm));
+  std::unordered_map<rt::Location, std::shared_ptr<CLTNode>, LocHasher> nodes;
+  for (size_t i = 0; i<sz; i++) {
+    const auto &loc1 = all_locs_[i];
+
+    std::shared_ptr<CLTNode> node(new CLTNode(loc1, jm));
 
     // Find best edge to nodes in tree
     std::shared_ptr<CLTNode> best_node;
     double best_mi = 0;
-    for (const auto &kv : nodes) {
-      t_extra.Start();
-      if (jm.GetNumObservations(loc, kv.second->GetLocation()) < kMinObservations_) {
+    int best_idx = -1;
+    //for (const auto &kv : nodes) {
+    int start = 0;
+    if (i > 10) {
+      start = i - 10;
+    }
+
+    for (size_t j = start; j < i; j++) {
+      const auto &loc2 = all_locs_[j];
+
+      std::pair<rt::Location, rt::Location> key(loc1, loc2);
+      const auto &it = conditionals_.find(key);
+      if (it == conditionals_.end()) {
         continue;
       }
 
-      double mi = jm.GetMutualInformation(loc, kv.second->GetLocation());
-      ms_extra += t_extra.GetMs();
+      double mi = it->second.GetMutualInformation();
 
-      if (mi > best_mi) {
+      if (mi > best_mi || best_idx < 0) {
         best_mi = mi;
-        best_node = kv.second;
+        best_idx = j;
       }
     }
 
-    if (best_node) {
+    if (best_idx > 0) {
       //printf("got %f mi\n", best_mi);
-      node->SetParent(best_node, jm);
+      const auto &loc2 = all_locs_[best_idx];
+      const auto &parent_node = nodes[loc2];
+
+      node->SetParent(parent_node, jm);
     } else {
       //printf("no best node, root?\n");
       tree.push_back(node);
     }
 
-    nodes[loc] = node;
+    nodes[loc1] = node;
   }
 
-  printf("Took %7.3f ms to build greedy tree\n", t.GetMs() - ms_extra);
+  printf("Took %7.3f ms to build greedy tree\n", t.GetMs());
 
   return tree;
 }

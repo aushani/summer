@@ -30,7 +30,7 @@ void JointModel::MarkObservations(const rt::OccGrid &og) {
 
   size_t sz = og.GetLocations().size();
 
-  int num_threads = 4;
+  int num_threads = 48;
 
   std::vector<std::thread> threads;
   for (int i=0; i<num_threads; i++) {
@@ -89,6 +89,14 @@ size_t JointModel::GetNXY() const {
 
 size_t JointModel::GetNZ() const {
   return n_z_;
+}
+
+double JointModel::GetRangeXY() const {
+  return range_xy_;
+}
+
+double JointModel::GetRangeZ() const {
+  return range_z_;
 }
 
 bool JointModel::InRange(const rt::Location &loc) const {

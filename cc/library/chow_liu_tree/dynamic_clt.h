@@ -71,7 +71,7 @@ class DynamicCLT {
       return int_to_loc.size();
     }
 
-    rt::Location GetLocation(int i) {
+    rt::Location GetLocation(size_t i) {
       BOOST_ASSERT(i < int_to_loc.size());
       return int_to_loc[i];
     }
@@ -125,7 +125,6 @@ class DynamicCLT {
 
   // First is child, second is parent
   std::unordered_map<std::pair<rt::Location, rt::Location>, ConditionalDistribution, LocPairHasher> conditionals_;
-  std::unordered_map<std::pair<rt::Location, rt::Location>, double, LocPairHasher> mutual_information_;
 
   void BuildFullTree(const JointModel &jm);
 };
