@@ -26,6 +26,7 @@ class DynamicCLT {
 
   double BuildAndEvaluate(const rt::DenseOccGrid &dog) const;
   double EvaluateMarginal(const rt::DenseOccGrid &dog) const;
+  double BuildAndEvaluateGreedy(const rt::OccGrid &og) const;
 
   const Tree& GetFullTree() const;
   Tree GetGreedyTree(const JointModel &jm) const;
@@ -36,7 +37,7 @@ class DynamicCLT {
   //static constexpr int kMinObservations_ = 10;
   //static constexpr double kMinMutualInformation_ = 0.01;
   static constexpr int kMinObservations_ = 100;
-  static constexpr double kMinMutualInformation_ = 0.01;
+  static constexpr double kMinMutualInformation_ = 0.00;
 
   // Typedef's for convience
   typedef boost::adjacency_list<boost::vecS, boost::vecS,
@@ -87,18 +88,44 @@ class DynamicCLT {
     }
   };
 
+  class LocHasher {
+   public:
+    size_t operator()(const rt::Location &loc) const {
+      size_t i = loc.i + 512;
+      size_t j = loc.j + 512;
+      size_t k = loc.k + 512;
+      return (i << 20) + (j << 10) + (k);
+    }
+  };
+
+  class LocPairHasher {
+   public:
+    size_t operator()(const std::pair<rt::Location, rt::Location> &loc_pair) const {
+      size_t i1 = loc_pair.first.i + 512;
+      size_t j1 = loc_pair.first.j + 512;
+      size_t k1 = loc_pair.first.k + 512;
+
+      size_t i2 = loc_pair.second.i + 512;
+      size_t j2 = loc_pair.second.j + 512;
+      size_t k2 = loc_pair.second.k + 512;
+
+      return (i1 << 50) + (j1 << 40) + (k1 << 30) + (i2 << 20) + (j2 << 10) + (k2);
+    }
+  };
+
   std::vector<rt::Location> all_locs_;
 
   //std::vector<Edge> all_edges_;
   std::map<rt::Location, std::vector<Edge>> all_edges_;
   size_t num_total_edges_ = 0;
 
-  std::map<rt::Location, MarginalDistribution> marginals_;
+  std::unordered_map<rt::Location, MarginalDistribution, LocHasher> marginals_;
 
   Tree full_tree_;
 
   // First is child, second is parent
-  std::map<std::pair<rt::Location, rt::Location>, ConditionalDistribution> conditionals_;
+  std::unordered_map<std::pair<rt::Location, rt::Location>, ConditionalDistribution, LocPairHasher> conditionals_;
+  std::unordered_map<std::pair<rt::Location, rt::Location>, double, LocPairHasher> mutual_information_;
 
   void BuildFullTree(const JointModel &jm);
 };

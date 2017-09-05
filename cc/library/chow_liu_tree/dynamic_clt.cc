@@ -60,6 +60,9 @@ DynamicCLT::DynamicCLT(const JointModel &jm) {
 
       std::pair<rt::Location, rt::Location> key_flipped(loc2, loc1);
       conditionals_.insert({key_flipped, ConditionalDistribution(loc2, loc1, jm)});
+
+      mutual_information_[{loc1, loc2}] = mi;
+      mutual_information_[{loc2, loc1}] = mi;
     }
   }
   size_t num_nodes = all_locs_.size();
@@ -212,6 +215,65 @@ double DynamicCLT::BuildAndEvaluate(const rt::DenseOccGrid &dog) const {
     }
   }
   //printf("Traversed tree in %7.3f ms\n", t.GetMs());
+
+  return log_p;
+}
+
+double DynamicCLT::BuildAndEvaluateGreedy(const rt::OccGrid &og) const {
+  const auto &locs = og.GetLocations();
+  const auto &los = og.GetLogOdds();
+
+  double log_p = 0;
+  size_t sz = locs.size();
+
+  for (size_t i=0; i<sz; i++) {
+    const auto &loc1 = locs[i];
+    const bool occ1 = los[i] > 0;
+
+    int best_idx = -1;
+    double best_mi = 0;
+
+    int start = 0;
+    if (i > 1) {
+      start = i - 1;
+    }
+    start = i;
+
+    for (size_t j=start; j<i; j++) {
+      const auto &loc2 = locs[j];
+
+      std::pair<rt::Location, rt::Location> key(loc1, loc2);
+      const auto &it = mutual_information_.find(key);
+      if (it == mutual_information_.end()) {
+        continue;
+      }
+
+      double mi = it->second;
+
+      if (mi > best_mi || best_idx < 0) {
+        best_idx = j;
+        best_mi = mi;
+      }
+    }
+
+    if (best_idx < 0) {
+      // Marginal
+      const auto &it = marginals_.find(loc1);
+      BOOST_ASSERT(it != marginals_.end());
+
+      log_p += it->second.GetLogProb(occ1);
+    } else {
+      // Conditional
+      const auto &loc2 = locs[best_idx];
+      const bool occ2 = los[best_idx] > 0;
+
+      std::pair<rt::Location, rt::Location> key(loc1, loc2);
+      const auto &it = conditionals_.find(key);
+      BOOST_ASSERT(it != conditionals_.end());
+
+      log_p += it->second.GetLogProb(occ1, occ2);
+    }
+  }
 
   return log_p;
 }

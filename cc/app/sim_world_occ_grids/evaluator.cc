@@ -123,8 +123,9 @@ void Evaluator::WorkerThread() {
         const auto &classname = it.first;
         const auto &clt = it.second;
 
-        double log_prob = clt.BuildAndEvaluate(dog);
+        //double log_prob = clt.BuildAndEvaluate(dog);
         //double log_prob = clt.EvaluateMarginal(dog);
+        double log_prob = clt.BuildAndEvaluateGreedy(og);
 
         if (first || log_prob > best_log_prob) {
           best_log_prob = log_prob;
