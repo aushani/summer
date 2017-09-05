@@ -10,29 +10,12 @@ namespace kog = app::kitti_occ_grids;
 int main(int argc, char** argv) {
   printf("Evaluate Detections\n");
 
-  if (argc < 4) {
-    printf("Usage: %s training_data/ testing_data/ eval_type        \n", argv[0]);
-    printf("                                                        \n");
-    printf("      eval_type   :=    [ DENSE | LOTP | SC | MARGINAL ]\n");
+  if (argc < 2) {
+    printf("Usage: %s training_data/ testing_data/ \n", argv[0]);
     return 1;
   }
 
-  kog::ChowLuiTree::EvalType type = kog::ChowLuiTree::EvalType::MARGINAL;
-  std::string string_type(argv[3]);
-  if (string_type == "DENSE") {
-    type = kog::ChowLuiTree::EvalType::DENSE;
-  } else if (string_type == "LOTP") {
-    type = kog::ChowLuiTree::EvalType::LOTP;
-  } else if (string_type == "SC") {
-    type = kog::ChowLuiTree::EvalType::SC;
-  } else if (string_type == "MARGINAL") {
-    type = kog::ChowLuiTree::EvalType::MARGINAL;
-  } else {
-    printf("eval_type not valid!\n");
-    return 1;
-  }
-
-  kog::Evaluator evaluator(argv[1], argv[2], type);
+  kog::Evaluator evaluator(argv[1], argv[2]);
 
   for (const std::string &cn : evaluator.GetClasses()) {
     evaluator.QueueClass(cn);
@@ -41,15 +24,14 @@ int main(int argc, char** argv) {
   evaluator.Start();
 
   while (evaluator.HaveWork()) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    printf("\nIn Progress Results for %s %s %s\n", argv[1], argv[2], argv[3]);
-    evaluator.PrintConfusionMatrix();
-    printf("\n");
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    evaluator.PrintResults();
+    printf("\n----\n");
   }
 
-  printf("\nFinal Results for %s %s %s\n", argv[1], argv[2], argv[3]);
+  printf("\nDone!\n");
 
-  evaluator.PrintConfusionMatrix();
+  evaluator.PrintResults();
 
   return 0;
 }

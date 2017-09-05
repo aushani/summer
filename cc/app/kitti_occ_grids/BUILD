@@ -1,35 +1,12 @@
-cc_library(
-    name = "kitti_occ_grids_lib",
-    srcs = [
-            "chow_lui_tree.cc", "chow_lui_tree.h",
-            "chow_lui_tree_osg_node.cc", "chow_lui_tree_osg_node.h",
-            "clt_node.cc", "clt_node.h",
-            "evaluator.cc", "evaluator.h",
-            "model.cc", "model.h",
-            "joint_model.cc", "joint_model.h",
-            "detector.cc", "detector.h",
-            "map_node.cc", "map_node.h",
-            "model_node.cc", "model_node.h",
-            "occ_grid_extractor.cc", "occ_grid_extractor.h",
-           ],
-    deps = [
-            "//library/kitti",
-            "//library/osg_nodes",
-            "//library/ray_tracing",
-            "//library/timer",
-            "//library/util",
-            "//library/viewer",
-            "@boost//:boost_serialization",
-           ],
-)
-
 cc_binary(
     name = "run_extractor",
     srcs = [
             "run_occ_grid_extractor.cc",
+            "occ_grid_extractor.cc", "occ_grid_extractor.h",
            ],
     deps = [
-            ":kitti_occ_grids_lib",
+            "//library/kitti",
+            "//library/ray_tracing",
            ],
 )
 
@@ -39,39 +16,45 @@ cc_binary(
             "view_occ_grid.cc",
            ],
     deps = [
-            ":kitti_occ_grids_lib",
+            "//library/osg_nodes",
+            "//library/ray_tracing",
+            "//library/viewer",
            ],
 )
 
 cc_binary(
-    name = "view_model",
+    name = "make_joint_model",
     srcs = [
-            "view_model.cc",
+            "make_joint_model.cc",
            ],
     deps = [
-            ":kitti_occ_grids_lib",
-           ],
-)
-
-cc_binary(
-    name = "merge_occ_grids",
-    srcs = [
-            "merge_occ_grids.cc",
-           ],
-    deps = [
-            ":kitti_occ_grids_lib",
+            "//library/chow_liu_tree",
+            "//library/ray_tracing",
             "@boost//:boost_filesystem",
            ],
 )
 
 cc_binary(
-    name = "make_chow_lui_trees",
+    name = "make_marginal_model",
     srcs = [
-            "make_chow_lui_trees.cc",
+            "make_marginal_model.cc",
            ],
     deps = [
-            ":kitti_occ_grids_lib",
+            "//library/chow_liu_tree",
+            "//library/ray_tracing",
             "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
+    name = "view_joint_model",
+    srcs = [
+            "view_joint_model.cc",
+           ],
+    deps = [
+            "//library/osg_nodes",
+            "//library/ray_tracing",
+            "//library/viewer",
            ],
 )
 
@@ -81,17 +64,9 @@ cc_binary(
             "view_chow_lui_tree.cc",
            ],
     deps = [
-            ":kitti_occ_grids_lib",
-           ],
-)
-
-cc_binary(
-    name = "sample_clt",
-    srcs = [
-            "sample_clt.cc",
-           ],
-    deps = [
-            ":kitti_occ_grids_lib",
+            "//library/osg_nodes",
+            "//library/ray_tracing",
+            "//library/viewer",
            ],
 )
 
@@ -99,17 +74,20 @@ cc_binary(
     name = "evaluate_detections",
     srcs = [
             "evaluate_detections.cc",
+            "evaluator.cc", "evaluator.h",
            ],
     deps = [
-            ":kitti_occ_grids_lib",
+            "//library/chow_liu_tree",
             "@boost//:boost_filesystem",
            ],
 )
 
+"""
 cc_binary(
     name = "detector",
     srcs = [
             "run_detector.cc",
+            "detector.cc", "detector.h",
            ],
     linkopts = ["-lpthread"],
     deps = [
@@ -127,3 +105,4 @@ cc_binary(
             ":kitti_occ_grids_lib",
            ],
 )
+"""

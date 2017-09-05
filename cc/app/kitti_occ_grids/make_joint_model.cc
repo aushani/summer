@@ -5,24 +5,23 @@
 #include <boost/assert.hpp>
 #include <boost/filesystem.hpp>
 
+#include "library/chow_liu_tree/joint_model.h"
 #include "library/ray_tracing/occ_grid.h"
 #include "library/timer/timer.h"
 
-#include "app/kitti_occ_grids/joint_model.h"
-
-namespace kog = app::kitti_occ_grids;
+namespace clt = library::chow_liu_tree;
 namespace rt = library::ray_tracing;
 namespace fs = boost::filesystem;
 
 int main(int argc, char** argv) {
-  printf("Merge Occ Grids\n");
+  printf("Make joint model\n");
 
   if (argc < 3) {
     printf("Usage: %s dir_name out\n", argv[0]);
     return 1;
   }
 
-  kog::JointModel *model = nullptr;
+  clt::JointModel *model = nullptr;
 
   int count = 0;
   library::timer::Timer t;
@@ -35,10 +34,15 @@ int main(int argc, char** argv) {
       continue;
     }
 
+    if (it->path().extension().string() != ".og") {
+      printf("skipping extension %s\n", it->path().extension().string().c_str());
+      continue;
+    }
+
     rt::OccGrid og = rt::OccGrid::Load(it->path().string().c_str());
 
     if (model == nullptr) {
-      model = new kog::JointModel(2.0, 2.0, og.GetResolution());
+      model = new clt::JointModel(3.0, 3.0, og.GetResolution());
     }
 
     BOOST_ASSERT(model->GetResolution() == og.GetResolution());
@@ -47,13 +51,14 @@ int main(int argc, char** argv) {
     model->MarkObservations(og);
     count++;
 
-    if (t_step.GetSeconds() > 180) {
+    if (t_step.GetSeconds() > 60) {
       printf("Merged %d (%5.3f sec per og)\n", count, t.GetSeconds() / count);
       t_step.Start();
     }
   }
 
   // Save
+  printf("Done! Saving to %s...\n", argv[2]);
   model->Save(argv[2]);
 
   delete model;

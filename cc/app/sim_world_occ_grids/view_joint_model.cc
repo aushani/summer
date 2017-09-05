@@ -1,7 +1,7 @@
 #include <iostream>
 #include <osg/ArgumentParser>
 
-#include "library/osg_nodes/joint_model.h"
+#include "library/osg_nodes/occ_model.h"
 #include "library/viewer/viewer.h"
 
 namespace clt = library::chow_liu_tree;
@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 
   vw::Viewer v(&args);
 
-  osg::ref_ptr<osgn::JointModel> node = new osgn::JointModel(jm);
+  osg::ref_ptr<osgn::OccModel> node = new osgn::OccModel(jm);
   v.AddChild(node);
 
   v.Start();

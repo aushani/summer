@@ -1,14 +1,12 @@
 #include <iostream>
 #include <osg/ArgumentParser>
 
+#include "library/osg_nodes/occ_model.h"
 #include "library/viewer/viewer.h"
 
-#include "app/kitti_occ_grids/model.h"
-#include "app/kitti_occ_grids/model_node.h"
-
+namespace clt = library::chow_liu_tree;
+namespace osgn = library::osg_nodes;
 namespace vw = library::viewer;
-
-namespace kog = app::kitti_occ_grids;
 
 int main(int argc, char** argv) {
   osg::ArgumentParser args(&argc, argv);
@@ -34,19 +32,18 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  // Load occ grid
+  // Load joint model
   std::string fn;
   if (!args.read("--jm", fn)) {
-    printf("Error! Need file to render!\n");
+    printf("Error! Need file to render! (--jm) \n");
     return 1;
   }
 
-  kog::JointModel jm = kog::JointModel::Load(fn.c_str());
+  clt::JointModel jm = clt::JointModel::Load(fn.c_str());
 
   vw::Viewer v(&args);
 
-  osg::ref_ptr<kog::ModelNode> node = new kog::ModelNode(jm);
-
+  osg::ref_ptr<osgn::OccModel> node = new osgn::OccModel(jm);
   v.AddChild(node);
 
   v.Start();

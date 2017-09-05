@@ -3,14 +3,14 @@
 
 #include "library/viewer/viewer.h"
 
-#include "app/kitti_occ_grids/chow_lui_tree.h"
-#include "app/kitti_occ_grids/chow_lui_tree_osg_node.h"
-#include "app/kitti_occ_grids/model.h"
-#include "app/kitti_occ_grids/model_node.h"
+#include "library/chow_liu_tree/dynamic_clt.h"
+#include "library/chow_liu_tree/joint_model.h"
+
+#include "library/osg_nodes/chow_liu_tree.h"
 
 namespace vw = library::viewer;
-
-namespace kog = app::kitti_occ_grids;
+namespace clt = library::chow_liu_tree;
+namespace osgn = library::osg_nodes;
 
 int main(int argc, char** argv) {
   osg::ArgumentParser args(&argc, argv);
@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
   au->setCommandLineUsage( args.getApplicationName() + " [options]");
   au->setDescription(args.getApplicationName() + " viewer");
 
-  au->addCommandLineOption("--clt <dirname>", "CLT Filename", "");
+  au->addCommandLineOption("--jm <dirname>", "Joint Model Filename", "");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -38,17 +38,26 @@ int main(int argc, char** argv) {
 
   vw::Viewer v(&args);
 
-  std::string fn_clt;
-  if (!args.read("--clt", fn_clt)) {
-    printf("No CLT file to render!\n");
+  std::string fn_jm;
+  if (!args.read("--jm", fn_jm)) {
+    printf("No file to render!\n");
     return 1;
   }
 
-  kog::ChowLuiTree clt = kog::ChowLuiTree::Load(fn_clt.c_str());
+  clt::JointModel jm = clt::JointModel::Load(fn_jm.c_str());
+  clt::DynamicCLT clt = clt::DynamicCLT(jm);
+  clt::Tree t = clt.GetFullTree();
+  printf("Mutual Information: %f\n", t[0]->GetTreeMutualInformation());
 
-  printf("Have CLT of size %ld\n", clt.Size());
+  clt::Tree t_greedy = clt.GetGreedyTree(jm);
+  double mi = 0;
+  for (const auto &n : t_greedy) {
+    mi += n->GetTreeMutualInformation();
+  }
 
-  osg::ref_ptr<kog::ChowLuiTreeOSGNode> clt_node = new kog::ChowLuiTreeOSGNode(clt);
+  printf("Mutual Information (greedy): %f, %ld roots\n", mi, t_greedy.size());
+
+  osg::ref_ptr<osgn::ChowLiuTree> clt_node = new osgn::ChowLiuTree(clt);
   v.AddChild(clt_node);
 
   v.Start();
