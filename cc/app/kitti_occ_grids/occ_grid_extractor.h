@@ -7,11 +7,14 @@
 #include <random>
 #include <chrono>
 
+#include <boost/filesystem.hpp>
+
 #include "library/kitti/camera_cal.h"
 #include "library/kitti/tracklets.h"
 #include "library/kitti/velodyne_scan.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 
+namespace fs = boost::filesystem;
 namespace kt = library::kitti;
 namespace rt = library::ray_tracing;
 
@@ -27,14 +30,15 @@ class OccGridExtractor {
  private:
   const char* kKittiBaseFilename = "/home/aushani/data/kittidata/extracted/";
   static constexpr double kPosRes_ = 0.50;                    // 50 cm
-  static constexpr double kAngleRes_ = 45.0 * M_PI / 180.0;   // 90 degrees
+  static constexpr int kAngleBins_ = 8;                       // 8 angle bins -> 45 degrees
+  static constexpr double kAngleRes_ = 2 * M_PI/kAngleBins_;  // 45 degrees
   static constexpr int kJittersPerObject_ = 10;
 
   rt::OccGridBuilder og_builder_;
   kt::CameraCal camera_cal_;
   std::default_random_engine rand_engine;
 
-  std::string save_base_fn_;
+  fs::path save_base_path_;
 
   void ProcessFrameObjects(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame);
   void ProcessFrameBackground(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame);

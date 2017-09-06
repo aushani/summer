@@ -7,6 +7,7 @@ cc_binary(
     deps = [
             "//library/kitti",
             "//library/ray_tracing",
+            "@boost//:boost_filesystem",
            ],
 )
 
