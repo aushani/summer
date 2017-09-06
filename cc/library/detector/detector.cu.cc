@@ -104,33 +104,37 @@ struct DeviceScores {
     cudaFree(scores);
   }
 
-  ObjectState GetState(int idx) {
-    int ix = idx / n_y_;
-    int iy = idx % n_y_;
+  __host__ __device__ bool InRange(int idx) const {
+    return idx < n_x * n_y;
+  }
+
+
+  __host__ __device__ ObjectState GetState(int idx) const {
+    int ix = idx / n_y;
+    int iy = idx % n_y;
 
     // int instead of size_t because could be negative
-    int dix = ix - n_x_/2;
-    int diy = iy - n_y_/2;
+    int dix = ix - n_x/2;
+    int diy = iy - n_y/2;
 
-    float x = dix * res_;
-    float y = diy * res_;
+    float x = dix * res;
+    float y = diy * res;
 
     return ObjectState(x, y, 0);
   }
 
-  int GetIndex(const ObjectState &os) const {
-    int ix = os.x / res_ + n_x_ / 2;
-    int iy = os.y / res_ + n_y_ / 2;
+  __host__ __device__ int GetIndex(const ObjectState &os) const {
+    int ix = os.x / res + n_x / 2;
+    int iy = os.y / res + n_y / 2;
 
-    if (ix >= n_x_ || iy >= n_y_) {
+    if (ix >= n_x || iy >= n_y) {
       return -1;
     }
 
-    size_t idx = ix * n_y_ + iy;
+    size_t idx = ix * n_y + iy;
     return idx;
   }
-
-}:
+};
 
 struct DeviceData {
   std::vector<DeviceModel> models;
@@ -151,7 +155,7 @@ struct DeviceData {
 
   void AddModel(const clt::MarginalModel &mm) {
     models.emplace_back(mm);
-    scores.emplace_back();
+    scores.emplace_back(0.3, 50.0, 50.0);
   }
 };
 
@@ -179,26 +183,20 @@ __global__ void Evaluate(const rt::DeviceDenseOccGrid &ddog, const DeviceModel &
   const int threads = blockDim.x;
 
   const int idx = tidx + bidx * threads;
+  if (!scores.InRange(idx)) {
+    return;
+  }
 
-  int ix = idx / n_y_;
-  int iy = idx % n_y_;
-
-  // int instead of size_t because could be negative
-  int dix = ix - n_x_/2;
-  int diy = iy - n_y_/2;
-
-  float x = dix * res_;
-  float y = diy * res_;
-
+  ObjectState os = scores.GetState(idx);
 }
 
 DetectionMap Detector::Run(const rt::DeviceOccGrid &dog) {
-  rt::DeviceDenseOccGrid ddog(dog);
+  rt::DeviceDenseOccGrid ddog(dog, 50.0, 3.0);
 
   int threads = 1024;
   int blocks = 1024;
 
-  Evaluate<<<blocks, threads>>>(ddog, *device_data_);
+  Evaluate<<<blocks, threads>>>(ddog, device_data_->models[0], device_data_->scores[0]);
 
   return DetectionMap();
 }
