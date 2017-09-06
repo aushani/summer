@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
     rt::OccGrid og = rt::OccGrid::Load(it->path().string().c_str());
 
     if (model == nullptr) {
-      model = new clt::JointModel(3.0, 3.0, og.GetResolution());
+      model = new clt::JointModel(3.0, 2.0, og.GetResolution());
     }
 
     BOOST_ASSERT(model->GetResolution() == og.GetResolution());
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
     count++;
 
     if (t_step.GetSeconds() > 60) {
-      printf("Merged %d (%5.3f sec per og)\n", count, t.GetSeconds() / count);
+      printf("Merged %d (%9.5f sec per og)\n", count, t.GetSeconds() / count);
       t_step.Start();
     }
   }
