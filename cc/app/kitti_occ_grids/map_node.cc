@@ -13,19 +13,27 @@ MapNode::MapNode(const dt::Detector &detector) : osg::Group() {
 
       dt::ObjectState os(x, y, 0);
 
-      double p_car = detector.GetProb("Car", os);
-      double p_cyclist = detector.GetProb("Cyclist", os);
-      double p_pedestrian = detector.GetProb("Pedestrian", os);
-      double p_background = detector.GetProb("Background", os);
+      double lo_car = detector.GetLogOdds("Car", os);
+      double lo_cyclist = detector.GetLogOdds("Cyclist", os);
+      double lo_pedestrian = detector.GetLogOdds("Pedestrian", os);
 
-      //if (p_background > 0.5) {
-      //  continue;
-      //}
+      double r = (lo_car-10) / 30;
+      double g = (lo_cyclist-10) / 30;
+      double b = (lo_pedestrian-10) / 30;
 
-      osg::Vec4 color(p_car, p_cyclist, p_pedestrian, 1-p_background);
+      if (r < 0) r = 0;
+      if (r > 1) r = 1;
+
+      if (g < 0) g = 0;
+      if (g > 1) g = 1;
+
+      if (b < 0) b = 0;
+      if (b > 1) b = 1;
+
+      osg::Vec4 color(r, g, b, 0.5);
       osg::Vec3 pos(x, y, 0.0);
 
-      osg::ref_ptr<osgn::ColorfulBox> box = new osgn::ColorfulBox(color, pos, detector.GetResolution()*0.9); // TODO Magic Number
+      osg::ref_ptr<osgn::ColorfulBox> box = new osgn::ColorfulBox(color, pos, detector.GetResolution()*1.0); // TODO Magic Number
       addChild(box);
     }
   }

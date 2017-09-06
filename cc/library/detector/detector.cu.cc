@@ -256,6 +256,13 @@ float Detector::GetProb(const std::string &classname, const ObjectState &os) con
   return prob;
 }
 
+float Detector::GetLogOdds(const std::string &classname, const ObjectState &os) const {
+  double prob = GetProb(classname, os);
+  double lo = -std::log(1/prob - 1);
+
+  return lo;
+}
+
 float Detector::GetRangeX() const {
   return range_x_;
 }

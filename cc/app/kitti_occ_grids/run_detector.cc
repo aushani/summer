@@ -146,17 +146,21 @@ int main(int argc, char** argv) {
     clt::MarginalModel mm = clt::MarginalModel::Load(p_mm.string().c_str());
 
     float lp = 0;
-    if (classname == "Background") {
-      lp = 10;
-    }
+    //if (classname == "Background") {
+    //  lp = 10;
+    //}
 
-    if (classname == "Car") {
-      lp = -10;
-    }
+    //if (classname == "Car") {
+    //  lp = -20;
+    //}
 
-    if (classname == "Cyclist") {
-      classname = -50;
-    }
+    //if (classname == "Cyclist") {
+    //  lp = -50;
+    //}
+
+    //if (classname == "Pedestrian") {
+    //  lp = -70;
+    //}
 
     detector.AddModel(classname, mm, lp);
   }

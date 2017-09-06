@@ -31,6 +31,7 @@ class Detector {
 
   float GetScore(const std::string &classname, const ObjectState &os) const;
   float GetProb(const std::string &classname, const ObjectState &os) const;
+  float GetLogOdds(const std::string &classname, const ObjectState &os) const;
 
   float GetResolution() const;
   float GetRangeX() const;
