@@ -87,7 +87,7 @@ void OccGridExtractor::ProcessFrameObjects(kt::Tracklets *tracklets, const kt::V
 
       // Save OccGrid
       char fn[1000];
-      sprintf(fn, "%s/%s_%04d_%04d_%04d_%04d.og", save_base_fn_.c_str(), tt->objectType.c_str(), log_num, frame, t_id, jitter);
+      sprintf(fn, "%s/%s/%s_%04d_%04d_%04d_%04d.og", save_base_fn_.c_str(), tt->objectType.c_str(), tt->objectType.c_str(), log_num, frame, t_id, jitter);
       og.Save(fn);
     }
   }
@@ -137,7 +137,7 @@ void OccGridExtractor::ProcessFrameBackground(kt::Tracklets *tracklets, const kt
     rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
 
     char fn[1000];
-    sprintf(fn, "%s/Background_%04d_%04d_%04d.og", save_base_fn_.c_str(), log_num, frame, bg_sample);
+    sprintf(fn, "%s/Background/Background_%04d_%04d_%04d.og", save_base_fn_.c_str(), log_num, frame, bg_sample);
     og.Save(fn);
 
     bg_sample++;
