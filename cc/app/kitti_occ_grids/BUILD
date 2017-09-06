@@ -59,6 +59,18 @@ cc_binary(
 )
 
 cc_binary(
+    name = "view_marginal_model",
+    srcs = [
+            "view_marginal_model.cc",
+           ],
+    deps = [
+            "//library/osg_nodes",
+            "//library/ray_tracing",
+            "//library/viewer",
+           ],
+)
+
+cc_binary(
     name = "view_chow_lui_tree",
     srcs = [
             "view_chow_lui_tree.cc",

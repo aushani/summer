@@ -18,7 +18,9 @@ struct DeviceScores {
   int n_y = 0;
   float res = 0;
 
-  DeviceScores(float r, double range_x, double range_y);
+  float log_prior = 0;
+
+  DeviceScores(float r, float range_x, float range_y, float log_prior);
 
   void Cleanup();
 

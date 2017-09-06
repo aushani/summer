@@ -2,6 +2,7 @@
 
 #include <boost/assert.hpp>
 
+#include "library/timer/timer.h"
 #include "library/ray_tracing/device_dense_occ_grid.h"
 
 namespace library {
@@ -108,9 +109,9 @@ struct DeviceData {
     }
   }
 
-  void AddModel(const clt::MarginalModel &mm) {
+  void AddModel(const clt::MarginalModel &mm, float range_x, float range_y, float log_prior) {
     models.emplace_back(mm);
-    scores.emplace_back(mm.GetResolution(), 50.0, 50.0);
+    scores.emplace_back(mm.GetResolution(), range_x, range_y, log_prior);
   }
 
   size_t NumModels() const {
@@ -131,8 +132,8 @@ Detector::~Detector() {
   device_data_->Cleanup();
 }
 
-void Detector::AddModel(const std::string &classname, const clt::MarginalModel &mm) {
-  device_data_->AddModel(mm);
+void Detector::AddModel(const std::string &classname, const clt::MarginalModel &mm, float log_prior) {
+  device_data_->AddModel(mm, range_x_, range_y_, log_prior);
   classnames_.push_back(classname);
 }
 
@@ -178,12 +179,14 @@ __global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel mo
 }
 
 void Detector::Run(const rt::DeviceOccGrid &dog) {
-  printf("Copying dense occ grid to device\n");
+  library::timer::Timer t;
+
+  t.Start();
   rt::DeviceDenseOccGrid ddog(dog, 50.0, 3.0);
+  printf("Made Device Dense Occ Grid in %5.3f ms.\n", t.GetMs());
+
   cudaError_t err = cudaDeviceSynchronize();
-  std::cout << cudaGetErrorString(err) << std::endl;
   BOOST_ASSERT(err == cudaSuccess);
-  printf("Done!\n");
 
   for (int i=0; i<device_data_->NumModels(); i++) {
     printf("\tApplying Model %d\n", i);
@@ -196,8 +199,8 @@ void Detector::Run(const rt::DeviceOccGrid &dog) {
     int blocks = scores.Size() / threads + 1;
 
     Evaluate<<<blocks, threads>>>(ddog, model, scores);
+
     cudaError_t err = cudaDeviceSynchronize();
-    std::cout << cudaGetErrorString(err) << std::endl;
     BOOST_ASSERT(err == cudaSuccess);
 
     scores.CopyToHost();
@@ -261,7 +264,7 @@ float Detector::GetRangeY() const {
   return range_y_;
 }
 
-float Detector::GetRes() const {
+float Detector::GetResolution() const {
   return res_;
 }
 

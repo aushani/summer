@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
     printf("Using default KITTI frame number: %d\n", frame_num);
   }
 
-  std::string model_dir = "/home/aushani/data/gen_data/training_data/";
+  std::string model_dir = "/home/aushani/data/gen_data_50cm_blurred/training/";
   if (!args.read("--models", model_dir)) {
     printf("no model given, using default dir %s\n", model_dir.c_str());
   }
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
   kt::Tracklets tracklets = LoadTracklets(kitti_log_dir, kitti_log_date, log_num);
 
   // Build occ grid
-  rt::OccGridBuilder builder(200000, 0.3, 100.0);
+  rt::OccGridBuilder builder(200000, 0.50, 100.0);
 
   library::timer::Timer t;
   auto dog = builder.GenerateOccGridDevice(scan.GetHits());
@@ -136,8 +136,7 @@ int main(int argc, char** argv) {
 
     std::string classname = it->path().filename().string();
 
-    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "NOOBJ")) {
-    //if (! (classname == "Car" || classname == "NOOBJ")) {
+    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
       continue;
     }
 
@@ -145,7 +144,21 @@ int main(int argc, char** argv) {
 
     fs::path p_mm = it->path() / fs::path("mm.mm");
     clt::MarginalModel mm = clt::MarginalModel::Load(p_mm.string().c_str());
-    detector.AddModel(classname, mm);
+
+    float lp = 0;
+    if (classname == "Background") {
+      lp = 10;
+    }
+
+    if (classname == "Car") {
+      lp = -10;
+    }
+
+    if (classname == "Cyclist") {
+      classname = -50;
+    }
+
+    detector.AddModel(classname, mm, lp);
   }
   printf("Loaded all models\n");
 
@@ -157,13 +170,13 @@ int main(int argc, char** argv) {
 
   vw::Viewer v(&args);
 
-  //osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);
-  osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);
+  osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);
+  //osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);
   osg::ref_ptr<osgn::Tracklets> tn = new osgn::Tracklets(&tracklets, frame_num);
   osg::ref_ptr<kog::MapNode> map_node = new kog::MapNode(detector);
 
-  //v.AddChild(pc);
-  v.AddChild(ogn);
+  v.AddChild(pc);
+  //v.AddChild(ogn);
   v.AddChild(tn);
   v.AddChild(map_node);
 

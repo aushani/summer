@@ -8,22 +8,24 @@ namespace app {
 namespace kitti_occ_grids {
 
 MapNode::MapNode(const dt::Detector &detector) : osg::Group() {
-  for (double x = -detector.GetRangeX(); x < detector.GetRangeX(); x += detector.GetRes()) {
-    for (double y = -detector.GetRangeY(); y < detector.GetRangeY(); y += detector.GetRes()) {
+  for (double x = -detector.GetRangeX(); x < detector.GetRangeX(); x += detector.GetResolution()) {
+    for (double y = -detector.GetRangeY(); y < detector.GetRangeY(); y += detector.GetResolution()) {
 
-      double p_car = detector.GetProb("Car", dt::ObjectState(x, y, 0));
-      double p_cyclist = detector.GetProb("Cyclist", dt::ObjectState(x, y, 0));
-      double p_pedestrian = detector.GetProb("Pedestrian", dt::ObjectState(x, y, 0));
-      double p_background = 1 - p_car - p_cyclist - p_background;
+      dt::ObjectState os(x, y, 0);
 
-      if (p_background > 0.9) {
-        continue;
-      }
+      double p_car = detector.GetProb("Car", os);
+      double p_cyclist = detector.GetProb("Cyclist", os);
+      double p_pedestrian = detector.GetProb("Pedestrian", os);
+      double p_background = detector.GetProb("Background", os);
+
+      //if (p_background > 0.5) {
+      //  continue;
+      //}
 
       osg::Vec4 color(p_car, p_cyclist, p_pedestrian, 1-p_background);
       osg::Vec3 pos(x, y, 0.0);
 
-      osg::ref_ptr<osgn::ColorfulBox> box = new osgn::ColorfulBox(color, pos, 0.25); // TODO Magic Number
+      osg::ref_ptr<osgn::ColorfulBox> box = new osgn::ColorfulBox(color, pos, detector.GetResolution()*0.9); // TODO Magic Number
       addChild(box);
     }
   }

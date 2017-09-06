@@ -31,6 +31,10 @@ OccModel::OccModel(const clt::JointModel &jm) : osg::Group() {
 
         double p_occ = c_t / (static_cast<double>(c_t + c_f));
 
+        if (p_occ < 0.10) {
+          continue;
+        }
+
         double x = loc.i * jm.GetResolution();
         double y = loc.j * jm.GetResolution();
         double z = loc.k * jm.GetResolution();
@@ -70,6 +74,10 @@ OccModel::OccModel(const clt::MarginalModel &mm) : osg::Group() {
         int c_f = mm.GetCount(loc, false);
 
         double p_occ = c_t / (static_cast<double>(c_t + c_f));
+
+        if (p_occ < 0.10) {
+          continue;
+        }
 
         double x = loc.i * mm.GetResolution();
         double y = loc.j * mm.GetResolution();

@@ -23,7 +23,7 @@ class Detector {
   Detector(float res, float range_x, float range_y);
   ~Detector();
 
-  void AddModel(const std::string &classname, const clt::MarginalModel &mm);
+  void AddModel(const std::string &classname, const clt::MarginalModel &mm, float log_prior=0.0);
 
   void Run(const rt::DeviceOccGrid &dog);
 
@@ -32,7 +32,7 @@ class Detector {
   float GetScore(const std::string &classname, const ObjectState &os) const;
   float GetProb(const std::string &classname, const ObjectState &os) const;
 
-  float GetRes() const;
+  float GetResolution() const;
   float GetRangeX() const;
   float GetRangeY() const;
   bool InRange(const ObjectState &os) const;
