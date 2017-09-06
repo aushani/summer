@@ -1,3 +1,5 @@
+#pragma once
+
 // This is gross but lets this play nicely with both cuda and non-cuda compilers
 #ifdef __CUDACC__
 #define CUDA_CALLABLE __host__ __device__

@@ -1,5 +1,7 @@
 #include "library/detector/detector.h"
 
+#include <boost/assert.hpp>
+
 #include "library/ray_tracing/device_dense_occ_grid.h"
 
 namespace library {
@@ -12,9 +14,12 @@ struct DeviceModel {
   int n_xy = 0;
   int n_z = 0;
 
+  float res = 0;
+
   DeviceModel(const clt::MarginalModel &mm) {
     n_xy = mm.GetNXY();
     n_z = mm.GetNZ();
+    res = mm.GetResolution();
 
     size_t sz = n_xy * n_xy * n_z;
 
@@ -86,56 +91,6 @@ struct DeviceModel {
   }
 };
 
-struct DeviceScores {
-  float *scores = nullptr;
-  int n_x = 0;
-  int n_y = 0;
-  float res = 0;
-
-  DeviceScores(float r, double range_x, double range_y)  :
-   n_x(2 * ceil(range_x / r) + 1),
-   n_y(2 * ceil(range_y / r) + 1),
-   res(r) {
-    cudaMalloc(&scores, sizeof(float)*n_x*n_y);
-    cudaMemset(scores, 0, sizeof(float)*n_x*n_y);
-  }
-
-  void Cleanup() {
-    cudaFree(scores);
-  }
-
-  __host__ __device__ bool InRange(int idx) const {
-    return idx < n_x * n_y;
-  }
-
-
-  __host__ __device__ ObjectState GetState(int idx) const {
-    int ix = idx / n_y;
-    int iy = idx % n_y;
-
-    // int instead of size_t because could be negative
-    int dix = ix - n_x/2;
-    int diy = iy - n_y/2;
-
-    float x = dix * res;
-    float y = diy * res;
-
-    return ObjectState(x, y, 0);
-  }
-
-  __host__ __device__ int GetIndex(const ObjectState &os) const {
-    int ix = os.x / res + n_x / 2;
-    int iy = os.y / res + n_y / 2;
-
-    if (ix >= n_x || iy >= n_y) {
-      return -1;
-    }
-
-    size_t idx = ix * n_y + iy;
-    return idx;
-  }
-};
-
 struct DeviceData {
   std::vector<DeviceModel> models;
   std::vector<DeviceScores> scores;
@@ -148,18 +103,22 @@ struct DeviceData {
       model.Cleanup();
     }
 
-    for (auto &score : scores) {
-      score.Cleanup();
+    for (auto &s : scores) {
+      s.Cleanup();
     }
   }
 
   void AddModel(const clt::MarginalModel &mm) {
     models.emplace_back(mm);
-    scores.emplace_back(0.3, 50.0, 50.0);
+    scores.emplace_back(mm.GetResolution(), 50.0, 50.0);
+  }
+
+  size_t NumModels() const {
+    return models.size();
   }
 };
 
-Detector::Detector(double res, double range_x, double range_y) :
+Detector::Detector(float res, float range_x, float range_y) :
  range_x_(range_x), range_y_(range_y),
  n_x_(2 * std::ceil(range_x / res) + 1),
  n_y_(2 * std::ceil(range_y / res) + 1),
@@ -174,10 +133,10 @@ Detector::~Detector() {
 
 void Detector::AddModel(const std::string &classname, const clt::MarginalModel &mm) {
   device_data_->AddModel(mm);
-  class_names_.push_back(classname);
+  classnames_.push_back(classname);
 }
 
-__global__ void Evaluate(const rt::DeviceDenseOccGrid &ddog, const DeviceModel &model, const DeviceScores &scores) {
+__global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel model, const DeviceScores scores) {
   const int bidx = blockIdx.x;
   const int tidx = threadIdx.x;
   const int threads = blockDim.x;
@@ -188,18 +147,124 @@ __global__ void Evaluate(const rt::DeviceDenseOccGrid &ddog, const DeviceModel &
   }
 
   ObjectState os = scores.GetState(idx);
+
+  int min_ij = -(model.n_xy/2);
+  int max_ij = min_ij + model.n_xy;
+
+  int min_k = -(model.n_z/2);
+  int max_k = min_k + model.n_z;
+
+  float log_p = 0;
+
+  for (int i=min_ij; i < max_ij; i++) {
+    for (int j=min_ij; j < max_ij; j++) {
+      for (int k=min_k; k < max_k; k++) {
+        rt::Location loc(i, j, k);
+
+        // TODO transform
+        rt::Location loc_global(i + os.x/model.res, j + os.y/model.res, k);
+
+        if (!ddog.IsKnown(loc_global)) {
+          continue;
+        }
+
+        bool occ = ddog.IsOccu(loc_global);
+        log_p += model.GetLogP(loc, occ);
+      }
+    }
+  }
+
+  scores.d_scores[idx] = log_p;
 }
 
-DetectionMap Detector::Run(const rt::DeviceOccGrid &dog) {
+void Detector::Run(const rt::DeviceOccGrid &dog) {
+  printf("Copying dense occ grid to device\n");
   rt::DeviceDenseOccGrid ddog(dog, 50.0, 3.0);
+  cudaError_t err = cudaDeviceSynchronize();
+  std::cout << cudaGetErrorString(err) << std::endl;
+  BOOST_ASSERT(err == cudaSuccess);
+  printf("Done!\n");
 
-  int threads = 1024;
-  int blocks = 1024;
+  for (int i=0; i<device_data_->NumModels(); i++) {
+    printf("\tApplying Model %d\n", i);
 
-  Evaluate<<<blocks, threads>>>(ddog, device_data_->models[0], device_data_->scores[0]);
+    auto &model = device_data_->models[i];
+    auto &scores = device_data_->scores[i];
+    scores.Reset();
 
-  return DetectionMap();
+    int threads = kThreadsPerBlock_;
+    int blocks = scores.Size() / threads + 1;
+
+    Evaluate<<<blocks, threads>>>(ddog, model, scores);
+    cudaError_t err = cudaDeviceSynchronize();
+    std::cout << cudaGetErrorString(err) << std::endl;
+    BOOST_ASSERT(err == cudaSuccess);
+
+    scores.CopyToHost();
+  }
+
+  ddog.Cleanup();
 }
+
+const DeviceScores& Detector::GetScores(const std::string &classname) const {
+  int idx = -1;
+  for (size_t i=0; i < classnames_.size(); i++) {
+    if (classnames_[i] == classname) {
+      idx = i;
+      break;
+    }
+  }
+
+  BOOST_ASSERT(idx >= 0);
+
+  return device_data_->scores[idx];
+}
+
+float Detector::GetScore(const std::string &classname, const ObjectState &os) const {
+  auto &scores = GetScores(classname);
+  return scores.GetScore(os);
+}
+
+float Detector::GetProb(const std::string &classname, const ObjectState &os) const {
+  auto &my_scores = GetScores(classname);
+  if (!my_scores.InRange(os)) {
+    return 0.0;
+  }
+
+  float my_score = GetScore(classname, os);
+  float max_score = my_score;
+
+  for (const auto &class_scores : device_data_->scores) {
+    float score = class_scores.GetScore(os);
+
+    if (score > max_score) {
+      max_score = score;
+    }
+  }
+
+  float sum = 0;
+
+  for (const auto &class_scores : device_data_->scores) {
+    float score = class_scores.GetScore(os);
+    sum += exp(score - max_score);
+  }
+
+  float prob = exp(my_score - max_score) / sum;
+  return prob;
+}
+
+float Detector::GetRangeX() const {
+  return range_x_;
+}
+
+float Detector::GetRangeY() const {
+  return range_y_;
+}
+
+float Detector::GetRes() const {
+  return res_;
+}
+
 
 } // namespace ray_tracing
 } // namespace library

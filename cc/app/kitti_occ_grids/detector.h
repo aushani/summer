@@ -8,43 +8,15 @@
 #include "library/ray_tracing/dense_occ_grid.h"
 
 #include "library/chow_liu_tree/marginal_model.h"
+#include "library/detector/detector.h"
 
 namespace clt = library::chow_liu_tree;
+namespace dt = library::detector;
 namespace rt = library::ray_tracing;
 namespace ut = library::util;
 
 namespace app {
 namespace kitti_occ_grids {
-
-struct ObjectState {
-  double x;
-  double y;
-
-  double theta;
-
-  ObjectState(double xx, double yy, double tt) :
-    x(xx), y(yy), theta(ut::MinimizeAngle(tt)) {}
-
-  bool operator<(const ObjectState &rhs) const {
-    if (std::abs(x - rhs.x) >= kTolerance_) {
-      return x < rhs.x;
-    }
-
-    if (std::abs(y - rhs.y) >= kTolerance_) {
-      return y < rhs.y;
-    }
-
-    if (std::abs(theta - rhs.theta) >= kTolerance_) {
-      return theta < rhs.theta;
-    }
-
-    return false;
-  }
-
- private:
-  static constexpr double kTolerance_ = 0.001;
-
-};
 
 class Detector {
  public:
@@ -52,18 +24,14 @@ class Detector {
 
   void AddModel(const std::string &classname, const clt::MarginalModel &mm);
 
-  void Evaluate(const rt::DenseOccGrid &scene);
+  void Evaluate(const rt::DeviceOccGrid &scene);
 
-  //const std::map<ObjectState, double>& GetScores() const;
   double GetScore(const std::string &classname, const ObjectState &os) const;
   double GetProb(const std::string &classname, const ObjectState &os) const;
 
   double GetRangeX() const;
   double GetRangeY() const;
   bool InRange(const ObjectState &os) const;
-
-  size_t GetIndex(const ObjectState &os) const;
-  ObjectState GetState(size_t idx) const;
 
   double GetRes() const;
 
@@ -75,12 +43,9 @@ class Detector {
 
   double res_;
 
-  //std::map<ObjectState, double> scores_;
-  std::map<std::string, std::vector<double> > class_scores_;
-  std::map<std::string, clt::MarginalModel> models_;
+  std::map<std::string, std::vector<double> > classnames_;
 
-  void Evaluate(const rt::DenseOccGrid &scene, size_t idx);
-  void EvaluateWorkerThread(const rt::DenseOccGrid &scene, std::deque<size_t> *work_queue, std::mutex *mutex);
+  dt::Detector detector_;
 };
 
 } // namespace kitti_occ_grids

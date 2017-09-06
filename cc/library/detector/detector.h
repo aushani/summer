@@ -7,6 +7,7 @@
 
 #include "library/detector/detection_map.h"
 #include "library/detector/object_state.h"
+#include "library/detector/device_scores.h"
 
 namespace clt = library::chow_liu_tree;
 namespace rt = library::ray_tracing;
@@ -19,25 +20,35 @@ typedef struct DeviceData DeviceData;
 
 class Detector {
  public:
-  Detector(double res, double range_x, double range_y);
+  Detector(float res, float range_x, float range_y);
   ~Detector();
 
   void AddModel(const std::string &classname, const clt::MarginalModel &mm);
 
-  DetectionMap Run(const rt::DeviceOccGrid &dog);
+  void Run(const rt::DeviceOccGrid &dog);
+
+  const DeviceScores& GetScores(const std::string &classname) const;
+
+  float GetScore(const std::string &classname, const ObjectState &os) const;
+  float GetProb(const std::string &classname, const ObjectState &os) const;
+
+  float GetRes() const;
+  float GetRangeX() const;
+  float GetRangeY() const;
+  bool InRange(const ObjectState &os) const;
 
  private:
   static constexpr int kThreadsPerBlock_ = 1024;
 
-  const double range_x_;
-  const double range_y_;
+  const float range_x_;
+  const float range_y_;
   const int n_x_;
   const int n_y_;
 
-  const double res_;
+  const float res_;
 
   std::unique_ptr<DeviceData> device_data_;
-  std::vector<std::string> class_names_;
+  std::vector<std::string> classnames_;
 };
 
 } // namespace detector

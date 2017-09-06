@@ -10,9 +10,8 @@ namespace ray_tracing {
 class DeviceOccGrid {
  public:
   DeviceOccGrid(const thrust::device_ptr<Location> &d_locs, const thrust::device_ptr<float> &d_los, size_t sz, float r);
-  ~DeviceOccGrid();
 
-  DeviceOccGrid(const DeviceOccGrid &dog) = delete;
+  void Cleanup();
 
   float GetResolution() const;
 

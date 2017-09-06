@@ -86,7 +86,7 @@ cc_binary(
     name = "detector",
     srcs = [
             "run_detector.cc",
-            "detector.cc", "detector.h",
+            #"detector.cc", "detector.h",
             "map_node.cc", "map_node.h",
            ],
     linkopts = ["-lpthread"],
@@ -96,6 +96,7 @@ cc_binary(
             "//library/kitti",
             "//library/osg_nodes",
             "//library/viewer",
+            "//library/detector",
             "@boost//:boost_filesystem",
            ],
 )

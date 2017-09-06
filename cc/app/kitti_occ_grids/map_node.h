@@ -4,14 +4,16 @@
 #include <osg/Drawable>
 #include <osg/MatrixTransform>
 
-#include "app/kitti_occ_grids/detector.h"
+#include "library/detector/detector.h"
+
+namespace dt = library::detector;
 
 namespace app {
 namespace kitti_occ_grids {
 
 class MapNode : public osg::Group {
  public:
-  MapNode(const Detector &detector);
+  MapNode(const dt::Detector &detector);
 };
 
 } // namespace kitti_occ_grids

@@ -11,13 +11,48 @@ namespace ray_tracing {
 class DeviceDenseOccGrid {
  public:
   DeviceDenseOccGrid(const DeviceOccGrid &dog, float max_xy, float max_z);
-  DeviceDenseOccGrid(const DeviceDenseOccGrid &dog) = delete;
-  ~DeviceDenseOccGrid();
 
-  __device__ bool IsKnown(const Location &loc) const;
-  __device__ bool IsOccu(const Location &loc) const;
+  void Cleanup();
 
-  __device__ int GetIndex(const Location &loc) const;
+  __device__ bool IsKnown(const Location &loc) const {
+    int idx = GetIndex(loc);
+    if (idx < 0) {
+      return false;
+    }
+
+    return known_[idx];
+  }
+
+  __device__ bool IsOccu(const Location &loc) const {
+    int idx = GetIndex(loc);
+    if (idx < 0) {
+      return false;
+    }
+
+    return occu_[idx];
+  }
+
+  __device__ int GetIndex(const Location &loc) const {
+    int ix = loc.i + n_xy_/2;
+    int iy = loc.j + n_xy_/2;
+    int iz = loc.k + n_z_/2;
+
+    if (ix < 0 || ix >= n_xy_) {
+      return -1;
+    }
+
+    if (iy < 0 || iy >= n_xy_) {
+      return -1;
+    }
+
+    if (iz < 0 || iz >= n_z_) {
+      return -1;
+    }
+
+    size_t idx = (ix*n_xy_ + iy)*n_z_ + iz;
+
+    return idx;
+  }
 
  private:
   bool *occu_ = nullptr;

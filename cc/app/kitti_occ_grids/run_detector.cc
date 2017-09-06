@@ -12,9 +12,10 @@
 #include "library/timer/timer.h"
 #include "library/viewer/viewer.h"
 
-#include "app/kitti_occ_grids/detector.h"
+//#include "app/kitti_occ_grids/detector.h"
 #include "app/kitti_occ_grids/map_node.h"
 
+namespace dt = library::detector;
 namespace kt = library::kitti;
 namespace rt = library::ray_tracing;
 namespace osgn = library::osg_nodes;
@@ -113,15 +114,18 @@ int main(int argc, char** argv) {
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
 
   library::timer::Timer t;
-  rt::OccGrid og = builder.GenerateOccGrid(scan.GetHits());
-  printf("Took %5.3f ms to build occ grid\n", t.GetMs());
+  auto dog = builder.GenerateOccGridDevice(scan.GetHits());
+  printf("Took %5.3f ms to build device occ grid\n", t.GetMs());
 
   t.Start();
-  rt::DenseOccGrid dog(og, 50.0, 50.0, 3.0, true);
-  printf("Took %5.3f ms to make dense occ grid\n", t.GetMs());
+  auto og = builder.GenerateOccGrid(scan.GetHits());
+  printf("Took %5.3f ms to build occ grid\n", t.GetMs());
+
+  // Detector
+  dt::Detector detector(dog->GetResolution(), 50, 50);
 
   // Load models
-  kog::Detector detector(og.GetResolution(), 50, 50);
+  //kog::Detector detector(og.GetResolution(), 50, 50);
   printf("loading models from %s\n", model_dir.c_str());
 
   fs::directory_iterator end_it;
@@ -132,8 +136,8 @@ int main(int argc, char** argv) {
 
     std::string classname = it->path().filename().string();
 
-    //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "NOOBJ")) {
-    if (! (classname == "Car" || classname == "NOOBJ")) {
+    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "NOOBJ")) {
+    //if (! (classname == "Car" || classname == "NOOBJ")) {
       continue;
     }
 
@@ -142,19 +146,14 @@ int main(int argc, char** argv) {
     fs::path p_mm = it->path() / fs::path("mm.mm");
     clt::MarginalModel mm = clt::MarginalModel::Load(p_mm.string().c_str());
     detector.AddModel(classname, mm);
-
   }
   printf("Loaded all models\n");
 
-  kog::ObjectState os(-3.0, -5.0, 0.0);
-  size_t idx = detector.GetIndex(os);
-  kog::ObjectState os2 = detector.GetState(idx);
-  printf("%5.3f %5.3f -> %ld -> %5.3f %5.3f\n", os.x, os.y, idx, os2.x, os2.y);
-
   t.Start();
-  detector.Evaluate(dog);
-  printf("Took %5.3f ms to run detector with range +- %5.3f, +- %5.3f, res %5.3f\n",
-      t.GetMs(), detector.GetRangeX(), detector.GetRangeY(), detector.GetRes());
+  detector.Run(*dog);
+  printf("Took %5.3f ms to run detector\n", t.GetMs());
+
+  dog->Cleanup();
 
   vw::Viewer v(&args);
 

@@ -12,7 +12,7 @@ DeviceOccGrid::DeviceOccGrid(const thrust::device_ptr<Location> &d_locs, const t
   cudaMemcpy(los, d_los.get(), sizeof(float) * size, cudaMemcpyDeviceToDevice);
 }
 
-DeviceOccGrid::~DeviceOccGrid() {
+void DeviceOccGrid::Cleanup() {
   cudaFree(locs);
   cudaFree(los);
 }

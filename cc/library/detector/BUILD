@@ -13,3 +13,16 @@ cc_library(
             "//library/ray_tracing",
            ],
 )
+
+cc_library(
+    name = "detector",
+    srcs = glob(['*.cc'], exclude=["*.cu.cc"]),
+    hdrs = glob(["*.h"], exclude=["*.cu.h"]),
+    visibility = ["//visibility:public"],
+    copts = ["-x",  "cuda", "-std=c++11"],
+    deps = [
+            ":detector_cuda",
+            "@eigen//:eigen",
+            "@boost//:boost_headers",
+           ],
+)
