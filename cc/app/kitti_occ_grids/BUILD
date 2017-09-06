@@ -99,10 +99,8 @@ cc_binary(
     name = "detector",
     srcs = [
             "run_detector.cc",
-            #"detector.cc", "detector.h",
             "map_node.cc", "map_node.h",
            ],
-    linkopts = ["-lpthread"],
     deps = [
             "//library/chow_liu_tree",
             "//library/util",
@@ -113,15 +111,3 @@ cc_binary(
             "@boost//:boost_filesystem",
            ],
 )
-
-"""
-cc_binary(
-    name = "test_timing",
-    srcs = [
-            "test_timing.cc",
-           ],
-    deps = [
-            ":kitti_occ_grids_lib",
-           ],
-)
-"""
