@@ -62,6 +62,13 @@ struct DeviceModel {
   float res = 0;
 
   DeviceModel(const clt::JointModel &jm) {
+    BuildModel(jm);
+  }
+
+  void BuildModel(const clt::JointModel &jm) {
+    // Cleanup
+    Cleanup();
+
     n_xy = jm.GetNXY();
     n_z = jm.GetNZ();
     res = jm.GetResolution();
@@ -144,9 +151,17 @@ struct DeviceModel {
   }
 
   void Cleanup() {
-    cudaFree(conditionals);
-    cudaFree(marginals);
-    cudaFree(mis);
+    if (conditionals != nullptr) {
+      cudaFree(conditionals);
+    }
+
+    if (marginals != nullptr) {
+      cudaFree(marginals);
+    }
+
+    if (mis != nullptr) {
+      cudaFree(mis);
+    }
   }
 
   __host__ __device__ float GetLogP(const rt::Location &loc, bool occ) const {
@@ -237,6 +252,10 @@ struct DeviceData {
     scores.emplace_back(jm.GetResolution(), range_x, range_y, log_prior);
   }
 
+  void UpdateModel(int i, const clt::JointModel &jm) {
+    models[i].BuildModel(jm);
+  }
+
   size_t NumModels() const {
     return models.size();
   }
@@ -259,6 +278,20 @@ Detector::~Detector() {
 void Detector::AddModel(const std::string &classname, const clt::JointModel &jm, float log_prior) {
   device_data_->AddModel(jm, range_x_, range_y_, log_prior);
   classnames_.push_back(classname);
+}
+
+void Detector::UpdateModel(const std::string &classname, const clt::JointModel &jm) {
+  int idx = -1;
+  for (size_t i=0; i < classnames_.size(); i++) {
+    if (classnames_[i] == classname) {
+      idx = i;
+      break;
+    }
+  }
+
+  BOOST_ASSERT(idx >= 0);
+
+  device_data_->UpdateModel(idx, jm);
 }
 
 struct LocsBuffer {

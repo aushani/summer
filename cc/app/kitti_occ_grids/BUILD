@@ -111,3 +111,20 @@ cc_binary(
             "@boost//:boost_filesystem",
            ],
 )
+
+cc_binary(
+    name = "trainer",
+    srcs = [
+            "run_trainer.cc",
+            "trainer.cc", "trainer.h",
+           ],
+    deps = [
+            "//library/chow_liu_tree",
+            "//library/util",
+            "//library/kitti",
+            "//library/osg_nodes",
+            "//library/viewer",
+            "//library/detector",
+            "@boost//:boost_filesystem",
+           ],
+)
