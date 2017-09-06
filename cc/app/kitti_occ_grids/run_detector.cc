@@ -131,8 +131,8 @@ int main(int argc, char** argv) {
 
     printf("Found %s\n", classname.c_str());
 
-    fs::path p_mm = it->path() / fs::path("mm.mm");
-    clt::MarginalModel mm = clt::MarginalModel::Load(p_mm.string().c_str());
+    fs::path p_jm = it->path() / fs::path("jm.jm");
+    clt::JointModel jm = clt::JointModel::Load(p_jm.string().c_str());
 
     float lp = 0;
     //if (classname == "Background") {
@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
     //  lp = -70;
     //}
 
-    detector.AddModel(classname, mm, lp);
+    detector.AddModel(classname, jm, lp);
   }
   printf("Loaded all models\n");
 

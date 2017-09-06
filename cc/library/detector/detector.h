@@ -3,7 +3,7 @@
 #include <memory>
 #include <Eigen/Core>
 
-#include "library/chow_liu_tree/marginal_model.h"
+#include "library/chow_liu_tree/joint_model.h"
 #include "library/ray_tracing/device_occ_grid.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 
@@ -25,7 +25,7 @@ class Detector {
   Detector(float res, float range_x, float range_y);
   ~Detector();
 
-  void AddModel(const std::string &classname, const clt::MarginalModel &mm, float log_prior=0.0);
+  void AddModel(const std::string &classname, const clt::JointModel &mm, float log_prior=0.0);
 
   void Run(const std::vector<Eigen::Vector3d> &hits);
 
@@ -41,7 +41,7 @@ class Detector {
   bool InRange(const ObjectState &os) const;
 
  private:
-  static constexpr int kThreadsPerBlock_ = 1024;
+  static constexpr int kThreadsPerBlock_ = 128;
 
   const float range_x_;
   const float range_y_;
