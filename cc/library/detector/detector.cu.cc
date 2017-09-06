@@ -371,7 +371,7 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
   BOOST_ASSERT(err == cudaSuccess);
 
   t.Start();
-  rt::DeviceDenseOccGrid ddog(*dog, 50.0, 3.0);
+  rt::DeviceDenseOccGrid ddog(*dog, 50.0, 2.0);
   printf("Made Device Dense Occ Grid in %5.3f ms\n", t.GetMs());
 
   err = cudaDeviceSynchronize();
@@ -464,7 +464,6 @@ float Detector::GetRangeY() const {
 float Detector::GetResolution() const {
   return res_;
 }
-
 
 } // namespace ray_tracing
 } // namespace library
