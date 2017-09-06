@@ -110,19 +110,8 @@ int main(int argc, char** argv) {
   printf("Loading tracklets\n");
   kt::Tracklets tracklets = LoadTracklets(kitti_log_dir, kitti_log_date, log_num);
 
-  // Build occ grid
-  rt::OccGridBuilder builder(200000, 0.50, 100.0);
-
-  library::timer::Timer t;
-  auto dog = builder.GenerateOccGridDevice(scan.GetHits());
-  printf("Took %5.3f ms to build device occ grid\n", t.GetMs());
-
-  t.Start();
-  auto og = builder.GenerateOccGrid(scan.GetHits());
-  printf("Took %5.3f ms to build occ grid\n", t.GetMs());
-
   // Detector
-  dt::Detector detector(dog->GetResolution(), 50, 50);
+  dt::Detector detector(0.5, 50, 50);
 
   // Load models
   //kog::Detector detector(og.GetResolution(), 50, 50);
@@ -166,11 +155,10 @@ int main(int argc, char** argv) {
   }
   printf("Loaded all models\n");
 
+  library::timer::Timer t;
   t.Start();
-  detector.Run(*dog);
+  detector.Run(scan.GetHits());
   printf("Took %5.3f ms to run detector\n", t.GetMs());
-
-  dog->Cleanup();
 
   vw::Viewer v(&args);
 

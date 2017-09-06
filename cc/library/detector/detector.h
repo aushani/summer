@@ -1,9 +1,11 @@
 #pragma once
 
 #include <memory>
+#include <Eigen/Core>
 
 #include "library/chow_liu_tree/marginal_model.h"
 #include "library/ray_tracing/device_occ_grid.h"
+#include "library/ray_tracing/occ_grid_builder.h"
 
 #include "library/detector/detection_map.h"
 #include "library/detector/object_state.h"
@@ -25,7 +27,7 @@ class Detector {
 
   void AddModel(const std::string &classname, const clt::MarginalModel &mm, float log_prior=0.0);
 
-  void Run(const rt::DeviceOccGrid &dog);
+  void Run(const std::vector<Eigen::Vector3d> &hits);
 
   const DeviceScores& GetScores(const std::string &classname) const;
 
@@ -50,6 +52,7 @@ class Detector {
 
   std::unique_ptr<DeviceData> device_data_;
   std::vector<std::string> classnames_;
+  rt::OccGridBuilder og_builder_;
 };
 
 } // namespace detector

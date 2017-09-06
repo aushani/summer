@@ -124,7 +124,8 @@ Detector::Detector(float res, float range_x, float range_y) :
  n_x_(2 * std::ceil(range_x / res) + 1),
  n_y_(2 * std::ceil(range_y / res) + 1),
  res_(res),
- device_data_(new DeviceData()) {
+ device_data_(new DeviceData()),
+ og_builder_(200000, res, sqrt(range_x*range_x + range_y * range_y)) {
 
 }
 
@@ -178,14 +179,21 @@ __global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel mo
   scores.d_scores[idx] = log_p;
 }
 
-void Detector::Run(const rt::DeviceOccGrid &dog) {
+void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
   library::timer::Timer t;
 
   t.Start();
-  rt::DeviceDenseOccGrid ddog(dog, 50.0, 3.0);
-  printf("Made Device Dense Occ Grid in %5.3f ms.\n", t.GetMs());
+  auto dog = og_builder_.GenerateOccGridDevice(hits);
+  printf("Took %5.3f ms to build device occ grid\n", t.GetMs());
 
   cudaError_t err = cudaDeviceSynchronize();
+  BOOST_ASSERT(err == cudaSuccess);
+
+  t.Start();
+  rt::DeviceDenseOccGrid ddog(*dog, 50.0, 3.0);
+  printf("Made Device Dense Occ Grid in %5.3f ms\n", t.GetMs());
+
+  err = cudaDeviceSynchronize();
   BOOST_ASSERT(err == cudaSuccess);
 
   for (int i=0; i<device_data_->NumModels(); i++) {
@@ -200,13 +208,14 @@ void Detector::Run(const rt::DeviceOccGrid &dog) {
 
     Evaluate<<<blocks, threads>>>(ddog, model, scores);
 
-    cudaError_t err = cudaDeviceSynchronize();
+    err = cudaDeviceSynchronize();
     BOOST_ASSERT(err == cudaSuccess);
 
     scores.CopyToHost();
   }
 
   ddog.Cleanup();
+  dog->Cleanup();
 }
 
 const DeviceScores& Detector::GetScores(const std::string &classname) const {
