@@ -41,9 +41,6 @@ class Trainer {
 
   std::map<std::string, clt::JointModel> models_;
 
-  void ProcessFrameObjects(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame);
-  void ProcessFrameBackground(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame);
-
   bool ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame);
   bool ProcessLog(int log_num);
 

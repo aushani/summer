@@ -1,5 +1,7 @@
 #include "app/kitti_occ_grids/trainer.h"
 
+#include "library/timer/timer.h"
+
 namespace app {
 namespace kitti_occ_grids {
 
@@ -25,17 +27,81 @@ Trainer::Trainer(const std::string &save_base_fn) :
 }
 
 void Trainer::Run() {
-  //library::timer::Timer t;
-  //t.Start();
-  //detector_.Run(scan.GetHits());
-  //printf("Took %5.3f ms to run detector\n", t.GetMs());
+  library::timer::Timer t;
+  for (int log_num = 1; log_num <= 93; log_num++) {
+    t.Start();
+    bool res = ProcessLog(log_num);
 
-  // Find where it's most wrong
+    if (!res) {
+      continue;
+    }
+
+    printf("Processed %04d in %5.3f sec\n", log_num, t.GetSeconds());
+  }
+}
+
+bool Trainer::ProcessLog(int log_num) {
+  // Load Tracklets
+  char fn[1000];
+  sprintf(fn, "%s/2011_09_26/2011_09_26_drive_%04d_sync/tracklet_labels.xml",
+      kKittiBaseFilename, log_num);
+  if (!fs::exists(fn)) {
+    // log doesn't exist
+    return false;
+  }
+
+  kt::Tracklets tracklets;
+  bool success = tracklets.loadFromFile(fn);
+
+  if (!success) {
+    return false;
+  }
+
+  printf("Loaded %d tracklets for log %d\n", tracklets.numberOfTracklets(), log_num);
+
+  // Tracklets stats
+  for (int i=0; i<tracklets.numberOfTracklets(); i++) {
+    auto *tt = tracklets.getTracklet(i);
+    printf("Have %s (size %5.3f x %5.3f x %5.3f) for %ld frames\n",
+        tt->objectType.c_str(), tt->h, tt->w, tt->l, tt->poses.size());
+  }
+
+  // Go through velodyne for this log
+  int frame = 0;
+  while (ProcessFrame(&tracklets, log_num, frame)) {
+    frame++;
+  }
+
+  return true;
+}
+
+bool Trainer::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
+  char fn[1000];
+  sprintf(fn, "%s/2011_09_26/2011_09_26_drive_%04d_sync/velodyne_points/data/%010d.bin",
+      kKittiBaseFilename, log_num, frame);
+
+  if (!fs::exists(fn)) {
+    // no more scans
+    return false;
+  }
+
+  library::timer::Timer t;
+  kt::VelodyneScan scan(fn);
+  //printf("Loaded scan %d in %5.3f sec, has %ld hits\n", frame, t.GetSeconds(), scan.GetHits().size());
+
+  // Run detector
+  detector_.Run(scan.GetHits());
+
+  // Get training samples, find out where it's more wrong
+  // TODO
 
   // Update joint models
+  // TODO
 
-  // Rinse and repeat
+  // Update detector
 
+  // Try to continue to the next frame
+  return true;
 }
 
 } // namespace kitti
