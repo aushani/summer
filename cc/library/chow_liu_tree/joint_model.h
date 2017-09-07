@@ -20,6 +20,9 @@ class JointModel {
   int GetCount(const rt::Location &loc, bool occ) const;
   int GetCount(const rt::Location &loc1, bool occ1, const rt::Location &loc2, bool occ2) const;
 
+  void SetCount(const rt::Location &loc, bool occ, int count);
+  void SetCount(const rt::Location &loc1, bool occ1, const rt::Location &loc2, bool occ2, int count);
+
   int GetNumObservations(const rt::Location &loc1) const;
   int GetNumObservations(const rt::Location &loc1, const rt::Location &loc2) const;
 
@@ -47,6 +50,10 @@ class JointModel {
 
     int GetCount(bool occ1, bool occ2) const {
       return counts[GetIndex(occ1, occ2)];
+    }
+
+    void SetCount(bool occ1, bool occ2, int count) {
+      counts[GetIndex(occ1, occ2)] = count;
     }
 
     int GetTotalCount() const {

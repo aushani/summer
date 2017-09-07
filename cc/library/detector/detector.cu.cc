@@ -43,6 +43,10 @@ struct DeviceData {
     models[i].UpdateModel(dog);
   }
 
+  void LoadIntoJointModel(int i, clt::JointModel *jm) {
+    models[i].LoadIntoJointModel(jm);
+  }
+
   size_t NumModels() const {
     return models.size();
   }
@@ -67,7 +71,7 @@ void Detector::AddModel(const std::string &classname, const clt::JointModel &jm,
   classnames_.push_back(classname);
 }
 
-void Detector::UpdateModel(const std::string &classname, const clt::JointModel &jm) {
+int Detector::GetModelIndex(const std::string &classname) const {
   int idx = -1;
   for (size_t i=0; i < classnames_.size(); i++) {
     if (classnames_[i] == classname) {
@@ -76,24 +80,31 @@ void Detector::UpdateModel(const std::string &classname, const clt::JointModel &
     }
   }
 
+  return idx;
+}
+
+
+void Detector::UpdateModel(const std::string &classname, const clt::JointModel &jm) {
+  int idx = GetModelIndex(classname);
   BOOST_ASSERT(idx >= 0);
 
   device_data_->UpdateModel(idx, jm);
 }
 
 void Detector::UpdateModel(const std::string &classname, const rt::DeviceOccGrid &dog) {
-  int idx = -1;
-  for (size_t i=0; i < classnames_.size(); i++) {
-    if (classnames_[i] == classname) {
-      idx = i;
-      break;
-    }
-  }
-
+  int idx = GetModelIndex(classname);
   BOOST_ASSERT(idx >= 0);
 
   device_data_->UpdateModel(idx, dog);
 }
+
+void Detector::LoadIntoJointModel(const std::string &classname, clt::JointModel *jm) const {
+  int idx = GetModelIndex(classname);
+  BOOST_ASSERT(idx >= 0);
+
+  device_data_->LoadIntoJointModel(idx, jm);
+}
+
 
 struct LocsBuffer {
   static constexpr int kNumLocs = 10;

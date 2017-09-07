@@ -48,6 +48,10 @@ int JointModel::GetCount(const rt::Location &loc, bool occ) const {
   return GetCount(loc, occ, loc, occ);
 }
 
+void JointModel::SetCount(const rt::Location &loc, bool occ, int count) {
+  SetCount(loc, occ, loc, occ, count);
+}
+
 int JointModel::GetCount(const rt::Location &loc1, bool occ1, const rt::Location &loc2, bool occ2) const {
   BOOST_ASSERT(InRange(loc1));
   BOOST_ASSERT(InRange(loc2));
@@ -55,6 +59,15 @@ int JointModel::GetCount(const rt::Location &loc1, bool occ1, const rt::Location
   size_t idx = GetIndex(loc1, loc2);
 
   return counts_[idx].GetCount(occ1, occ2);
+}
+
+void JointModel::SetCount(const rt::Location &loc1, bool occ1, const rt::Location &loc2, bool occ2, int count) {
+  BOOST_ASSERT(InRange(loc1));
+  BOOST_ASSERT(InRange(loc2));
+
+  size_t idx = GetIndex(loc1, loc2);
+
+  return counts_[idx].SetCount(occ1, occ2, count);
 }
 
 int JointModel::GetNumObservations(const rt::Location &loc1) const {

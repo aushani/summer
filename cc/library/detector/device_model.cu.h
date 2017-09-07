@@ -62,6 +62,10 @@ struct Conditional {
     return log_ps[GetIndex(occ_eval, occ_given)];
   }
 
+  __host__ __device__ int GetCount(bool occ_eval, bool occ_given) const {
+    return counts[GetIndex(occ_eval, occ_given)];
+  }
+
   __host__ __device__ void SetCount(bool occ_eval, bool occ_given, int count) {
     counts[GetIndex(occ_eval, occ_given)] = count;
 
@@ -141,6 +145,7 @@ __global__ void UpdateModelKernel(DeviceModel model, const rt::DeviceOccGrid dog
 
 struct DeviceModel {
  public:
+  // On device
   Conditional *conditionals = nullptr;
   Marginal *marginals = nullptr;
 
@@ -164,6 +169,59 @@ struct DeviceModel {
     UpdateModelKernel<<<blocks, threads>>>((*this), dog);
     cudaError_t err = cudaDeviceSynchronize();
     BOOST_ASSERT(err == cudaSuccess);
+  }
+
+  void LoadIntoJointModel(clt::JointModel *jm) {
+    // Check dimensions
+    BOOST_ASSERT(n_xy == jm->GetNXY());
+    BOOST_ASSERT(n_z == jm->GetNZ());
+
+    size_t sz = locs*locs;
+
+    std::vector<Conditional> h_cond(sz);
+
+    cudaMemcpy(h_cond.data(), conditionals, sz*sizeof(Conditional), cudaMemcpyDeviceToHost);
+
+    // Get all locations
+    int min_ij = - (jm->GetNXY() / 2);
+    int max_ij = min_ij + jm->GetNXY();
+
+    int min_k = - (jm->GetNZ() / 2);
+    int max_k = min_k + jm->GetNZ();
+
+    for (int i1=min_ij; i1 < max_ij; i1++) {
+      for (int j1=min_ij; j1 < max_ij; j1++) {
+        for (int k1=min_k; k1 < max_k; k1++) {
+          rt::Location loc_eval(i1, j1, k1);
+
+          for (int i2=min_ij; i2 < max_ij; i2++) {
+            for (int j2=min_ij; j2 < max_ij; j2++) {
+              for (int k2=min_k; k2 < max_k; k2++) {
+                rt::Location loc_given(i2, j2, k2);
+
+                int idx = GetIndex(loc_eval, loc_given);
+                BOOST_ASSERT(idx >= 0);
+
+                const Conditional &c = h_cond[idx];
+
+                for (int i_eval = 0; i_eval<2; i_eval++) {
+                  bool eval = i_eval == 0;
+                  for (int i_given = 0; i_given<2; i_given++) {
+                    bool given = i_given == 0;
+
+                    int my_count = c.GetCount(eval, given);
+                    jm->SetCount(loc_eval, eval, loc_given, given, my_count);
+                  }
+                }
+
+              }
+            }
+          }
+
+        }
+      }
+    }
+
   }
 
   void BuildModel(const clt::JointModel &jm) {

@@ -1,5 +1,6 @@
 #include "app/kitti_occ_grids/trainer.h"
 
+#include <boost/format.hpp>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
@@ -97,12 +98,15 @@ bool Trainer::ProcessLog(int log_num) {
   }
 
   // Save models
-  std::stringstream ss;
-  ss << log_num;
-  fs::path dir = save_base_path_ / ss.str();
+  fs::path dir = save_base_path_ / (boost::format("%|04|") % log_num).str();
   fs::create_directories(dir);
-  for (const auto &kv : models_) {
-    fs::path fn = dir / kv.first;
+  for (auto &kv : models_) {
+    fs::path fn = dir / (kv.first + ".jm");
+
+    // Load back from detector
+    detector_.LoadIntoJointModel(kv.first, &kv.second);
+
+    // Now save
     kv.second.Save(fn.string().c_str());
   }
 

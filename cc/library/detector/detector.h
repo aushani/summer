@@ -29,6 +29,8 @@ class Detector {
   void UpdateModel(const std::string &classname, const clt::JointModel &jm);
   void UpdateModel(const std::string &classname, const rt::DeviceOccGrid &dog);
 
+  void LoadIntoJointModel(const std::string &classname, clt::JointModel *jm) const;
+
   void Run(const std::vector<Eigen::Vector3d> &hits);
 
   const DeviceScores& GetScores(const std::string &classname) const;
@@ -55,6 +57,8 @@ class Detector {
   std::unique_ptr<DeviceData> device_data_;
   std::vector<std::string> classnames_;
   rt::OccGridBuilder og_builder_;
+
+  int GetModelIndex(const std::string &classname) const;
 };
 
 } // namespace detector
