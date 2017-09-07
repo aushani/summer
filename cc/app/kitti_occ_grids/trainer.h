@@ -67,7 +67,7 @@ class Trainer {
   std::vector<dt::ObjectState> states_;
 
   bool ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame);
-  bool ProcessLog(int log_num);
+  bool ProcessLog(int epoch, int log_num);
 
   bool FileExists(const char* fn) const;
 

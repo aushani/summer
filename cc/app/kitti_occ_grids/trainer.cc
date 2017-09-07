@@ -45,20 +45,25 @@ Trainer::Trainer(const std::string &save_base_fn) :
 }
 
 void Trainer::Run() {
-  library::timer::Timer t;
-  for (int log_num = 1; log_num <= 93; log_num++) {
-    t.Start();
-    bool res = ProcessLog(log_num);
+  int epoch = 0;
+  while (true) {
+    library::timer::Timer t;
+    for (int log_num = 1; log_num <= 93; log_num++) {
+      t.Start();
+      bool res = ProcessLog(epoch, log_num);
 
-    if (!res) {
-      continue;
+      if (!res) {
+        continue;
+      }
+
+      printf("Processed %04d in %5.3f sec\n", log_num, t.GetSeconds());
     }
 
-    printf("Processed %04d in %5.3f sec\n", log_num, t.GetSeconds());
+    epoch++;
   }
 }
 
-bool Trainer::ProcessLog(int log_num) {
+bool Trainer::ProcessLog(int epoch, int log_num) {
   library::timer::Timer t;
   // Load Tracklets
   char fn[1000];
@@ -98,7 +103,7 @@ bool Trainer::ProcessLog(int log_num) {
   }
 
   // Save models
-  fs::path dir = save_base_path_ / (boost::format("%|04|") % log_num).str();
+  fs::path dir = save_base_path_ / (boost::format("%04_%04") % epoch % log_num).str();
   fs::create_directories(dir);
   for (auto &kv : models_) {
     fs::path fn = dir / (kv.first + ".jm");
@@ -139,7 +144,13 @@ std::string Trainer::GetTrueClass(kt::Tracklets *tracklets, int frame, const dt:
     // Check if we're inside this track, otherwise this is not the track we
     // are looking for...
     if (std::fabs(x_t.x())<tt->l/2 && std::fabs(x_t.y())<tt->w/2) {
+      // Are we within res?
+      if ( std::abs(pose->tx - os.x) < kRes_/2 ||
+           std::abs(pose->ty - os.y) < kRes_/2) {
         return tt->objectType;
+      } else {
+        return "closeish";
+      }
     }
   }
 
