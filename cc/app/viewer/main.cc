@@ -9,33 +9,18 @@
 #include "library/timer/timer.h"
 #include "library/viewer/viewer.h"
 
+#include "app/viewer/simple_handler.h"
+
 namespace kt = library::kitti;
 namespace rt = library::ray_tracing;
 namespace osgn = library::osg_nodes;
 namespace vw = library::viewer;
+namespace avw = app::viewer;
 
-kt::VelodyneScan LoadVelodyneScan(osg::ArgumentParser *args) {
-  std::string home_dir = getenv("HOME");
-  std::string kitti_log_dir = home_dir + "/data/kittidata/extracted/";
-  if (!args->read(std::string("--kitti-log-dir"), kitti_log_dir)) {
-    printf("Using default KITTI log dir: %s\n", kitti_log_dir.c_str());
-  }
-
-  std::string kitti_log_date = "2011_09_26";
-  if (!args->read(std::string("--kitti-log-date"), kitti_log_date)) {
-    printf("Using default KITTI date: %s\n", kitti_log_date.c_str());
-  }
-
-  int log_num = 18;
-  if (!args->read(std::string("--log-num"), log_num)) {
-    printf("Using default KITTI log number: %d\n", log_num);
-  }
-
-  int frame_num = 0;
-  if (!args->read(std::string("--frame-num"), frame_num)) {
-    printf("Using default KITTI frame number: %d\n", frame_num);
-  }
-
+kt::VelodyneScan LoadVelodyneScan(const std::string &kitti_log_dir,
+                                  const std::string &kitti_log_date,
+                                  int log_num,
+                                  int frame_num) {
   char fn[1000];
   sprintf(fn, "%s/%s/%s_drive_%04d_sync/velodyne_points/data/%010d.bin",
       kitti_log_dir.c_str(), kitti_log_date.c_str(), kitti_log_date.c_str(), log_num, frame_num);
@@ -43,23 +28,9 @@ kt::VelodyneScan LoadVelodyneScan(osg::ArgumentParser *args) {
   return kt::VelodyneScan(fn);
 }
 
-kt::Tracklets LoadTracklets(osg::ArgumentParser *args) {
-  std::string home_dir = getenv("HOME");
-  std::string kitti_log_dir = home_dir + "/data/kittidata/extracted/";
-  if (!args->read(std::string("--kitti-log-dir"), kitti_log_dir)) {
-    printf("Using default KITTI log dir: %s\n", kitti_log_dir.c_str());
-  }
-
-  std::string kitti_log_date = "2011_09_26";
-  if (!args->read(std::string("--kitti-log-date"), kitti_log_date)) {
-    printf("Using default KITTI date: %s\n", kitti_log_date.c_str());
-  }
-
-  int log_num = 18;
-  if (!args->read(std::string("--log-num"), log_num)) {
-    printf("Using default KITTI log number: %d\n", log_num);
-  }
-
+kt::Tracklets LoadTracklets(const std::string &kitti_log_dir,
+                            const std::string &kitti_log_date,
+                            int log_num) {
   // Load Tracklets
   char fn[1000];
   sprintf(fn, "%s/%s/%s_drive_%04d_sync/tracklet_labels.xml",
@@ -99,15 +70,40 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  // Load velodyne scan
-  kt::VelodyneScan scan = LoadVelodyneScan(&args);
-  printf("Have %ld points\n", scan.GetHits().size());
+  // Read params
+  std::string home_dir = getenv("HOME");
+  std::string kitti_log_dir = home_dir + "/data/kittidata/extracted/";
+  if (!args.read("--kitti-log-dir", kitti_log_dir)) {
+    printf("Using default KITTI log dir: %s\n", kitti_log_dir.c_str());
+  }
+
+  std::string kitti_log_date = "2011_09_26";
+  if (!args.read("--kitti-log-date", kitti_log_date)) {
+    printf("Using default KITTI date: %s\n", kitti_log_date.c_str());
+  }
+
+  int log_num = 18;
+  if (!args.read("--log-num", log_num)) {
+    printf("Using default KITTI log number: %d\n", log_num);
+  }
 
   int frame_num = 0;
-  if (!args.read(std::string("--frame-num"), frame_num)) {
+  if (!args.read("--frame-num", frame_num)) {
     printf("Using default KITTI frame number: %d\n", frame_num);
   }
-  kt::Tracklets tracklets = LoadTracklets(&args);
+
+  std::string model_dir = "/home/aushani/data/gen_data_50cm_blurred/training/";
+  if (!args.read("--models", model_dir)) {
+    printf("no model given, using default dir %s\n", model_dir.c_str());
+  }
+
+  // Load velodyne scan
+  printf("Loading vel\n");
+  kt::VelodyneScan scan = LoadVelodyneScan(kitti_log_dir, kitti_log_date, log_num, frame_num);
+  printf("Loading tracklets\n");
+  kt::Tracklets tracklets = LoadTracklets(kitti_log_dir, kitti_log_date, log_num);
+
+  printf("Have %ld points\n", scan.GetHits().size());
 
   // Build occ grid
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
@@ -121,10 +117,12 @@ int main(int argc, char** argv) {
   osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);
   osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);
   osg::ref_ptr<osgn::Tracklets> tn = new osgn::Tracklets(&tracklets, frame_num);
+  osg::ref_ptr<avw::SimpleHandler> ph = new avw::SimpleHandler(tracklets, frame_num);
 
   v.AddChild(pc);
   v.AddChild(ogn);
   v.AddChild(tn);
+  v.AddHandler(ph);
 
   v.Start();
 

@@ -1,8 +1,6 @@
 cc_binary(
     name = "viewer",
-    srcs = [
-            "main.cc",
-           ],
+    srcs = glob(["*.cc", "*.h"]),
     deps = [
             "//library/kitti",
             "//library/osg_nodes",
