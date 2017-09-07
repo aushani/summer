@@ -80,11 +80,6 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
   lod->getUsage(*au);
   view->addEventHandler(lod);
 
-  // add the pick handler
-  osg::ref_ptr<PickHandler> ph = new PickHandler();
-  ph->getUsage(*au);
-  view->addEventHandler(ph);
-
   // rotate by x until z down
   // car RH coordinate frame has x forward, z down
   osg::Matrixd H(osg::Quat(ut::DegreesToRadians(180), osg::Vec3d(1, 0, 0)));
@@ -92,7 +87,7 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
   osg::ref_ptr<osg::MatrixTransform> xform = new osg::MatrixTransform(H);
 
   osg::Matrixd D(osg::Quat(M_PI, osg::Vec3d(1, 0, 0)));
-  D.postMultTranslate(osg::Vec3d(-1, 0, -1.2));
+  D.postMultTranslate(osg::Vec3d(0, 0, 0));
   xform_car_->setMatrix(D);
   // xform_car->addChild(new osg::Axes());
   xform->addChild(xform_car_);
