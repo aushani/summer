@@ -8,6 +8,8 @@
 namespace app {
 namespace kitti_occ_grids {
 
+int Trainer::Sample::count_ = 0;
+
 Trainer::Trainer(const std::string &save_base_fn) :
  save_base_path_(save_base_fn),
  detector_(kRes_, 50, 50),
@@ -15,7 +17,7 @@ Trainer::Trainer(const std::string &save_base_fn) :
  camera_cal_("/home/aushani/data/kittidata/extracted/2011_09_26/") {
 
   // Configure occ grid builder size
-  og_builder_.ConfigureSizeInPixels(10, 10, 10); // +- 5 meters
+  og_builder_.ConfigureSizeInPixels(7, 7, 5);
 
   models_.insert({"Car", clt::JointModel(3.0, 2.0, kRes_)});
   models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
@@ -27,6 +29,18 @@ Trainer::Trainer(const std::string &save_base_fn) :
   }
 
   printf("Initialized all models\n");
+
+  for (double x = -detector_.GetRangeX(); x < detector_.GetRangeX(); x += detector_.GetResolution()) {
+    for (double y = -detector_.GetRangeY(); y < detector_.GetRangeY(); y += detector_.GetResolution()) {
+      // Check to make sure this is within field of view of camera and is properly labeled
+      if (!camera_cal_.InCameraView(x, y, 0)) {
+        continue;
+      }
+
+      dt::ObjectState os(x, y, 0);
+      states_.emplace_back(x, y, 0);
+    }
+  }
 }
 
 void Trainer::Run() {
@@ -44,6 +58,7 @@ void Trainer::Run() {
 }
 
 bool Trainer::ProcessLog(int log_num) {
+  library::timer::Timer t;
   // Load Tracklets
   char fn[1000];
   sprintf(fn, "%s/2011_09_26/2011_09_26_drive_%04d_sync/tracklet_labels.xml",
@@ -71,13 +86,19 @@ bool Trainer::ProcessLog(int log_num) {
 
   // Go through velodyne for this log
   int frame = 0;
-  while (ProcessFrame(&tracklets, log_num, frame)) {
+  while (true) {
+    t.Start();
+    if (!ProcessFrame(&tracklets, log_num, frame)) {
+      break;
+    }
+    printf("  Processed frame %d in %7.5f sec...\n", frame, t.GetSeconds());
+
     frame++;
   }
 
   // Save models
   std::stringstream ss;
-  ss << frame;
+  ss << log_num;
   fs::path dir = save_base_path_ / ss.str();
   fs::create_directories(dir);
   for (const auto &kv : models_) {
@@ -122,41 +143,28 @@ std::string Trainer::GetTrueClass(kt::Tracklets *tracklets, int frame, const dt:
   return "Background";
 }
 
-std::vector<Trainer::Sample> Trainer::GetTrainingSamples(kt::Tracklets *tracklets, int frame) const {
-  std::map<Sample, int> samples;
+std::multiset<Trainer::Sample> Trainer::GetTrainingSamples(kt::Tracklets *tracklets, int frame) const {
+  std::multiset<Sample> samples;
 
-  for (double x = -detector_.GetRangeX(); x < detector_.GetRangeX(); x += detector_.GetResolution()) {
-    for (double y = -detector_.GetRangeY(); y < detector_.GetRangeY(); y += detector_.GetResolution()) {
-      // CHeck to make sure this is within field of view of camera and is properly labeled
-      if (!camera_cal_.InCameraView(x, y, 0)) {
-        continue;
-      }
+  for (const auto &os : states_) {
+    std::string classname = Trainer::GetTrueClass(tracklets, frame, os);
 
-      dt::ObjectState os(x, y, 0);
-      std::string classname = Trainer::GetTrueClass(tracklets, frame, os);
+    // Is this one of the classes we care about?
+    // If not, ignore for now
+    if (models_.count(classname) == 0) {
+      //printf("No model for %s\n", classname.c_str());
+      continue;
+    }
 
-      // Is this one of the classes we care about?
-      // If not, ignore for now
-      if (models_.count(classname) == 0) {
-        continue;
-      }
+    double p_class = detector_.GetProb(classname, os);
 
-      double p_class = detector_.GetProb(classname, os);
-
-      samples[Sample(p_class, os, classname, frame)] = 0;
+    samples.emplace(p_class, os, classname, frame);
+    while (samples.size() > kSamplesPerFrame_) {
+      samples.erase(std::prev(samples.end()));
     }
   }
 
-  // Find top samples
-  std::vector<Sample> top_samples;
-  for (const auto &kv : samples) {
-    top_samples.push_back(kv.first);
-    if (top_samples.size() == kSamplesPerFrame_) {
-      break;
-    }
-  }
-
-  return top_samples;
+  return samples;
 }
 
 bool Trainer::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
@@ -176,29 +184,23 @@ bool Trainer::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
   // Run detector
   t.Start();
   detector_.Run(scan.GetHits());
-  printf("Took %5.3f ms to run detector\n", t.GetMs());
+  printf("\tTook %5.3f ms to run detector\n", t.GetMs());
 
   // Get training samples, find out where it's more wrong
-  std::vector<Sample> samples = GetTrainingSamples(tracklets, frame);
+  t.Start();
+  std::multiset<Sample> samples = GetTrainingSamples(tracklets, frame);
+  printf("\tTook %5.3f ms to get %ld training samples\n", t.GetMs(), samples.size());
 
-  // Update joint models
+  // Update joint models in detector
+  t.Start();
   for (const Sample &s : samples) {
     // Make occ grid
     og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), 0); // TODO rotation
-    rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
+    auto dog = og_builder_.GenerateOccGridDevice(scan.GetHits());
 
-    // Find joint model
-    auto it = models_.find(s.classname);
-    BOOST_ASSERT(it != models_.end());
-
-    // Mark observations
-    it->second.MarkObservations(og);
+    detector_.UpdateModel(s.classname, *dog);
   }
-
-  // Update detector
-  for (const auto &it : models_) {
-    detector_.UpdateModel(it.first, it.second);
-  }
+  printf("\tTook %5.3f ms to update joint models\n", t.GetMs());
 
   // Try to continue to the next frame
   return true;

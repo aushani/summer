@@ -26,7 +26,8 @@ class Detector {
   ~Detector();
 
   void AddModel(const std::string &classname, const clt::JointModel &mm, float log_prior=0.0);
-  void UpdateModel(const std::string &classname, const clt::JointModel &mm);
+  void UpdateModel(const std::string &classname, const clt::JointModel &jm);
+  void UpdateModel(const std::string &classname, const rt::DeviceOccGrid &dog);
 
   void Run(const std::vector<Eigen::Vector3d> &hits);
 
