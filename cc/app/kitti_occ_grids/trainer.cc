@@ -148,7 +148,7 @@ std::string Trainer::GetTrueClass(kt::Tracklets *tracklets, int frame, const dt:
 }
 
 std::multiset<Trainer::Sample> Trainer::GetTrainingSamples(kt::Tracklets *tracklets, int frame) const {
-  std::multiset<Sample> samples;
+  std::map<std::string, std::multiset<Sample> > class_samples;
 
   for (const auto &os : states_) {
     std::string classname = Trainer::GetTrueClass(tracklets, frame, os);
@@ -161,10 +161,18 @@ std::multiset<Trainer::Sample> Trainer::GetTrainingSamples(kt::Tracklets *trackl
     }
 
     double p_class = detector_.GetProb(classname, os);
+    auto &samples = class_samples[classname];
 
     samples.emplace(p_class, os, classname, frame);
-    while (samples.size() > kSamplesPerFrame_) {
+    while (samples.size() > kSamplesPerClassPerFrame_) {
       samples.erase(std::prev(samples.end()));
+    }
+  }
+
+  std::multiset<Sample> samples;
+  for (const auto &kv : class_samples) {
+    for (const auto &s : kv.second) {
+      samples.insert(s);
     }
   }
 

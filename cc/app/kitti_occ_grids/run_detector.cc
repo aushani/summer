@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
     printf("Using default KITTI frame number: %d\n", frame_num);
   }
 
-  std::string model_dir = "/home/aushani/data/gen_data_50cm_blurred/training/";
+  std::string model_dir = "/home/aushani/data/trainer/0009/";
   if (!args.read("--models", model_dir)) {
     printf("no model given, using default dir %s\n", model_dir.c_str());
   }
@@ -119,11 +119,17 @@ int main(int argc, char** argv) {
 
   fs::directory_iterator end_it;
   for (fs::directory_iterator it(model_dir); it != end_it; it++) {
-    if (fs::is_regular_file(it->path())) {
+    // Make sure it's not a directory
+    if (!fs::is_regular_file(it->path())) {
       continue;
     }
 
-    std::string classname = it->path().filename().string();
+    // Make sure it's a joint model
+    if (fs::extension(it->path()) != ".jm") {
+      continue;
+    }
+
+    std::string classname = it->path().stem().string();
 
     if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
       continue;
@@ -131,8 +137,7 @@ int main(int argc, char** argv) {
 
     printf("Found %s\n", classname.c_str());
 
-    fs::path p_jm = it->path() / fs::path("jm.jm");
-    clt::JointModel jm = clt::JointModel::Load(p_jm.string().c_str());
+    clt::JointModel jm = clt::JointModel::Load(it->path().string().c_str());
 
     float lp = 0;
     //if (classname == "Background") {

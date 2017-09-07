@@ -54,7 +54,7 @@ class Trainer {
 
   const char* kKittiBaseFilename = "/home/aushani/data/kittidata/extracted/";
   static constexpr double kRes_ = 0.50;                    // 50 cm
-  static constexpr int kSamplesPerFrame_ = 10;
+  static constexpr int kSamplesPerClassPerFrame_ = 25;
 
   fs::path save_base_path_;
 
