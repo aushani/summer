@@ -27,11 +27,23 @@ class Trainer {
   void Run();
 
  private:
+  struct Sample {
+    double p_correct = 0;
+    dt::ObjectState os;
+    std::string classname;
+    int frame_num = 0;
+
+    Sample(double pc, const dt::ObjectState s, const std::string &cn, int f) :
+     p_correct(pc), os(s), classname(cn), frame_num(f) {};
+
+    bool operator<(const Sample &s) const {
+      return p_correct < s.p_correct;
+    }
+  };
+
   const char* kKittiBaseFilename = "/home/aushani/data/kittidata/extracted/";
   static constexpr double kRes_ = 0.50;                    // 50 cm
-  static constexpr int kAngleBins_ = 8;                       // 8 angle bins -> 45 degrees
-  static constexpr double kAngleRes_ = 2 * M_PI/kAngleBins_;  // 45 degrees
-  static constexpr int kJittersPerObject_ = 10;
+  static constexpr int kSamplesPerFrame_ = 1000;
 
   fs::path save_base_path_;
 
@@ -45,6 +57,9 @@ class Trainer {
   bool ProcessLog(int log_num);
 
   bool FileExists(const char* fn) const;
+
+  std::string GetTrueClass(kt::Tracklets *tracklets, int frame, const dt::ObjectState &os) const;
+  std::vector<Sample> GetTrainingSamples(kt::Tracklets *tracklets, int frame) const;
 };
 
 } // namespace kitti_occ_grids
