@@ -146,6 +146,7 @@ bool Trainer::ProcessLog(int epoch, int log_num) {
 
     // Now save
     kv.second.Save(fn.string().c_str());
+    printf("  Saved model to %s\n", fn.string().c_str());
   }
 
   return true;

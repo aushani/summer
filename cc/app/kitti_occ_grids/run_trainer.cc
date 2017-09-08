@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
   if (argc == 2) {
     trainer = std::make_shared<kog::Trainer>(argv[1]);
   } else {
-    trainer = std::make_shared<kog::Trainer>(argv[2]);
+    trainer = std::make_shared<kog::Trainer>(argv[1], argv[2]);
   }
 
   int epoch = 0;
