@@ -136,7 +136,7 @@ bool Trainer::ProcessLog(int epoch, int log_num) {
   }
 
   // Save models
-  fs::path dir = save_base_path_ / (boost::format("%04_%04") % epoch % log_num).str();
+  fs::path dir = save_base_path_ / (boost::format("%|04|_%|04|") % epoch % log_num).str();
   fs::create_directories(dir);
   for (auto &kv : models_) {
     fs::path fn = dir / (kv.first + ".jm");
