@@ -183,7 +183,9 @@ std::string Trainer::GetTrueClass(kt::Tracklets *tracklets, int frame, const dt:
            std::abs(pose->ty - os.y) < kRes_/2) {
         return tt->objectType;
       } else {
-        return "closeish";
+        // TODO decide what to do
+        //return "closeish";
+        return tt->objectType;
       }
     }
   }
@@ -227,14 +229,18 @@ std::map<dt::ObjectState, std::string> Trainer::GetTrueClassMap(kt::Tracklets *t
 
       // Check if we're inside this track, otherwise this is not the track we
       // are looking for...
-      if (std::fabs(x_t.x())<tt->l/2 && std::fabs(x_t.y())<tt->w/2) {
-        // Are we within res?
-        if ( std::abs(pose->tx - os.x) < kRes_/2 &&
-             std::abs(pose->ty - os.y) < kRes_/2) {
-          kv.second = tt->objectType;
-        } else {
-          kv.second = "closeish";
-        }
+      double dx = std::fabs(x_t.x());
+      if (dx < kRes_/2) {
+        dx = 0;
+      }
+
+      double dy = std::fabs(x_t.y());
+      if (dy < kRes_/2) {
+        dy = 0;
+      }
+
+      if (dx < tt->l/2 && dy < tt->w/2) {
+        kv.second = tt->objectType;
       }
     }
   }
