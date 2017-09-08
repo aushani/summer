@@ -46,7 +46,7 @@ Trainer::Trainer(const std::string &save_base_fn) :
 
 Trainer::Trainer(const std::string &save_base_fn, const std::string &load_base_dir) :
  Trainer(save_base_fn) {
-  printf("loading models from %s\n", model_dir.c_str());
+  printf("loading models from %s\n", load_base_dir.c_str());
 
   fs::directory_iterator end_it;
   for (fs::directory_iterator it(load_base_dir); it != end_it; it++) {
@@ -69,7 +69,7 @@ Trainer::Trainer(const std::string &save_base_fn, const std::string &load_base_d
     printf("Found %s\n", classname.c_str());
     clt::JointModel jm = clt::JointModel::Load(it->path().string().c_str());
 
-    detector.UpdateModel(classname, jm);
+    detector_.UpdateModel(classname, jm);
   }
   printf("Loaded all models\n");
 }
