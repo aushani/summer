@@ -74,11 +74,13 @@ Trainer::Trainer(const std::string &save_base_fn, const std::string &load_base_d
   printf("Loaded all models\n");
 }
 
-void Trainer::Run() {
-  int epoch = 0;
+void Trainer::Run(int first_epoch, int first_log_num) {
+  int epoch = first_epoch;
+  int starting_log = first_log_num;
+
   while (true) {
     library::timer::Timer t;
-    for (int log_num = 1; log_num <= 93; log_num++) {
+    for (int log_num = starting_log; log_num <= 93; log_num++) {
       t.Start();
       bool res = ProcessLog(epoch, log_num);
 
@@ -90,6 +92,7 @@ void Trainer::Run() {
     }
 
     epoch++;
+    starting_log = 0;
   }
 }
 

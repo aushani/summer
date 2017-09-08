@@ -26,7 +26,7 @@ class Trainer {
   Trainer(const std::string &save_base_fn);
   Trainer(const std::string &save_base_fn, const std::string &load_base_dir);
 
-  void Run();
+  void Run(int first_epoch = 0, int first_log_num=0);
 
  private:
   struct Sample {
