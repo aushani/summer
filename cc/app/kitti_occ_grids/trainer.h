@@ -55,7 +55,7 @@ class Trainer {
 
   const char* kKittiBaseFilename = "/home/aushani/data/kittidata/extracted/";
   static constexpr double kRes_ = 0.50;                    // 50 cm
-  static constexpr int kSamplesPerClassPerFrame_ = 25;
+  static constexpr int kSamplesPerFrame_ = 100;
 
   fs::path save_base_path_;
 
@@ -73,6 +73,7 @@ class Trainer {
   bool FileExists(const char* fn) const;
 
   std::string GetTrueClass(kt::Tracklets *tracklets, int frame, const dt::ObjectState &os) const;
+  std::map<dt::ObjectState, std::string> GetTrueClassMap(kt::Tracklets *tracklets, int frame) const;
   std::multiset<Sample> GetTrainingSamples(kt::Tracklets *tracklets, int frame) const;
 };
 

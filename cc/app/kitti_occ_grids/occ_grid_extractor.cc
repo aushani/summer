@@ -138,7 +138,7 @@ void OccGridExtractor::ProcessFrameBackground(kt::Tracklets *tracklets, const kt
         kt::Tracklets::tPose* pose;
         tracklets->getPose(t_id, frame, pose);
 
-        if ( std::abs(pose->tx - x) < kPosRes_/2 ||
+        if ( std::abs(pose->tx - x) < kPosRes_/2 &&
              std::abs(pose->ty - y) < kPosRes_/2) {
           too_close = true;
           break;

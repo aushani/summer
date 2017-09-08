@@ -192,11 +192,66 @@ std::string Trainer::GetTrueClass(kt::Tracklets *tracklets, int frame, const dt:
   return "Background";
 }
 
+std::map<dt::ObjectState, std::string> Trainer::GetTrueClassMap(kt::Tracklets *tracklets, int frame) const {
+  std::map<dt::ObjectState, std::string> map;
+
+  // Initialize
+  for (const auto &os : states_) {
+    map[os] = "Background";
+  }
+
+  kt::Tracklets::tPose* pose = nullptr;
+
+  for (int t_id=0; t_id<tracklets->numberOfTracklets(); t_id++) {
+    if (!tracklets->isActive(t_id, frame)) {
+      continue;
+    }
+
+    tracklets->getPose(t_id, frame, pose);
+    auto tt = tracklets->getTracklet(t_id);
+
+    Eigen::Affine3d rx(Eigen::AngleAxisd(pose->rx, Eigen::Vector3d(1, 0, 0)));
+    Eigen::Affine3d ry(Eigen::AngleAxisd(pose->ry, Eigen::Vector3d(0, 1, 0)));
+    Eigen::Affine3d rz(Eigen::AngleAxisd(pose->rz, Eigen::Vector3d(0, 0, 1)));
+    auto r = rx * ry * rz;
+    Eigen::Affine3d t(Eigen::Translation3d(Eigen::Vector3d(pose->tx, pose->ty, pose->tz)));
+    Eigen::Matrix4d X_tw = (t*r).matrix();
+    Eigen::Matrix4d X_wt = X_tw.inverse();
+
+    for (auto &kv : map) {
+      const auto &os = kv.first;
+
+      Eigen::Vector3d x_w(os.x, os.y, 0);
+      Eigen::Vector4d x_th = (X_wt * x_w.homogeneous());
+      Eigen::Vector3d x_t = x_th.hnormalized();
+
+      // Check if we're inside this track, otherwise this is not the track we
+      // are looking for...
+      if (std::fabs(x_t.x())<tt->l/2 && std::fabs(x_t.y())<tt->w/2) {
+        // Are we within res?
+        if ( std::abs(pose->tx - os.x) < kRes_/2 &&
+             std::abs(pose->ty - os.y) < kRes_/2) {
+          kv.second = tt->objectType;
+        } else {
+          kv.second = "closeish";
+        }
+      }
+    }
+  }
+
+  return map;
+}
+
 std::multiset<Trainer::Sample> Trainer::GetTrainingSamples(kt::Tracklets *tracklets, int frame) const {
-  std::map<std::string, std::multiset<Sample> > class_samples;
+  //std::map<std::string, std::multiset<Sample> > class_samples;
+  std::multiset<Sample> samples;
+
+  auto true_class = GetTrueClassMap(tracklets, frame);
 
   for (const auto &os : states_) {
-    std::string classname = Trainer::GetTrueClass(tracklets, frame, os);
+    //std::string classname = Trainer::GetTrueClass(tracklets, frame, os);
+    BOOST_ASSERT(true_class.count(os) > 0);
+    std::string classname = true_class[os];
 
     // Is this one of the classes we care about?
     // If not, ignore for now
@@ -206,20 +261,20 @@ std::multiset<Trainer::Sample> Trainer::GetTrainingSamples(kt::Tracklets *trackl
     }
 
     double p_class = detector_.GetProb(classname, os);
-    auto &samples = class_samples[classname];
+    //auto &samples = class_samples[classname];
 
     samples.emplace(p_class, os, classname, frame);
-    while (samples.size() > kSamplesPerClassPerFrame_) {
+    while (samples.size() > kSamplesPerFrame_) {
       samples.erase(std::prev(samples.end()));
     }
   }
 
-  std::multiset<Sample> samples;
-  for (const auto &kv : class_samples) {
-    for (const auto &s : kv.second) {
-      samples.insert(s);
-    }
-  }
+  //std::multiset<Sample> samples;
+  //for (const auto &kv : class_samples) {
+  //  for (const auto &s : kv.second) {
+  //    samples.insert(s);
+  //  }
+  //}
 
   return samples;
 }
@@ -247,6 +302,16 @@ bool Trainer::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
   t.Start();
   std::multiset<Sample> samples = GetTrainingSamples(tracklets, frame);
   printf("\tTook %5.3f ms to get %ld training samples\n", t.GetMs(), samples.size());
+
+  if (samples.size() > 0) {
+    //for (const auto &s : samples) {
+    //  printf("\t\tp_correct = %5.3f (class %s, pos %5.3f, %5.3f)\n",
+    //      s.p_correct * 100, s.classname.c_str(), s.os.x, s.os.y);
+    //}
+    double min_p = samples.begin()->p_correct;
+    double max_p = std::prev(samples.end())->p_correct;
+    printf("\tSamples range from %5.3f%% to %5.3f%%\n", min_p * 100, max_p * 100);
+  }
 
   // Update joint models in detector
   t.Start();
