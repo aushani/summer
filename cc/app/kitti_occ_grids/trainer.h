@@ -24,6 +24,7 @@ namespace kitti_occ_grids {
 class Trainer {
  public:
   Trainer(const std::string &save_base_fn);
+  Trainer(const std::string &save_base_fn, const std::string &load_base_dir);
 
   void Run();
 

@@ -44,6 +44,36 @@ Trainer::Trainer(const std::string &save_base_fn) :
   }
 }
 
+Trainer::Trainer(const std::string &save_base_fn, const std::string &load_base_dir) :
+ Trainer(save_base_fn) {
+  printf("loading models from %s\n", model_dir.c_str());
+
+  fs::directory_iterator end_it;
+  for (fs::directory_iterator it(load_base_dir); it != end_it; it++) {
+    // Make sure it's not a directory
+    if (!fs::is_regular_file(it->path())) {
+      continue;
+    }
+
+    // Make sure it's a joint model
+    if (fs::extension(it->path()) != ".jm") {
+      continue;
+    }
+
+    std::string classname = it->path().stem().string();
+
+    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
+      continue;
+    }
+
+    printf("Found %s\n", classname.c_str());
+    clt::JointModel jm = clt::JointModel::Load(it->path().string().c_str());
+
+    detector.UpdateModel(classname, jm);
+  }
+  printf("Loaded all models\n");
+}
+
 void Trainer::Run() {
   int epoch = 0;
   while (true) {
@@ -222,6 +252,9 @@ bool Trainer::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
     auto dog = og_builder_.GenerateOccGridDevice(scan.GetHits());
 
     detector_.UpdateModel(s.classname, *dog);
+
+    // Cleanup
+    dog->Cleanup();
   }
   printf("\tTook %5.3f ms to update joint models\n", t.GetMs());
 
