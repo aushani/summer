@@ -38,6 +38,7 @@ MapNode::MapNode(const dt::Detector &detector) : osg::Group() {
       osg::Vec3 pos(x, y, 0.0);
 
       osg::ref_ptr<osgn::ColorfulBox> box = new osgn::ColorfulBox(color, pos, detector.GetResolution()*1.0); // TODO Magic Number
+      box->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
       addChild(box);
     }
   }
