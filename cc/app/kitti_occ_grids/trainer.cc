@@ -4,6 +4,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include "library/osg_nodes/colorful_box.h"
 #include "library/osg_nodes/point_cloud.h"
 #include "library/osg_nodes/occ_grid.h"
 #include "library/osg_nodes/tracklets.h"
@@ -28,8 +29,8 @@ Trainer::Trainer(const std::string &save_base_fn) :
   og_builder_.ConfigureSizeInPixels(7, 7, 5);
 
   models_.insert({"Car", clt::JointModel(3.0, 2.0, kRes_)});
-  models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
-  models_.insert({"Pedestrian", clt::JointModel(3.0, 2.0, kRes_)});
+  //models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
+  //models_.insert({"Pedestrian", clt::JointModel(3.0, 2.0, kRes_)});
   models_.insert({"Background", clt::JointModel(3.0, 2.0, kRes_)});
 
   for (const auto &kv : models_) {
@@ -66,7 +67,8 @@ void Trainer::LoadFrom(const std::string &load_base_dir) {
 
     std::string classname = it->path().stem().string();
 
-    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
+    //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
+    if (! (classname == "Car" || classname == "Background")) {
       continue;
     }
 
@@ -356,6 +358,15 @@ bool Trainer::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
     viewer_->AddChild(pc);
     viewer_->AddChild(tn);
     viewer_->AddChild(map_node);
+
+    // Add samples
+    for (const Sample &s : samples) {
+      osg::ref_ptr<osgn::ColorfulBox> box
+        = new osgn::ColorfulBox(osg::Vec4(1, 1, 1, 1.0),
+                                osg::Vec3(s.os.x, s.os.y, 0.0),
+                                1.0);
+      viewer_->AddChild(box);
+    }
     printf("\tTook %5.3f ms to update viewer\n", t.GetMs());
   }
 
