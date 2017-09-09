@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <set>
+#include <thread>
 
 #include <boost/filesystem.hpp>
 
@@ -11,11 +12,13 @@
 #include "library/kitti/velodyne_scan.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 #include "library/detector/detector.h"
+#include "library/viewer/viewer.h"
 
 namespace fs = boost::filesystem;
 namespace kt = library::kitti;
 namespace rt = library::ray_tracing;
 namespace dt = library::detector;
+namespace vw = library::viewer;
 namespace clt = library::chow_liu_tree;
 
 namespace app {
@@ -26,7 +29,9 @@ class Trainer {
   Trainer(const std::string &save_base_fn);
   Trainer(const std::string &save_base_fn, const std::string &load_base_dir);
 
+  void SetViewer(const std::shared_ptr<vw::Viewer> &viewer);
   void Run(int first_epoch = 0, int first_log_num=0);
+  void RunBackground(int first_epoch = 0, int first_log_num=0);
 
  private:
   struct Sample {
@@ -59,6 +64,8 @@ class Trainer {
 
   fs::path save_base_path_;
 
+  std::shared_ptr<vw::Viewer> viewer_;
+
   dt::Detector detector_;
   rt::OccGridBuilder og_builder_;
   kt::CameraCal camera_cal_;
@@ -66,6 +73,8 @@ class Trainer {
   std::map<std::string, clt::JointModel> models_;
 
   std::vector<dt::ObjectState> states_;
+
+  std::thread run_thread_;
 
   bool ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame);
   bool ProcessLog(int epoch, int log_num);

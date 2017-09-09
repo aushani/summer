@@ -8,22 +8,22 @@ namespace app {
 namespace kitti_occ_grids {
 
 MapNode::MapNode(const dt::Detector &detector) : osg::Group() {
-  const double min_lo = -10;
-  const double max_lo = 10;
-  const double range_lo = max_lo - min_lo;
+  const double min = 0;
+  const double max = 1;
+  const double range = max - min;
 
   for (double x = -detector.GetRangeX(); x < detector.GetRangeX(); x += detector.GetResolution()) {
     for (double y = -detector.GetRangeY(); y < detector.GetRangeY(); y += detector.GetResolution()) {
 
       dt::ObjectState os(x, y, 0);
 
-      double lo_car = detector.GetLogOdds("Car", os);
-      double lo_cyclist = detector.GetLogOdds("Cyclist", os);
-      double lo_pedestrian = detector.GetLogOdds("Pedestrian", os);
+      double p_car = detector.GetLogOdds("Car", os);
+      double p_cyclist = detector.GetLogOdds("Cyclist", os);
+      double p_pedestrian = detector.GetLogOdds("Pedestrian", os);
 
-      double r = (lo_car-min_lo) / range_lo;
-      double g = (lo_cyclist-min_lo) / range_lo;
-      double b = (lo_pedestrian-min_lo) / range_lo;
+      double r = (p_car-min) / range;
+      double g = (p_cyclist-min) / range;
+      double b = (p_pedestrian-min) / range;
 
       if (r < 0) r = 0;
       if (r > 1) r = 1;

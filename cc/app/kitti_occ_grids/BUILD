@@ -99,7 +99,7 @@ cc_binary(
     name = "detector",
     srcs = [
             "run_detector.cc",
-            "map_node.cc", "map_node.h",
+            "map_node.cc", "map_node.h", # repeated, TODO fix
            ],
     deps = [
             "//library/chow_liu_tree",
@@ -117,6 +117,7 @@ cc_binary(
     srcs = [
             "run_trainer.cc",
             "trainer.cc", "trainer.h",
+            "map_node.cc", "map_node.h", # repeated, TODO fix
            ],
     deps = [
             "//library/chow_liu_tree",

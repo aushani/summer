@@ -1,37 +1,47 @@
 #include "app/kitti_occ_grids/trainer.h"
 
+#include "library/viewer/viewer.h"
+
+namespace vw = library::viewer;
 namespace kog = app::kitti_occ_grids;
 
 int main(int argc, char** argv) {
-  printf("Running KITTI Trainer\n");
+  osg::ArgumentParser args(&argc, argv);
+  osg::ApplicationUsage* au = args.getApplicationUsage();
 
-  if (argc < 2) {
-    printf("Usage: %s save_dir [load_dir] [starting epoch] [starting log num]\n", argv[0]);
-    return 1;
+  // report any errors if they have occurred when parsing the program arguments.
+  if (args.errors()) {
+    args.writeErrorMessages(std::cout);
+    return EXIT_FAILURE;
   }
 
-  std::shared_ptr<kog::Trainer> trainer;
+  au->setApplicationName(args.getApplicationName());
+  au->setCommandLineUsage( args.getApplicationName() + " [options]");
+  au->setDescription(args.getApplicationName());
 
-  if (argc == 2) {
-    trainer = std::make_shared<kog::Trainer>(argv[1]);
-  } else {
-    trainer = std::make_shared<kog::Trainer>(argv[1], argv[2]);
+  au->addCommandLineOption("--save-dir <dir>", "Save dir", "");
+
+  // handle help text
+  // call AFTER init viewer so key bindings have been set
+  unsigned int helpType = 0;
+  if ((helpType = args.readHelpType())) {
+    au->write(std::cout, helpType);
+    return EXIT_SUCCESS;
   }
 
-  int epoch = 0;
-  int log_num = 0;
-
-  if (argc > 3) {
-    epoch = atoi(argv[3]);
+  std::string save_dir = "/home/aushani/data/trainer/";
+  if (!args.read("--save-dir", save_dir)) {
+    printf("Using default save dir: %s\n", save_dir.c_str());
   }
 
-  if (argc > 4) {
-    log_num = atoi(argv[4]);
-  }
+  std::shared_ptr<vw::Viewer> viewer = std::make_shared<vw::Viewer>(&args);
 
-  printf("Starting from epoch %d log %d\n", epoch, log_num);
+  kog::Trainer trainer(save_dir.c_str());
+  trainer.SetViewer(viewer);
 
-  trainer->Run(epoch, log_num);
+  trainer.RunBackground();
+
+  viewer->Start();
 
   return 0;
 }

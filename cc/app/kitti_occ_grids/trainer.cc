@@ -4,7 +4,14 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include "library/osg_nodes/point_cloud.h"
+#include "library/osg_nodes/occ_grid.h"
+#include "library/osg_nodes/tracklets.h"
 #include "library/timer/timer.h"
+
+#include "app/kitti_occ_grids/map_node.h"
+
+namespace osgn = library::osg_nodes;
 
 namespace app {
 namespace kitti_occ_grids {
@@ -74,6 +81,10 @@ Trainer::Trainer(const std::string &save_base_fn, const std::string &load_base_d
   printf("Loaded all models\n");
 }
 
+void Trainer::SetViewer(const std::shared_ptr<vw::Viewer> &viewer) {
+  viewer_ = viewer;
+}
+
 void Trainer::Run(int first_epoch, int first_log_num) {
   int epoch = first_epoch;
   int starting_log = first_log_num;
@@ -94,6 +105,10 @@ void Trainer::Run(int first_epoch, int first_log_num) {
     epoch++;
     starting_log = 0;
   }
+}
+
+void Trainer::RunBackground(int first_epoch, int first_log_num) {
+  run_thread_ = std::thread(&Trainer::Run, this, first_epoch, first_log_num);
 }
 
 bool Trainer::ProcessLog(int epoch, int log_num) {
@@ -332,6 +347,20 @@ bool Trainer::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
     dog->Cleanup();
   }
   printf("\tTook %5.3f ms to update joint models\n", t.GetMs());
+
+  // If we have a viewer, update render now
+  if (viewer_) {
+    t.Start();
+    osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);
+    osg::ref_ptr<osgn::Tracklets> tn = new osgn::Tracklets(tracklets, frame);
+    osg::ref_ptr<MapNode> map_node = new MapNode(detector_);
+
+    viewer_->RemoveAllChildren();
+    viewer_->AddChild(pc);
+    viewer_->AddChild(tn);
+    viewer_->AddChild(map_node);
+    printf("\tTook %5.3f ms to update viewer\n", t.GetMs());
+  }
 
   // Try to continue to the next frame
   return true;
