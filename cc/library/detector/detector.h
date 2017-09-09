@@ -44,6 +44,9 @@ class Detector {
   float GetRangeY() const;
   bool InRange(const ObjectState &os) const;
 
+  float GetNX() const;
+  float GetNY() const;
+
  private:
   static constexpr int kThreadsPerBlock_ = 128;
 

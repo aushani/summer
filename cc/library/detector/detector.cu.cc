@@ -310,5 +310,13 @@ float Detector::GetResolution() const {
   return res_;
 }
 
+float Detector::GetNX() const {
+  return n_x_;
+}
+
+float Detector::GetNY() const {
+  return n_y_;
+}
+
 } // namespace ray_tracing
 } // namespace library
