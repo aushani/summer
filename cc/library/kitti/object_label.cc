@@ -14,7 +14,7 @@ ObjectLabels ObjectLabel::Load(const char *fn) {
   char *line = NULL;
   size_t len = 0;
   while (getline(&line, &len, fp) != -1) {
-    printf("read line: <%s>\n", line);
+    //printf("read line: <%s>\n", line);
     ObjectLabel label;
     sscanf(line, "%s %f %f %f %f %f %f %f %f %f %f %f %f %f %f\n",
         type,
@@ -127,14 +127,13 @@ Eigen::Matrix4d ObjectLabel::LoadVelToCam(const char *fn) {
   const char *header = "Tr_velo_to_cam: ";
   char *line = NULL;
   size_t len = 0;
-  double R[9];
-  double t[3];
+  double mat[12];
   while (getline(&line, &len, f_cc) != -1) {
     if (strncmp(header, line, strlen(header)) == 0) {
       sscanf(&line[strlen(header)],
           "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
-          &R[0], &R[1], &R[2], &R[3], &R[4], &R[5], &R[6], &R[7], &R[8],
-          &t[9], &t[10], &t[11]);
+          &mat[0], &mat[1], &mat[2], &mat[3], &mat[4], &mat[5], &mat[6],
+          &mat[7], &mat[8], &mat[9], &mat[10], &mat[11]);
     }
   }
 
@@ -144,10 +143,9 @@ Eigen::Matrix4d ObjectLabel::LoadVelToCam(const char *fn) {
 
   T_cv.setZero();
   for (int i=0; i<3; i++) {
-    for (int j=0; j<3; j++) {
-      T_cv(i, j) = R[i*3 + j];
+    for (int j=0; j<4; j++) {
+      T_cv(i, j) = mat[i*4 + j];
     }
-    T_cv(i, 3) = t[i];
   }
   T_cv(3, 3) = 1;
 

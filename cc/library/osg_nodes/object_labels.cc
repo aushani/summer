@@ -28,17 +28,11 @@ ObjectLabels::ObjectLabels(const kt::ObjectLabels &labels, const Eigen::Matrix4d
   for (const auto &label : labels) {
     Eigen::Vector4d p_camera(label.location[0], label.location[1], label.location[2], 1);
     auto p_vel = T_cv.inverse() * p_camera;
-    osg::Vec3 pos(p_vel.x(), p_vel.y(), p_vel.z());
+    osg::Vec3 pos(p_vel.x(), p_vel.y(), p_vel.z() + 0.8); // offset ?
 
-    std::cout << T_cv << std::endl;
+    osg::Quat quat(-label.rotation_y, osg::Vec3(0, 0, 1));  // rotation only in heading
 
-    printf("projected %5.3f, %5.3f, %5.3f to %5.3f, %5.3f, %5.3f\n",
-        p_camera.x(), p_camera.y(), p_camera.z(),
-        p_vel.x(), p_vel.y(), p_vel.z());
-
-    osg::Quat quat(label.rotation_y, osg::Vec3(0, 0, 1));  // rotation only in heading
-
-    osg::ref_ptr<osg::Box> box = new osg::Box(pos, label.dimensions[0], label.dimensions[1], label.dimensions[2]);
+    osg::ref_ptr<osg::Box> box = new osg::Box(pos, label.dimensions[1], label.dimensions[2], label.dimensions[0]);
     box->setRotation(quat);
 
     osg::ref_ptr<osg::ShapeDrawable> shape = new osg::ShapeDrawable(box);
