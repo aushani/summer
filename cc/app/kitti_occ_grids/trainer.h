@@ -27,7 +27,8 @@ namespace kitti_occ_grids {
 class Trainer {
  public:
   Trainer(const std::string &save_base_fn);
-  Trainer(const std::string &save_base_fn, const std::string &load_base_dir);
+
+  void LoadFrom(const std::string &load_base_dir);
 
   void SetViewer(const std::shared_ptr<vw::Viewer> &viewer);
   void Run(int first_epoch = 0, int first_log_num=0);

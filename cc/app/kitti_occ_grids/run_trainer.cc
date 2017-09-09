@@ -20,6 +20,12 @@ int main(int argc, char** argv) {
   au->setDescription(args.getApplicationName());
 
   au->addCommandLineOption("--save-dir <dir>", "Save dir", "");
+  au->addCommandLineOption("--load-dir <dir>", "Load dir", "");
+  au->addCommandLineOption("--epoch <int>", "Starting Epoch", "");
+  au->addCommandLineOption("--log <int>", "Starting Log", "");
+
+  // Start viewer
+  std::shared_ptr<vw::Viewer> viewer = std::make_shared<vw::Viewer>(&args);
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -34,12 +40,24 @@ int main(int argc, char** argv) {
     printf("Using default save dir: %s\n", save_dir.c_str());
   }
 
-  std::shared_ptr<vw::Viewer> viewer = std::make_shared<vw::Viewer>(&args);
-
   kog::Trainer trainer(save_dir.c_str());
   trainer.SetViewer(viewer);
 
-  trainer.RunBackground();
+  std::string load_dir = "";
+  if (args.read("--load-dir", load_dir)) {
+    printf("Loading models from %s\n", load_dir.c_str());
+    trainer.LoadFrom(load_dir);
+  }
+
+  int epoch = 0;
+  args.read("--epoch", epoch);
+
+  int log_num = 0;
+  args.read("--log", log_num);
+
+  printf("Starting from epoch %d and log %d\n", epoch, log_num);
+
+  trainer.RunBackground(epoch, log_num);
 
   viewer->Start();
 

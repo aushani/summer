@@ -51,10 +51,7 @@ Trainer::Trainer(const std::string &save_base_fn) :
   }
 }
 
-Trainer::Trainer(const std::string &save_base_fn, const std::string &load_base_dir) :
- Trainer(save_base_fn) {
-  printf("loading models from %s\n", load_base_dir.c_str());
-
+void Trainer::LoadFrom(const std::string &load_base_dir) {
   fs::directory_iterator end_it;
   for (fs::directory_iterator it(load_base_dir); it != end_it; it++) {
     // Make sure it's not a directory

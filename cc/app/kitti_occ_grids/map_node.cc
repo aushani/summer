@@ -17,9 +17,9 @@ MapNode::MapNode(const dt::Detector &detector) : osg::Group() {
 
       dt::ObjectState os(x, y, 0);
 
-      double p_car = detector.GetLogOdds("Car", os);
-      double p_cyclist = detector.GetLogOdds("Cyclist", os);
-      double p_pedestrian = detector.GetLogOdds("Pedestrian", os);
+      double p_car = detector.GetProb("Car", os);
+      double p_cyclist = detector.GetProb("Cyclist", os);
+      double p_pedestrian = detector.GetProb("Pedestrian", os);
 
       double r = (p_car-min) / range;
       double g = (p_cyclist-min) / range;
