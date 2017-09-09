@@ -68,5 +68,19 @@ osg::ref_ptr<osgQt::GraphicsWindowQt> ViewerWidget::create_graphics_window(int x
   return new osgQt::GraphicsWindowQt(traits.get());
 }
 
+void ViewerWidget::frame(double t) {
+  lock();
+  osgViewer::CompositeViewer::frame();
+  unlock();
+}
+
+void ViewerWidget::lock() {
+  mutex_.lock();
+}
+
+void ViewerWidget::unlock() {
+  mutex_.unlock();
+}
+
 } // namespace viewer
 } // namespace library

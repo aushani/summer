@@ -97,18 +97,24 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
 }
 
 void ViewerWindow::AddChild(osg::Node *n) {
+  vwidget_->lock();
+
   auto ss = n->getOrCreateStateSet();
   //ss->setMode(GL_BLEND, osg::StateAttribute::ON);
   //ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
   ss->setRenderBinDetails(bin_at_++, "RenderBin");
 
   xform_car_->addChild(n);
+
+  vwidget_->unlock();
 }
 
 void ViewerWindow::RemoveAllChildren() {
+  vwidget_->lock();
   while (xform_car_->getNumChildren() > 0) {
     xform_car_->removeChild(0, 1);
   }
+  vwidget_->unlock();
 }
 
 void ViewerWindow::AddHandler(osgGA::GUIEventHandler *h) {

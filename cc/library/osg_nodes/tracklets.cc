@@ -18,8 +18,6 @@ namespace osg_nodes {
 Tracklets::Tracklets(kt::Tracklets *tracklets, int frame) :
     osg::Group() {
 
-  printf("Set frame to %d\n", frame);
-
   // Render active tracks
   int n = tracklets->numberOfTracklets();
 

@@ -1,6 +1,8 @@
 // adapted from dascar
 #pragma once
 
+#include <mutex>
+
 // OSG
 #include <osgQt/GraphicsWindowQt>
 #include <osgViewer/CompositeViewer>
@@ -26,9 +28,16 @@ class ViewerWidget : public QWidget, public osgViewer::CompositeViewer {
 
   osg::ref_ptr<osgViewer::View> GetView() { return _view; };
 
+  void frame(double t=0) override;
+
+  void lock();
+  void unlock();
+
  private:
   // primary view
   osg::ref_ptr<osgViewer::View> _view;
+
+  std::mutex mutex_;
 
  protected:
   ~ViewerWidget();
