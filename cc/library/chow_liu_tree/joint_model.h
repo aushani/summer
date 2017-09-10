@@ -41,8 +41,8 @@ class JointModel {
 
  private:
   struct Counter {
-    //int counts[4] = {0, 0, 0, 0};
-    int counts[4] = {1, 1, 1, 1};
+    int counts[4] = {0, 0, 0, 0};
+    //int counts[4] = {1, 1, 1, 1};
 
     void Count(bool occ1, bool occ2) {
       counts[GetIndex(occ1, occ2)]++;

@@ -14,48 +14,58 @@ namespace rt = library::ray_tracing;
 namespace library {
 namespace detector {
 
+static constexpr int kShrinkage = 1000;
+
 struct Marginal {
   float log_ps[2] = {0.0, 0.0};
-  int counts[2] = {0, 0};
 
   __host__ __device__ float GetLogP(bool occ) const {
     return log_ps[GetIndex(occ)];
   }
 
+  __host__ __device__ int GetCount(bool occ) const {
+    return counts_[GetIndex(occ)] + kShrinkage;
+  }
+
+  __host__ __device__ int GetActualCount(bool occ) const {
+    return counts_[GetIndex(occ)];
+  }
+
   __host__ __device__ void SetCount(bool occ, int count) {
-    counts[GetIndex(occ)] = count;
+    counts_[GetIndex(occ)] = count;
 
     // Update log p
     UpdateLogP();
   }
 
   __host__ __device__ void IncrementCount(bool occ) {
-    counts[GetIndex(occ)]++;
+    counts_[GetIndex(occ)]++;
 
     // Update log p
     UpdateLogP();
   }
 
  private:
+  int counts_[2] = {0, 0};
+
   __host__ __device__ int GetIndex(bool occ) const {
     return occ ? 0:1;
   }
 
   __host__ __device__ void UpdateLogP() {
-    float counts_total = counts[0] + counts[1];
+    float counts_total = GetCount(true) + GetCount(false);
 
     for (int i=0; i<2; i++) {
       bool occ = (i == 0);
       int idx = GetIndex(occ);
 
-      log_ps[idx] = log(counts[idx] / counts_total);
+      log_ps[idx] = log(GetCount(occ) / counts_total);
     }
   }
 };
 
 struct Conditional {
   float log_ps[4] = {0.0, 0.0, 0.0, 0.0};
-  int counts[4] = {0, 0, 0, 0};
   float mutual_information_ = 0;
 
   __host__ __device__ float GetLogP(bool occ_eval, bool occ_given) const {
@@ -63,18 +73,22 @@ struct Conditional {
   }
 
   __host__ __device__ int GetCount(bool occ_eval, bool occ_given) const {
-    return counts[GetIndex(occ_eval, occ_given)];
+    return counts_[GetIndex(occ_eval, occ_given)] + kShrinkage;
+  }
+
+  __host__ __device__ int GetActualCount(bool occ_eval, bool occ_given) const {
+    return counts_[GetIndex(occ_eval, occ_given)];
   }
 
   __host__ __device__ void SetCount(bool occ_eval, bool occ_given, int count) {
-    counts[GetIndex(occ_eval, occ_given)] = count;
+    counts_[GetIndex(occ_eval, occ_given)] = count;
 
     // Update log p and mi
     Update();
   }
 
   __host__ __device__ void IncrementCount(bool occ_eval, bool occ_given) {
-    counts[GetIndex(occ_eval, occ_given)]++;
+    counts_[GetIndex(occ_eval, occ_given)]++;
 
     // Update log p and mi
     Update();
@@ -85,6 +99,8 @@ struct Conditional {
   }
 
  private:
+  int counts_[4] = {0, 0, 0, 0};
+
   __host__ __device__ int GetIndex(bool occ_eval, bool occ_given) const {
     int idx = 0;
     if (occ_eval) {
@@ -107,8 +123,8 @@ struct Conditional {
 
         int idx = GetIndex(occ_eval, occ_given);
 
-        int my_count = counts[idx];
-        int other_count = counts[GetIndex(!occ_eval, occ_given)];
+        int my_count = GetCount(occ_eval, occ_given);
+        int other_count = GetCount(!occ_eval, occ_given);
         float denom = my_count + other_count;
 
         log_ps[idx] = log(my_count / denom);
@@ -116,24 +132,28 @@ struct Conditional {
     }
 
     // Update mutual information
-    float counts_total = counts[0] + counts[1] + counts[2] + counts[3];
+    float counts_total = 0;
+    for (int i=0; i<2; i++) {
+      bool occ_eval = (i == 0);
+      for (int j=0; j<2; j++) {
+        bool occ_given = (j == 0);
+        counts_total += GetCount(occ_eval, occ_given);
+      }
+    }
+
     mutual_information_ = 0;
 
-    if (counts_total > 50) { // TODO magic number
-      for (int i=0; i<2; i++) {
-        bool occ_eval = (i == 0);
-        for (int j=0; j<2; j++) {
-          bool occ_given = (j == 0);
+    for (int i=0; i<2; i++) {
+      bool occ_eval = (i == 0);
+      for (int j=0; j<2; j++) {
+        bool occ_given = (j == 0);
 
-          int idx = GetIndex(occ_eval, occ_given);
+        float p_xy = GetCount(occ_eval, occ_given) / counts_total;
 
-          float p_xy = counts[idx] / counts_total;
+        float p_x = (GetCount(occ_eval, occ_given) + GetCount(occ_eval, !occ_given)) / counts_total;
+        float p_y = (GetCount(occ_eval, occ_given) + GetCount(!occ_eval, occ_given)) / counts_total;
 
-          float p_x = (counts[idx] + counts[GetIndex(occ_eval, !occ_given)]) / counts_total;
-          float p_y = (counts[idx] + counts[GetIndex(!occ_eval, occ_given)]) / counts_total;
-
-          mutual_information_ += p_xy * log(p_xy / (p_x * p_y));
-        }
+        mutual_information_ += p_xy * log(p_xy / (p_x * p_y));
       }
     }
   }
@@ -209,7 +229,7 @@ struct DeviceModel {
                   for (int i_given = 0; i_given<2; i_given++) {
                     bool given = i_given == 0;
 
-                    int my_count = c.GetCount(eval, given);
+                    int my_count = c.GetActualCount(eval, given);
                     jm->SetCount(loc_eval, eval, loc_given, given, my_count);
                   }
                 }
