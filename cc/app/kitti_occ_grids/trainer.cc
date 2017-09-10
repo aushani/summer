@@ -169,8 +169,12 @@ std::vector<Trainer::Sample> Trainer::GetTrainingSamples(const kt::KittiChalleng
       continue;
     }
 
+    // Check score, if score = 0 no evidence, not worth pursing
+    if (detector_.GetScore(classname, os) == 0) {
+      continue;
+    }
+
     double p_class = detector_.GetProb(classname, os);
-    //auto &samples = class_samples[classname];
 
     Sample s(p_class, os, classname);
     samples.push_back(s);
