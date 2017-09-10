@@ -84,10 +84,12 @@ void Trainer::Run(int first_epoch, int first_frame) {
     for (int frame = starting_frame; frame <= kNumFrames; frame++) {
       t.Start();
       ProcessFrame(frame);
-      printf("  Processed frame %04d in %5.3f sec\n", frame, t.GetSeconds());
+      printf("  Processed frame %04d in %9.3f sec\n", frame, t.GetSeconds());
 
       // Save?
       if (frame % 100 == 0) {
+        t.Start();
+
         fs::path dir = save_base_path_ / (boost::format("%|04|_%|06|") % epoch % frame).str();
         fs::create_directories(dir);
         for (auto &kv : models_) {
@@ -98,8 +100,10 @@ void Trainer::Run(int first_epoch, int first_frame) {
 
           // Now save
           kv.second.Save(fn.string().c_str());
-          printf("Saved model to %s\n", fn.string().c_str());
+          printf("\tSaved model to %s\n", fn.string().c_str());
         }
+
+        printf("Took %9.3f ms to save models\n", t.GetMs());
       }
     }
 
@@ -209,12 +213,12 @@ void Trainer::ProcessFrame(int frame) {
   // Run detector
   t.Start();
   detector_.Run(kcd.GetScan().GetHits());
-  printf("\tTook %5.3f ms to run detector\n", t.GetMs());
+  printf("\tTook %9.3f ms to run detector\n", t.GetMs());
 
   // Get training samples, find out where it's more wrong
   t.Start();
   std::vector<Sample> samples = GetTrainingSamples(kcd);
-  printf("\tTook %5.3f ms to get %ld training samples\n", t.GetMs(), samples.size());
+  printf("\tTook %9.3f ms to get %ld training samples\n", t.GetMs(), samples.size());
 
   // Update joint models in detector
   t.Start();
@@ -229,7 +233,7 @@ void Trainer::ProcessFrame(int frame) {
     // Cleanup
     dog->Cleanup();
   }
-  printf("\tTook %5.3f ms to update joint models\n", t.GetMs());
+  printf("\tTook %9.3f ms to update joint models\n", t.GetMs());
 
   // If we have a viewer, update render now
   if (viewer_) {
@@ -251,11 +255,11 @@ void Trainer::ProcessFrame(int frame) {
                                 detector_.GetResolution());
       viewer_->AddChild(box);
     }
-    printf("\tTook %5.3f ms to update viewer\n", t.GetMs());
+    printf("\tTook %9.3f ms to update viewer\n", t.GetMs());
   }
 
   for (const auto &kv : samples_per_class_) {
-    printf("\t  %10s %10d samples\n", kv.first.c_str(), kv.second);
+    printf("\t  %15s %10d samples\n", kv.first.c_str(), kv.second);
   }
 }
 
