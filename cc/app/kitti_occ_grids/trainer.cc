@@ -128,7 +128,10 @@ std::string Trainer::GetTrueClass(const kt::KittiChallengeData &kcd, const dt::O
     double width = label.dimensions[1];
     double length = label.dimensions[2];
 
-    if (std::fabs(x_object.x())<length/2 && std::fabs(x_object.z())<width/2) { // Yes, z, because in camera frame
+    // Add a resolution's worth of buffer
+    double dl = std::fabs(x_object.x()) - kRes_; // Yes, z
+    double dw = std::fabs(x_object.z()) - kRes_;
+    if (dl<length/2 && dw<width/2) {
       // TODO inside box or just within kRes_ of center????
       return kt::ObjectLabel::GetString(label.type);
     }
