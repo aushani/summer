@@ -23,6 +23,7 @@ int main(int argc, char** argv) {
   au->addCommandLineOption("--load-dir <dir>", "Load dir", "");
   au->addCommandLineOption("--epoch <int>", "Starting Epoch", "");
   au->addCommandLineOption("--frame <int>", "Starting Frame", "");
+  au->addCommandLineOption("--no-gui", "Run headless", "");
 
   // Start viewer
   std::shared_ptr<vw::Viewer> viewer = std::make_shared<vw::Viewer>(&args);
@@ -41,7 +42,15 @@ int main(int argc, char** argv) {
   }
 
   kog::Trainer trainer(save_dir.c_str());
-  trainer.SetViewer(viewer);
+
+  bool gui = true;
+  if (args.read("--no-gui")) {
+    gui = false;
+  }
+
+  if (gui) {
+    trainer.SetViewer(viewer);
+  }
 
   std::string load_dir = "";
   if (args.read("--load-dir", load_dir)) {
@@ -57,9 +66,12 @@ int main(int argc, char** argv) {
 
   printf("Starting from epoch %d and frame %d\n", epoch, frame);
 
-  trainer.RunBackground(epoch, frame);
-
-  viewer->Start();
+  if (gui) {
+    trainer.RunBackground(epoch, frame);
+    viewer->Start();
+  } else {
+    trainer.Run(epoch, frame);
+  }
 
   return 0;
 }
