@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 namespace library {
 namespace kitti {
@@ -30,7 +31,7 @@ struct ObjectLabel {
   static ObjectLabels Load(const char *fn);
   static void Save(const ObjectLabels &labels, const char *fn);
 
-  static Eigen::Matrix4d LoadVelToCam(const char *fn);
+  static void LoadCalib(const char *fn, Eigen::Matrix<double, 3, 4> *p, Eigen::Matrix4d *r, Eigen::Matrix4d *t_cv);
 
   Type type = DONT_CARE;            // Describes the type of object
   float truncated = 0;              // float from 0 (non-truncated) to 1 (truncated), how much of object left image boundaries
@@ -42,9 +43,33 @@ struct ObjectLabel {
   float rotation_y = 0;             // rotation around y-axis in camera coordinates, -pi to pi
   float score = 0;                  // for results only, float indicated confidence (higher is better)
 
- private:
+  // Helper stuff
+  Eigen::Matrix4d H_camera_object;
+
   static Type GetType(const char *type);
   static const char* GetString(const Type &type);
+
+  bool Care() const {
+    return type != DONT_CARE;
+  }
+
+ private:
+  ObjectLabel() {
+    H_camera_object.setZero();
+  }
+
+  void ComputeTransforms() {
+    // Transformations
+    Eigen::Affine3d ry(Eigen::AngleAxisd(rotation_y, Eigen::Vector3d(0, 1, 0)));
+
+    double tx = location[0];
+    double ty = location[1];
+    double tz = location[2];
+    Eigen::Affine3d t(Eigen::Translation3d(Eigen::Vector3d(tx, ty, tz)));
+
+    Eigen::Matrix4d H_object_camera = (t*ry).matrix();
+    H_camera_object = H_object_camera.inverse();
+  }
 };
 
 } // namespace kitti

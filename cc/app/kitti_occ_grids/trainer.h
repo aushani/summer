@@ -7,8 +7,7 @@
 
 #include <boost/filesystem.hpp>
 
-#include "library/kitti/camera_cal.h"
-#include "library/kitti/tracklets.h"
+#include "library/kitti/kitti_challenge_data.h"
 #include "library/kitti/velodyne_scan.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 #include "library/detector/detector.h"
@@ -31,35 +30,29 @@ class Trainer {
   void LoadFrom(const std::string &load_base_dir);
 
   void SetViewer(const std::shared_ptr<vw::Viewer> &viewer);
-  void Run(int first_epoch = 0, int first_log_num=0);
-  void RunBackground(int first_epoch = 0, int first_log_num=0);
+  void Run(int first_epoch = 0, int first_frame_num=0);
+  void RunBackground(int first_epoch = 0, int first_frame_num=0);
 
  private:
   struct Sample {
     double p_correct = 0;
+    double p_wrong = 0;
     dt::ObjectState os;
     std::string classname;
-    int frame_num = 0;
 
-    Sample(double pc, const dt::ObjectState s, const std::string &cn, int f) :
-     p_correct(pc), os(s), classname(cn), frame_num(f) {
-      my_count_ = count_++;
+    Sample(double pc, const dt::ObjectState s, const std::string &cn) :
+     p_correct(pc), p_wrong(1-pc), os(s), classname(cn) {
     };
 
     bool operator<(const Sample &s) const {
       if (p_correct != s.p_correct) {
         return p_correct < s.p_correct;
       }
-
-      return count_ < s.count_;
     }
-
-   private:
-    static int count_;
-    int my_count_ = 0;
   };
 
-  const char* kKittiBaseFilename = "/home/aushani/data/kittidata/extracted/";
+  const char* kKittiBaseFilename = "/home/aushani/data/kitti_challenge/";
+  const int kNumFrames = 7481;
   static constexpr double kRes_ = 0.50;                    // 50 cm
   static constexpr int kSamplesPerFrame_ = 100;
 
@@ -69,22 +62,18 @@ class Trainer {
 
   dt::Detector detector_;
   rt::OccGridBuilder og_builder_;
-  kt::CameraCal camera_cal_;
 
   std::map<std::string, clt::JointModel> models_;
+  std::map<std::string, int> samples_per_class_;
 
   std::vector<dt::ObjectState> states_;
 
   std::thread run_thread_;
 
-  bool ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame);
-  bool ProcessLog(int epoch, int log_num);
+  void ProcessFrame(int frame);
 
-  bool FileExists(const char* fn) const;
-
-  std::string GetTrueClass(kt::Tracklets *tracklets, int frame, const dt::ObjectState &os) const;
-  std::map<dt::ObjectState, std::string> GetTrueClassMap(kt::Tracklets *tracklets, int frame) const;
-  std::multiset<Sample> GetTrainingSamples(kt::Tracklets *tracklets, int frame) const;
+  std::string GetTrueClass(const kt::KittiChallengeData &kcd, const dt::ObjectState &os) const;
+  std::vector<Sample> GetTrainingSamples(const kt::KittiChallengeData &kcd) const;
 };
 
 } // namespace kitti_occ_grids

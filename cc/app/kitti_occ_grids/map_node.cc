@@ -59,10 +59,8 @@ osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector) const {
       dt::ObjectState os(x, y, 0);
 
       double p_car = detector.GetProb("Car", os);
-      //double p_cyclist = detector.GetProb("Cyclist", os);
-      //double p_pedestrian = detector.GetProb("Pedestrian", os);
-      double p_cyclist = 0;
-      double p_pedestrian = 0;
+      double p_cyclist = detector.GetProb("Cyclist", os);
+      double p_pedestrian = detector.GetProb("Pedestrian", os);
 
       double r = (p_car-min) / range;
       double g = (p_cyclist-min) / range;

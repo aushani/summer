@@ -7,7 +7,7 @@
 #include "library/osg_nodes/colorful_box.h"
 #include "library/osg_nodes/point_cloud.h"
 #include "library/osg_nodes/occ_grid.h"
-#include "library/osg_nodes/tracklets.h"
+#include "library/osg_nodes/object_labels.h"
 #include "library/timer/timer.h"
 
 #include "app/kitti_occ_grids/map_node.h"
@@ -17,20 +17,17 @@ namespace osgn = library::osg_nodes;
 namespace app {
 namespace kitti_occ_grids {
 
-int Trainer::Sample::count_ = 0;
-
 Trainer::Trainer(const std::string &save_base_fn) :
  save_base_path_(save_base_fn),
  detector_(kRes_, 50, 50),
- og_builder_(200000, kRes_, 100.0),
- camera_cal_("/home/aushani/data/kittidata/extracted/2011_09_26/") {
+ og_builder_(200000, kRes_, 100.0) {
 
   // Configure occ grid builder size
   og_builder_.ConfigureSizeInPixels(7, 7, 5);
 
   models_.insert({"Car", clt::JointModel(3.0, 2.0, kRes_)});
-  //models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
-  //models_.insert({"Pedestrian", clt::JointModel(3.0, 2.0, kRes_)});
+  models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
+  models_.insert({"Pedestrian", clt::JointModel(3.0, 2.0, kRes_)});
   models_.insert({"Background", clt::JointModel(3.0, 2.0, kRes_)});
 
   for (const auto &kv : models_) {
@@ -41,11 +38,6 @@ Trainer::Trainer(const std::string &save_base_fn) :
 
   for (double x = -detector_.GetRangeX(); x < detector_.GetRangeX(); x += detector_.GetResolution()) {
     for (double y = -detector_.GetRangeY(); y < detector_.GetRangeY(); y += detector_.GetResolution()) {
-      // Check to make sure this is within field of view of camera and is properly labeled
-      if (!camera_cal_.InCameraView(x, y, 0)) {
-        continue;
-      }
-
       dt::ObjectState os(x, y, 0);
       states_.emplace_back(x, y, 0);
     }
@@ -67,8 +59,7 @@ void Trainer::LoadFrom(const std::string &load_base_dir) {
 
     std::string classname = it->path().stem().string();
 
-    //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
-    if (! (classname == "Car" || classname == "Background")) {
+    if (models_.count(classname) == 0) {
       continue;
     }
 
@@ -84,123 +75,62 @@ void Trainer::SetViewer(const std::shared_ptr<vw::Viewer> &viewer) {
   viewer_ = viewer;
 }
 
-void Trainer::Run(int first_epoch, int first_log_num) {
+void Trainer::Run(int first_epoch, int first_frame) {
   int epoch = first_epoch;
-  int starting_log = first_log_num;
+  int starting_frame = first_frame;
 
   while (true) {
     library::timer::Timer t;
-    for (int log_num = starting_log; log_num <= 93; log_num++) {
+    for (int frame = starting_frame; frame <= kNumFrames; frame++) {
       t.Start();
-      bool res = ProcessLog(epoch, log_num);
+      ProcessFrame(frame);
+      printf("  Processed frame %04d in %5.3f sec\n", frame, t.GetSeconds());
 
-      if (!res) {
-        continue;
+      // Save?
+      if (frame % 100 == 0) {
+        fs::path dir = save_base_path_ / (boost::format("%|04|_%|06|") % epoch % frame).str();
+        fs::create_directories(dir);
+        for (auto &kv : models_) {
+          fs::path fn = dir / (kv.first + ".jm");
+
+          // Load back from detector
+          detector_.LoadIntoJointModel(kv.first, &kv.second);
+
+          // Now save
+          kv.second.Save(fn.string().c_str());
+          printf("Saved model to %s\n", fn.string().c_str());
+        }
       }
-
-      printf("Processed %04d in %5.3f sec\n", log_num, t.GetSeconds());
     }
 
     epoch++;
-    starting_log = 0;
+    starting_frame = 0;
   }
 }
 
-void Trainer::RunBackground(int first_epoch, int first_log_num) {
-  run_thread_ = std::thread(&Trainer::Run, this, first_epoch, first_log_num);
+void Trainer::RunBackground(int first_epoch, int first_frame_num) {
+  run_thread_ = std::thread(&Trainer::Run, this, first_epoch, first_frame_num);
 }
 
-bool Trainer::ProcessLog(int epoch, int log_num) {
-  library::timer::Timer t;
-  // Load Tracklets
-  char fn[1000];
-  sprintf(fn, "%s/2011_09_26/2011_09_26_drive_%04d_sync/tracklet_labels.xml",
-      kKittiBaseFilename, log_num);
+std::string Trainer::GetTrueClass(const kt::KittiChallengeData &kcd, const dt::ObjectState &os) const {
+  Eigen::Vector3d x_vel(os.x, os.y, 0);
+  Eigen::Vector4d x_camera = kcd.GetTcv() * x_vel.homogeneous();
 
-  if (!fs::exists(fn)) {
-    return false;
-  }
-
-  kt::Tracklets tracklets;
-  bool success = tracklets.loadFromFile(fn);
-
-  if (!success) {
-    return false;
-  }
-
-  printf("Loaded %d tracklets for log %d\n", tracklets.numberOfTracklets(), log_num);
-
-  // Tracklets stats
-  //for (int i=0; i<tracklets.numberOfTracklets(); i++) {
-  //  auto *tt = tracklets.getTracklet(i);
-  //  printf("Have %s (size %5.3f x %5.3f x %5.3f) for %ld frames\n",
-  //      tt->objectType.c_str(), tt->h, tt->w, tt->l, tt->poses.size());
-  //}
-
-  // Go through velodyne for this log
-  int frame = 0;
-  while (true) {
-    t.Start();
-    if (!ProcessFrame(&tracklets, log_num, frame)) {
-      break;
-    }
-    printf("  Processed frame %d in %7.5f sec...\n", frame, t.GetSeconds());
-
-    frame++;
-  }
-
-  // Save models
-  fs::path dir = save_base_path_ / (boost::format("%|04|_%|04|") % epoch % log_num).str();
-  fs::create_directories(dir);
-  for (auto &kv : models_) {
-    fs::path fn = dir / (kv.first + ".jm");
-
-    // Load back from detector
-    detector_.LoadIntoJointModel(kv.first, &kv.second);
-
-    // Now save
-    kv.second.Save(fn.string().c_str());
-    printf("  Saved model to %s\n", fn.string().c_str());
-  }
-
-  return true;
-}
-
-std::string Trainer::GetTrueClass(kt::Tracklets *tracklets, int frame, const dt::ObjectState &os) const {
-  kt::Tracklets::tPose* pose = nullptr;
-
-  Eigen::Vector3d x_w(os.x, os.y, 0);
-
-  for (int t_id=0; t_id<tracklets->numberOfTracklets(); t_id++) {
-    if (!tracklets->isActive(t_id, frame)) {
+  for (const auto &label : kcd.GetLabels()) {
+    if (!label.Care()) {
       continue;
     }
 
-    tracklets->getPose(t_id, frame, pose);
-    auto tt = tracklets->getTracklet(t_id);
+    Eigen::Vector3d x_object = (label.H_camera_object * x_camera).hnormalized();
 
-    Eigen::Affine3d rx(Eigen::AngleAxisd(pose->rx, Eigen::Vector3d(1, 0, 0)));
-    Eigen::Affine3d ry(Eigen::AngleAxisd(pose->ry, Eigen::Vector3d(0, 1, 0)));
-    Eigen::Affine3d rz(Eigen::AngleAxisd(pose->rz, Eigen::Vector3d(0, 0, 1)));
-    auto r = rx * ry * rz;
-    Eigen::Affine3d t(Eigen::Translation3d(Eigen::Vector3d(pose->tx, pose->ty, pose->tz)));
-    Eigen::Matrix4d X_tw = (t*r).matrix();
-    Eigen::Matrix4d X_wt = X_tw.inverse();
-    Eigen::Vector4d x_th = (X_wt * x_w.homogeneous());
-    Eigen::Vector3d x_t = x_th.hnormalized();
-
-    // Check if we're inside this track, otherwise this is not the track we
+    // Check if we're inside this object, otherwise this is not the object we
     // are looking for...
-    if (std::fabs(x_t.x())<tt->l/2 && std::fabs(x_t.y())<tt->w/2) {
-      // Are we within res?
-      if ( std::abs(pose->tx - os.x) < kRes_/2 ||
-           std::abs(pose->ty - os.y) < kRes_/2) {
-        return tt->objectType;
-      } else {
-        // TODO decide what to do
-        //return "closeish";
-        return tt->objectType;
-      }
+    double width = label.dimensions[1];
+    double length = label.dimensions[2];
+
+    if (std::fabs(x_object.x())<length/2 && std::fabs(x_object.z())<width/2) { // Yes, z, because in camera frame
+      // TODO inside box or just within kRes_ of center????
+      return kt::ObjectLabel::GetString(label.type);
     }
   }
 
@@ -208,70 +138,29 @@ std::string Trainer::GetTrueClass(kt::Tracklets *tracklets, int frame, const dt:
   return "Background";
 }
 
-std::map<dt::ObjectState, std::string> Trainer::GetTrueClassMap(kt::Tracklets *tracklets, int frame) const {
-  std::map<dt::ObjectState, std::string> map;
+std::vector<Trainer::Sample> Trainer::GetTrainingSamples(const kt::KittiChallengeData &kcd) const {
+  std::vector<Sample> samples;
+  double total_weight = 0;
 
-  // Initialize
   for (const auto &os : states_) {
-    map[os] = "Background";
-  }
-
-  kt::Tracklets::tPose* pose = nullptr;
-
-  for (int t_id=0; t_id<tracklets->numberOfTracklets(); t_id++) {
-    if (!tracklets->isActive(t_id, frame)) {
+    // This is ugly, but check a few times to make sure we're not on the boundary
+    if (!kcd.InCameraView(os.x - 1.0, os.y + 1.0, 0.0)) {
       continue;
     }
 
-    tracklets->getPose(t_id, frame, pose);
-    auto tt = tracklets->getTracklet(t_id);
-
-    Eigen::Affine3d rx(Eigen::AngleAxisd(pose->rx, Eigen::Vector3d(1, 0, 0)));
-    Eigen::Affine3d ry(Eigen::AngleAxisd(pose->ry, Eigen::Vector3d(0, 1, 0)));
-    Eigen::Affine3d rz(Eigen::AngleAxisd(pose->rz, Eigen::Vector3d(0, 0, 1)));
-    auto r = rx * ry * rz;
-    Eigen::Affine3d t(Eigen::Translation3d(Eigen::Vector3d(pose->tx, pose->ty, pose->tz)));
-    Eigen::Matrix4d X_tw = (t*r).matrix();
-    Eigen::Matrix4d X_wt = X_tw.inverse();
-
-    for (auto &kv : map) {
-      const auto &os = kv.first;
-
-      Eigen::Vector3d x_w(os.x, os.y, 0);
-      Eigen::Vector4d x_th = (X_wt * x_w.homogeneous());
-      Eigen::Vector3d x_t = x_th.hnormalized();
-
-      // Check if we're inside this track, otherwise this is not the track we
-      // are looking for...
-      double dx = std::fabs(x_t.x());
-      if (dx < kRes_/2) {
-        dx = 0;
-      }
-
-      double dy = std::fabs(x_t.y());
-      if (dy < kRes_/2) {
-        dy = 0;
-      }
-
-      if (dx < tt->l/2 && dy < tt->w/2) {
-        kv.second = tt->objectType;
-      }
+    if (!kcd.InCameraView(os.x - 1.0, os.y - 1.0, 0.0)) {
+      continue;
     }
-  }
 
-  return map;
-}
+    if (!kcd.InCameraView(os.x + 1.0, os.y + 1.0, 0.0)) {
+      continue;
+    }
 
-std::multiset<Trainer::Sample> Trainer::GetTrainingSamples(kt::Tracklets *tracklets, int frame) const {
-  //std::map<std::string, std::multiset<Sample> > class_samples;
-  std::multiset<Sample> samples;
+    if (!kcd.InCameraView(os.x + 1.0, os.y - 1.0, 0.0)) {
+      continue;
+    }
 
-  auto true_class = GetTrueClassMap(tracklets, frame);
-
-  for (const auto &os : states_) {
-    //std::string classname = Trainer::GetTrueClass(tracklets, frame, os);
-    BOOST_ASSERT(true_class.count(os) > 0);
-    std::string classname = true_class[os];
+    std::string classname = GetTrueClass(kcd, os);
 
     // Is this one of the classes we care about?
     // If not, ignore for now
@@ -283,64 +172,52 @@ std::multiset<Trainer::Sample> Trainer::GetTrainingSamples(kt::Tracklets *trackl
     double p_class = detector_.GetProb(classname, os);
     //auto &samples = class_samples[classname];
 
-    samples.emplace(p_class, os, classname, frame);
-    while (samples.size() > kSamplesPerFrame_) {
-      samples.erase(std::prev(samples.end()));
+    Sample s(p_class, os, classname);
+    samples.push_back(s);
+    total_weight += s.p_wrong;
+  }
+
+  std::random_shuffle(samples.begin(), samples.end());
+  std::vector<Sample> chosen_samples;
+
+  double weight_rollover = total_weight / 100;
+  double weight_at = 0.0;
+  for (const auto &s : samples) {
+    weight_at += s.p_wrong;
+    if (weight_at > weight_rollover) {
+      weight_at -= weight_rollover;
+      chosen_samples.push_back(s);
     }
   }
 
-  //std::multiset<Sample> samples;
-  //for (const auto &kv : class_samples) {
-  //  for (const auto &s : kv.second) {
-  //    samples.insert(s);
-  //  }
-  //}
-
-  return samples;
+  return chosen_samples;
 }
 
-bool Trainer::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
+void Trainer::ProcessFrame(int frame) {
   library::timer::Timer t;
 
-  char fn[1000];
-  sprintf(fn, "%s/2011_09_26/2011_09_26_drive_%04d_sync/velodyne_points/data/%010d.bin",
-      kKittiBaseFilename, log_num, frame);
-
-  if (!fs::exists(fn)) {
-    // no more scans
-    return false;
-  }
-
-  kt::VelodyneScan scan(fn);
+  // Get data
+  kt::KittiChallengeData kcd = kt::KittiChallengeData::LoadFrame(kKittiBaseFilename, frame);
 
   // Run detector
   t.Start();
-  detector_.Run(scan.GetHits());
+  detector_.Run(kcd.GetScan().GetHits());
   printf("\tTook %5.3f ms to run detector\n", t.GetMs());
 
   // Get training samples, find out where it's more wrong
   t.Start();
-  std::multiset<Sample> samples = GetTrainingSamples(tracklets, frame);
+  std::vector<Sample> samples = GetTrainingSamples(kcd);
   printf("\tTook %5.3f ms to get %ld training samples\n", t.GetMs(), samples.size());
-
-  if (samples.size() > 0) {
-    //for (const auto &s : samples) {
-    //  printf("\t\tp_correct = %5.3f (class %s, pos %5.3f, %5.3f)\n",
-    //      s.p_correct * 100, s.classname.c_str(), s.os.x, s.os.y);
-    //}
-    double min_p = samples.begin()->p_correct;
-    double max_p = std::prev(samples.end())->p_correct;
-    printf("\tSamples range from %5.3f%% to %5.3f%%\n", min_p * 100, max_p * 100);
-  }
 
   // Update joint models in detector
   t.Start();
   for (const Sample &s : samples) {
     // Make occ grid
     og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), 0); // TODO rotation
-    auto dog = og_builder_.GenerateOccGridDevice(scan.GetHits());
+    auto dog = og_builder_.GenerateOccGridDevice(kcd.GetScan().GetHits());
 
     detector_.UpdateModel(s.classname, *dog);
+    samples_per_class_[s.classname]++;
 
     // Cleanup
     dog->Cleanup();
@@ -350,28 +227,29 @@ bool Trainer::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
   // If we have a viewer, update render now
   if (viewer_) {
     t.Start();
-    osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);
-    osg::ref_ptr<osgn::Tracklets> tn = new osgn::Tracklets(tracklets, frame);
+    osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(kcd.GetScan());
+    osg::ref_ptr<osgn::ObjectLabels> labels = new osgn::ObjectLabels(kcd.GetLabels(), kcd.GetTcv());
     osg::ref_ptr<MapNode> map_node = new MapNode(detector_);
 
     viewer_->RemoveAllChildren();
     viewer_->AddChild(pc);
-    viewer_->AddChild(tn);
+    viewer_->AddChild(labels);
     viewer_->AddChild(map_node);
 
     // Add samples
     for (const Sample &s : samples) {
       osg::ref_ptr<osgn::ColorfulBox> box
-        = new osgn::ColorfulBox(osg::Vec4(1, 1, 1, 1.0),
+        = new osgn::ColorfulBox(osg::Vec4(1, 1, 1, 0.8),
                                 osg::Vec3(s.os.x, s.os.y, 0.0),
-                                1.0);
+                                detector_.GetResolution());
       viewer_->AddChild(box);
     }
     printf("\tTook %5.3f ms to update viewer\n", t.GetMs());
   }
 
-  // Try to continue to the next frame
-  return true;
+  for (const auto &kv : samples_per_class_) {
+    printf("\t  %10s %10d samples\n", kv.first.c_str(), kv.second);
+  }
 }
 
 } // namespace kitti

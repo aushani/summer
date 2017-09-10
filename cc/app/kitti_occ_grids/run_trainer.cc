@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
   au->addCommandLineOption("--save-dir <dir>", "Save dir", "");
   au->addCommandLineOption("--load-dir <dir>", "Load dir", "");
   au->addCommandLineOption("--epoch <int>", "Starting Epoch", "");
-  au->addCommandLineOption("--log <int>", "Starting Log", "");
+  au->addCommandLineOption("--frame <int>", "Starting Frame", "");
 
   // Start viewer
   std::shared_ptr<vw::Viewer> viewer = std::make_shared<vw::Viewer>(&args);
@@ -52,12 +52,12 @@ int main(int argc, char** argv) {
   int epoch = 0;
   args.read("--epoch", epoch);
 
-  int log_num = 0;
-  args.read("--log", log_num);
+  int frame = 0;
+  args.read("--frame", frame);
 
-  printf("Starting from epoch %d and log %d\n", epoch, log_num);
+  printf("Starting from epoch %d and frame %d\n", epoch, frame);
 
-  trainer.RunBackground(epoch, log_num);
+  trainer.RunBackground(epoch, frame);
 
   viewer->Start();
 

@@ -34,6 +34,7 @@ ObjectLabels ObjectLabel::Load(const char *fn) {
         &label.rotation_y);
 
     label.type = GetType(type);
+    label.ComputeTransforms();
 
     labels.push_back(label);
   }
@@ -121,35 +122,60 @@ const char* ObjectLabel::GetString(const Type &type) {
   return "DontCare";
 }
 
-Eigen::Matrix4d ObjectLabel::LoadVelToCam(const char *fn) {
+void ObjectLabel::LoadCalib(const char *fn, Eigen::Matrix<double, 3, 4> *p, Eigen::Matrix4d *r, Eigen::Matrix4d *t_cv) {
   FILE *f_cc = fopen(fn, "r");
 
-  const char *header = "Tr_velo_to_cam: ";
+  const char *header_p = "P2: "; // according to dascar according to kitti paper
+  const char *header_r = "R0_rect: ";
+  const char *header_t_cv = "Tr_velo_to_cam: ";
+
   char *line = NULL;
   size_t len = 0;
-  double mat[12];
+
+  double mat_r[9];
+  double mat_p[12];
+  double mat_tcv[12];
+
   while (getline(&line, &len, f_cc) != -1) {
-    if (strncmp(header, line, strlen(header)) == 0) {
-      sscanf(&line[strlen(header)],
+    if (strncmp(header_r, line, strlen(header_r)) == 0) {
+      sscanf(&line[strlen(header_r)], "%lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
+              &mat_r[0], &mat_r[1], &mat_r[2], &mat_r[3], &mat_r[4], &mat_r[5], &mat_r[6], &mat_r[7], &mat_r[8]);
+    } else if (strncmp(header_p, line, strlen(header_p)) == 0) {
+      sscanf(&line[strlen(header_p)], "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
+              &mat_p[0], &mat_p[1], &mat_p[2], &mat_p[3], &mat_p[4], &mat_p[5], &mat_p[6], &mat_p[7], &mat_p[8], &mat_p[9], &mat_p[10], &mat_p[11]);
+    } else if (strncmp(header_t_cv, line, strlen(header_t_cv)) == 0) {
+      sscanf(&line[strlen(header_t_cv)],
           "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
-          &mat[0], &mat[1], &mat[2], &mat[3], &mat[4], &mat[5], &mat[6],
-          &mat[7], &mat[8], &mat[9], &mat[10], &mat[11]);
+          &mat_tcv[0], &mat_tcv[1], &mat_tcv[2], &mat_tcv[3], &mat_tcv[4], &mat_tcv[5], &mat_tcv[6],
+          &mat_tcv[7], &mat_tcv[8], &mat_tcv[9], &mat_tcv[10], &mat_tcv[11]);
     }
   }
 
   fclose(f_cc);
 
-  Eigen::Matrix4d T_cv;
-
-  T_cv.setZero();
+  t_cv->setZero();
   for (int i=0; i<3; i++) {
     for (int j=0; j<4; j++) {
-      T_cv(i, j) = mat[i*4 + j];
+      (*t_cv)(i, j) = mat_tcv[i*4 + j];
     }
   }
-  T_cv(3, 3) = 1;
+  (*t_cv)(3, 3) = 1;
 
-  return T_cv;
+  p->setZero();
+  for (int i=0; i<3; i++) {
+    for (int j=0; j<4; j++) {
+      (*p)(i, j) = mat_p[i*4 + j];
+    }
+  }
+
+  r->setZero();
+  for (int i=0; i<3; i++) {
+    for (int j=0; j<3; j++) {
+      (*r)(i, j) = mat_r[i*3 + j];
+    }
+  }
+  (*r)(3, 3) = 1.0;
+
 }
 
 } // namespace kitti
