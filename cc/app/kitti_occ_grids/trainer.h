@@ -54,7 +54,7 @@ class Trainer {
   const char* kKittiBaseFilename = "/home/aushani/data/kitti_challenge/";
   const int kNumFrames = 7481;
   static constexpr double kRes_ = 0.50;                    // 50 cm
-  static constexpr int kSamplesPerFrame_ = 100;
+  static constexpr int kSamplesPerFrame_ = 10;
 
   fs::path save_base_path_;
 
@@ -74,6 +74,9 @@ class Trainer {
 
   std::string GetTrueClass(const kt::KittiChallengeData &kcd, const dt::ObjectState &os) const;
   std::vector<Sample> GetTrainingSamples(const kt::KittiChallengeData &kcd) const;
+
+  static void Train(Trainer *trainer, const kt::KittiChallengeData &kcd, const std::vector<Sample> &samples);
+  static void UpdateViewer(Trainer *trainer, const kt::KittiChallengeData &kcd, const std::vector<Sample> &samples);
 };
 
 } // namespace kitti_occ_grids

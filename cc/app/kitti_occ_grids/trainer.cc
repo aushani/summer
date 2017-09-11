@@ -132,13 +132,21 @@ std::string Trainer::GetTrueClass(const kt::KittiChallengeData &kcd, const dt::O
     double width = label.dimensions[1];
     double length = label.dimensions[2];
 
-    // Add a resolution's worth of buffer
-    double dl = std::fabs(x_object.x()) - kRes_; // Yes, z
-    double dw = std::fabs(x_object.z()) - kRes_;
-    if (dl<length/2 && dw<width/2) {
-      // TODO inside box or just within kRes_ of center????
+    // TODO inside box or just within kRes_ of center????
+
+    double dl = std::fabs(x_object.x()); // Yes, z
+    double dw = std::fabs(x_object.z());
+    if (dl<kRes_/2 && dw<kRes_/2) {
       return kt::ObjectLabel::GetString(label.type);
     }
+
+    // Add a resolution's worth of buffer
+    double dl_buffer = std::fabs(x_object.x()) - kRes_; // Yes, z
+    double dw_buffer = std::fabs(x_object.z()) - kRes_;
+    if (dl_buffer<length/2 && dw_buffer<width/2) {
+      return "Closeish"; // XXX
+    }
+
   }
 
   // This is background
@@ -146,8 +154,8 @@ std::string Trainer::GetTrueClass(const kt::KittiChallengeData &kcd, const dt::O
 }
 
 std::vector<Trainer::Sample> Trainer::GetTrainingSamples(const kt::KittiChallengeData &kcd) const {
-  std::vector<Sample> samples;
-  double total_weight = 0;
+  std::map<std::string, std::vector<Sample> > samples;
+  std::map<std::string, double > total_weight;
 
   for (const auto &os : states_) {
     // This is ugly, but check a few times to make sure we're not on the boundary
@@ -184,24 +192,77 @@ std::vector<Trainer::Sample> Trainer::GetTrainingSamples(const kt::KittiChalleng
     double p_class = detector_.GetProb(classname, os);
 
     Sample s(p_class, os, classname);
-    samples.push_back(s);
-    total_weight += s.p_wrong;
+    samples[classname].push_back(s);
+    total_weight[classname] += s.p_wrong;
   }
 
-  std::random_shuffle(samples.begin(), samples.end());
   std::vector<Sample> chosen_samples;
 
-  double weight_rollover = total_weight / 100;
-  double weight_at = 0.0;
-  for (const auto &s : samples) {
-    weight_at += s.p_wrong;
-    if (weight_at > weight_rollover) {
-      weight_at -= weight_rollover;
+  for (auto &kv : samples) {
+    std::vector<Sample> &class_samples = kv.second;
+    if (class_samples.size() < kSamplesPerFrame_) {
+      for (const auto &s : class_samples) {
       chosen_samples.push_back(s);
+      }
+    } else {
+      std::random_shuffle(class_samples.begin(), class_samples.end());
+
+      double weight_rollover = total_weight[kv.first] / kSamplesPerFrame_;
+      double weight_at = 0.0;
+      for (const auto &s : class_samples) {
+        weight_at += s.p_wrong;
+        if (weight_at > weight_rollover) {
+          weight_at -= weight_rollover;
+          chosen_samples.push_back(s);
+        }
+      }
     }
   }
 
+
   return chosen_samples;
+}
+
+void Trainer::UpdateViewer(Trainer *trainer, const kt::KittiChallengeData &kcd, const std::vector<Sample> &samples) {
+  if (trainer->viewer_) {
+    library::timer::Timer t;
+    osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(kcd.GetScan());
+    osg::ref_ptr<osgn::ObjectLabels> labels = new osgn::ObjectLabels(kcd.GetLabels(), kcd.GetTcv());
+    osg::ref_ptr<MapNode> map_node = new MapNode(trainer->detector_);
+
+    trainer->viewer_->RemoveAllChildren();
+    trainer->viewer_->AddChild(pc);
+    trainer->viewer_->AddChild(labels);
+    trainer->viewer_->AddChild(map_node);
+
+    // Add samples
+    for (const Sample &s : samples) {
+      osg::ref_ptr<osgn::ColorfulBox> box
+        = new osgn::ColorfulBox(osg::Vec4(1, 1, 1, 0.8),
+                                osg::Vec3(s.os.x, s.os.y, 0.0),
+                                trainer->detector_.GetResolution());
+      trainer->viewer_->AddChild(box);
+    }
+    printf("\tTook %9.3f ms to update viewer\n", t.GetMs());
+  }
+}
+
+void Trainer::Train(Trainer *trainer, const kt::KittiChallengeData &kcd, const std::vector<Sample> &samples) {
+  library::timer::Timer t;
+
+  // Update joint models in detector
+  for (const Sample &s : samples) {
+    // Make occ grid
+    trainer->og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), 0); // TODO rotation
+    auto dog = trainer->og_builder_.GenerateOccGridDevice(kcd.GetScan().GetHits());
+
+    trainer->detector_.UpdateModel(s.classname, *dog);
+    trainer->samples_per_class_[s.classname]++;
+
+    // Cleanup
+    dog->Cleanup();
+  }
+  printf("\tTook %9.3f ms to update joint models\n", t.GetMs());
 }
 
 void Trainer::ProcessFrame(int frame) {
@@ -220,46 +281,15 @@ void Trainer::ProcessFrame(int frame) {
   std::vector<Sample> samples = GetTrainingSamples(kcd);
   printf("\tTook %9.3f ms to get %ld training samples\n", t.GetMs(), samples.size());
 
-  // Update joint models in detector
-  t.Start();
-  for (const Sample &s : samples) {
-    // Make occ grid
-    og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), 0); // TODO rotation
-    auto dog = og_builder_.GenerateOccGridDevice(kcd.GetScan().GetHits());
+  // Start threads
+  std::thread train_thread(&Trainer::Train, this, kcd, samples);
+  std::thread viewer_thread(&Trainer::UpdateViewer, this, kcd, samples);
 
-    detector_.UpdateModel(s.classname, *dog);
-    samples_per_class_[s.classname]++;
-
-    // Cleanup
-    dog->Cleanup();
-  }
-  printf("\tTook %9.3f ms to update joint models\n", t.GetMs());
-
-  // If we have a viewer, update render now
-  if (viewer_) {
-    t.Start();
-    osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(kcd.GetScan());
-    osg::ref_ptr<osgn::ObjectLabels> labels = new osgn::ObjectLabels(kcd.GetLabels(), kcd.GetTcv());
-    osg::ref_ptr<MapNode> map_node = new MapNode(detector_);
-
-    viewer_->RemoveAllChildren();
-    viewer_->AddChild(pc);
-    viewer_->AddChild(labels);
-    viewer_->AddChild(map_node);
-
-    // Add samples
-    for (const Sample &s : samples) {
-      osg::ref_ptr<osgn::ColorfulBox> box
-        = new osgn::ColorfulBox(osg::Vec4(1, 1, 1, 0.8),
-                                osg::Vec3(s.os.x, s.os.y, 0.0),
-                                detector_.GetResolution());
-      viewer_->AddChild(box);
-    }
-    printf("\tTook %9.3f ms to update viewer\n", t.GetMs());
-  }
+  viewer_thread.join();
+  train_thread.join();
 
   for (const auto &kv : samples_per_class_) {
-    printf("\t  %15s %10d samples\n", kv.first.c_str(), kv.second);
+    printf("\t  %15s %10d total samples so far\n", kv.first.c_str(), kv.second);
   }
 }
 
