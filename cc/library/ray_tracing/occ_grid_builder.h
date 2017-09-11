@@ -51,6 +51,8 @@ class OccGridBuilder {
   bool max_dimension_valid_ = false;
 
   std::unique_ptr<DeviceData> device_data_;
+
+  size_t ProcessData(const std::vector<Eigen::Vector3d> &hits);
 };
 
 } // namespace ray_tracing

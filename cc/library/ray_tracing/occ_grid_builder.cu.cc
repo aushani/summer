@@ -299,17 +299,8 @@ void OccGridBuilder::SetPose(const Eigen::Vector3d &pos, float theta) {
   device_data_->pose_theta = theta;
 }
 
-OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits) {
+size_t OccGridBuilder::ProcessData(const std::vector<Eigen::Vector3d> &hits) {
   //library::timer::Timer t;
-
-  BOOST_ASSERT(hits.size() <= max_observations_);
-
-  // Check for empty data
-  if (hits.size() == 0) {
-    std::vector<Location> location_vector;
-    std::vector<float> lo_vector;
-    return OccGrid(location_vector, lo_vector, resolution_);
-  }
 
   // First, we need to send the data to the GPU device
   //t.Start();
@@ -362,13 +353,31 @@ OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits
   num_updates = new_ends.first - dp_locs_reduced;
   //printf("\tTook %5.3f to reduce\n", t.GetMs());
 
+  return num_updates;
+}
+
+OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits) {
+  //library::timer::Timer t;
+
+  BOOST_ASSERT(hits.size() <= max_observations_);
+
+  // Check for empty data
+  if (hits.size() == 0) {
+    std::vector<Location> location_vector;
+    std::vector<float> lo_vector;
+    return OccGrid(location_vector, lo_vector, resolution_);
+  }
+
+  size_t num_updates = ProcessData(hits);
+
   // Copy result from GPU device to host
   //t.Start();
   std::vector<Location> location_vector(num_updates);
   std::vector<float> lo_vector(num_updates);
-  cudaMemcpy(location_vector.data(), dp_locs_reduced.get(), sizeof(Location) * num_updates, cudaMemcpyDeviceToHost);
-  cudaMemcpy(lo_vector.data(), dp_lo_reduced.get(), sizeof(float) * num_updates, cudaMemcpyDeviceToHost);
-  err = cudaDeviceSynchronize();
+  cudaMemcpy(location_vector.data(), device_data_->locations_reduced, sizeof(Location) * num_updates, cudaMemcpyDeviceToHost);
+  cudaMemcpy(lo_vector.data(), device_data_->log_odds_updates_reduced, sizeof(float) * num_updates, cudaMemcpyDeviceToHost);
+  cudaError_t err = cudaDeviceSynchronize();
+  BOOST_ASSERT(err == cudaSuccess);
   //printf("\tTook %5.3f to copy to host\n", t.GetMs());
 
   return OccGrid(location_vector, lo_vector, resolution_);
@@ -384,58 +393,9 @@ std::shared_ptr<DeviceOccGrid> OccGridBuilder::GenerateOccGridDevice(const std::
     return nullptr;
   }
 
-  // First, we need to send the data to the GPU device
-  //t.Start();
-  device_data_->CopyData(hits);
-  //printf("\tTook %5.3f ms to copy data\n", t.GetMs());
+  size_t num_updates = ProcessData(hits);
 
-  // Now run ray tracing on the GPU device
-  //t.Start();
-  int blocks = ceil(static_cast<float>(device_data_->num_observations) / kThreadsPerBlock_);
-  RayTracingKernel<<<blocks, kThreadsPerBlock_>>>(*device_data_);
-  cudaError_t err = cudaDeviceSynchronize();
-  BOOST_ASSERT(err == cudaSuccess);
-  //printf("\tTook %5.3f ms to run kernel\n", t.GetMs());
-
-  // Accumulate all the updates
-  size_t num_updates = device_data_->num_observations * device_data_->max_voxel_visits_per_ray;
-
-  // First prune unnecessary updates
-  //t.Start();
-  thrust::device_ptr<Location> dp_locations(device_data_->locations);
-  thrust::device_ptr<float> dp_updates(device_data_->log_odds_updates);
-
-  auto dp_locations_end = thrust::remove_if(dp_locations, dp_locations + num_updates, dp_updates, NoUpdate());
-  auto dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, NoUpdate());
-  //printf("\tTook %5.3f to prune from %ld to %ld\n", t.GetMs(), num_updates, dp_locations_end - dp_locations);
-  num_updates = dp_locations_end - dp_locations;
-
-  // Prune updates that are out of range
-  if (max_dimension_valid_) {
-    //t.Start();
-    OutOfRange oor(max_i_, max_j_, max_k_);
-    auto dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, dp_locations, oor);
-    auto dp_locations_end = thrust::remove_if(dp_locations, dp_locations + num_updates, oor);
-    //printf("\tTook %5.3f to enfore in range (%ld->%ld)\n",
-    //       t.GetMs(), num_updates, dp_locations_end - dp_locations);
-    num_updates = dp_locations_end - dp_locations;
-  }
-
-  // Now reduce updates to resulting log odds
-  //t.Start();
-  thrust::sort_by_key(dp_locations, dp_locations + num_updates, dp_updates);
-  //printf("\tTook %5.3f to sort\n", t.GetMs());
-
-  //t.Start();
-  thrust::device_ptr<Location> dp_locs_reduced(device_data_->locations_reduced);
-  thrust::device_ptr<float> dp_lo_reduced(device_data_->log_odds_updates_reduced);
-
-  thrust::pair<thrust::device_ptr<Location>, thrust::device_ptr<float> > new_ends = thrust::reduce_by_key(
-      dp_locations, dp_locations + num_updates, dp_updates, dp_locs_reduced, dp_lo_reduced);
-  num_updates = new_ends.first - dp_locs_reduced;
-  //printf("\tTook %5.3f to reduce\n", t.GetMs());
-
-  return std::shared_ptr<DeviceOccGrid>(new DeviceOccGrid(dp_locs_reduced, dp_lo_reduced, num_updates, resolution_));
+  return std::make_shared<DeviceOccGrid>(device_data_->locations_reduced, device_data_->log_odds_updates_reduced , num_updates, resolution_);
 }
 
 }  // namespace ray_tracing
