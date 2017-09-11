@@ -47,6 +47,8 @@ class Detector {
   float GetNX() const;
   float GetNY() const;
 
+  const std::vector<std::string>& GetClasses() const;
+
  private:
   static constexpr int kThreadsPerBlock_ = 128;
 

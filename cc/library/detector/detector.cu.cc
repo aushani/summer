@@ -318,5 +318,9 @@ float Detector::GetNY() const {
   return n_y_;
 }
 
+const std::vector<std::string>& Detector::GetClasses() const {
+  return classnames_;
+}
+
 } // namespace ray_tracing
 } // namespace library

@@ -12,6 +12,7 @@
 #include "library/viewer/viewer.h"
 
 #include "app/kitti_occ_grids/map_node.h"
+#include "app/kitti_occ_grids/detector_handler.h"
 
 namespace dt = library::detector;
 namespace kt = library::kitti;
@@ -103,6 +104,9 @@ int main(int argc, char** argv) {
   printf("Took %5.3f ms to run detector\n", t.GetMs());
 
   vw::Viewer v(&args);
+
+  osg::ref_ptr<kog::DetectorHandler> dh = new kog::DetectorHandler(detector);
+  v.AddHandler(dh);
 
   osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(kcd.GetScan());
   osg::ref_ptr<osgn::ObjectLabels> ln = new osgn::ObjectLabels(kcd.GetLabels(), kcd.GetTcv());

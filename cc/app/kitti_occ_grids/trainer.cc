@@ -228,7 +228,7 @@ void Trainer::UpdateViewer(Trainer *trainer, const kt::KittiChallengeData &kcd, 
     library::timer::Timer t;
     osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(kcd.GetScan());
     osg::ref_ptr<osgn::ObjectLabels> labels = new osgn::ObjectLabels(kcd.GetLabels(), kcd.GetTcv());
-    osg::ref_ptr<MapNode> map_node = new MapNode(trainer->detector_);
+    osg::ref_ptr<MapNode> map_node = new MapNode(trainer->detector_, kcd);
 
     trainer->viewer_->RemoveAllChildren();
     trainer->viewer_->AddChild(pc);
