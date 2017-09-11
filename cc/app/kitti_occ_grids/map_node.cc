@@ -7,9 +7,9 @@ namespace osgn = library::osg_nodes;
 namespace app {
 namespace kitti_occ_grids {
 
-MapNode::MapNode(const dt::Detector &detector) : osg::Group() {
+MapNode::MapNode(const dt::Detector &detector, const kt::KittiChallengeData &kcd) : osg::Group() {
   // Get image
-  osg::ref_ptr<osg::Image> im = GetImage(detector);
+  osg::ref_ptr<osg::Image> im = GetImage(detector, kcd);
 
   // Now set up render
   osg::ref_ptr<osg::Texture2D> texture = new osg::Texture2D();
@@ -39,9 +39,9 @@ MapNode::MapNode(const dt::Detector &detector) : osg::Group() {
   addChild(map_image);
 }
 
-osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector) const {
+osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const kt::KittiChallengeData &kcd) const {
   const double min = 0;
-  const double max = 1;
+  const double max = 20;
   const double range = max - min;
 
   const int width = detector.GetNX();
@@ -53,14 +53,15 @@ osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector) const {
 
   for (int i = 0; i < width; i++) {
     for (int j = 0; j < height; j++) {
-      double x = (i - width/2) * detector.GetResolution();
-      double y = (j - height/2) * detector.GetResolution();
+      // +1 weirdness... osg being strange?
+      double x = (i + 1 - width/2.0) * detector.GetResolution();
+      double y = (j + 1 - height/2.0) * detector.GetResolution();
 
       dt::ObjectState os(x, y, 0);
 
-      double p_car = detector.GetProb("Car", os);
-      double p_cyclist = detector.GetProb("Cyclist", os);
-      double p_pedestrian = detector.GetProb("Pedestrian", os);
+      double p_car = detector.GetLogOdds("Car", os);
+      double p_cyclist = detector.GetLogOdds("Cyclist", os);
+      double p_pedestrian = detector.GetLogOdds("Pedestrian", os);
 
       double r = (p_car-min) / range;
       double g = (p_cyclist-min) / range;
@@ -79,6 +80,21 @@ osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector) const {
 
       im->setColor(color, i, j, 0);
     }
+  }
+
+  Eigen::Matrix4d t_cv = kcd.GetTcv().inverse();
+  for (const auto &label : kcd.GetLabels()) {
+    Eigen::Vector4d center_camera(label.location[0], label.location[1], label.location[2], 1.0);
+    Eigen::Vector3d center_vel = (t_cv * center_camera).hnormalized();
+
+    int i = std::round(center_vel.x()/detector.GetResolution() + width/2.0) - 1;
+    int j = std::round(center_vel.y()/detector.GetResolution() + height/2.0) - 1;
+
+    if (i < 0 || i >= width || j < 0 || j >= height) {
+      continue;
+    }
+
+    im->setColor(osg::Vec4(1, 1, 1, 1), i, j, 0);
   }
 
   return im;
