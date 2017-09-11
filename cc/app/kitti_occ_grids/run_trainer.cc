@@ -25,9 +25,6 @@ int main(int argc, char** argv) {
   au->addCommandLineOption("--frame <int>", "Starting Frame", "");
   au->addCommandLineOption("--no-gui", "Run headless", "");
 
-  // Start viewer
-  std::shared_ptr<vw::Viewer> viewer = std::make_shared<vw::Viewer>(&args);
-
   // handle help text
   // call AFTER init viewer so key bindings have been set
   unsigned int helpType = 0;
@@ -48,10 +45,6 @@ int main(int argc, char** argv) {
     gui = false;
   }
 
-  if (gui) {
-    trainer.SetViewer(viewer);
-  }
-
   std::string load_dir = "";
   if (args.read("--load-dir", load_dir)) {
     printf("Loading models from %s\n", load_dir.c_str());
@@ -67,6 +60,9 @@ int main(int argc, char** argv) {
   printf("Starting from epoch %d and frame %d\n", epoch, frame);
 
   if (gui) {
+    // Start viewer
+    std::shared_ptr<vw::Viewer> viewer = std::make_shared<vw::Viewer>(&args);
+    trainer.SetViewer(viewer);
     trainer.RunBackground(epoch, frame);
     viewer->Start();
   } else {

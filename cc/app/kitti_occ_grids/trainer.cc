@@ -81,7 +81,7 @@ void Trainer::Run(int first_epoch, int first_frame) {
 
   while (true) {
     library::timer::Timer t;
-    for (int frame = starting_frame; frame <= kNumFrames; frame++) {
+    for (int frame = starting_frame; frame < kNumFrames; frame++) {
       t.Start();
       ProcessFrame(frame);
       printf("  Processed frame %04d in %9.3f sec\n", frame, t.GetSeconds());
