@@ -295,6 +295,14 @@ float Detector::GetLogOdds(const std::string &classname, const ObjectState &os) 
   double prob = GetProb(classname, os);
   double lo = -std::log(1/prob - 1);
 
+  if (lo > 40) {
+    lo = 40;
+  }
+
+  if (lo < -40) {
+    lo = -40;
+  }
+
   return lo;
 }
 
