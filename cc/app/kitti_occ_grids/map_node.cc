@@ -40,7 +40,7 @@ MapNode::MapNode(const dt::Detector &detector, const kt::KittiChallengeData &kcd
 }
 
 osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const kt::KittiChallengeData &kcd) const {
-  const double min = 0;
+  const double min = 3;
   const double max = 20;
   const double range = max - min;
 

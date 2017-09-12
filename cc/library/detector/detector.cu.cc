@@ -27,24 +27,24 @@ struct DeviceData {
     }
   }
 
-  void AddModel(const clt::JointModel &jm, float range_x, float range_y, float log_prior) {
+  void AddModel(const clt::MarginalModel &mm, float range_x, float range_y, float log_prior, int threads) {
     //printf("Adding model...\n");
-    models.emplace_back(jm);
+    models.emplace_back(mm);
 
     //printf("Adding scores...\n");
-    scores.emplace_back(jm.GetResolution(), range_x, range_y, log_prior);
+    scores.emplace_back(mm.GetResolution(), range_x, range_y, log_prior, threads);
   }
 
-  void UpdateModel(int i, const clt::JointModel &jm) {
-    models[i].BuildModel(jm);
+  void UpdateModel(int i, const clt::MarginalModel &mm) {
+    models[i].BuildModel(mm);
   }
 
   void UpdateModel(int i, const rt::DeviceOccGrid &dog) {
     models[i].UpdateModel(dog);
   }
 
-  void LoadIntoJointModel(int i, clt::JointModel *jm) {
-    models[i].LoadIntoJointModel(jm);
+  void LoadIntoMarginalModel(int i, clt::MarginalModel *mm) {
+    models[i].LoadIntoMarginalModel(mm);
   }
 
   size_t NumModels() const {
@@ -66,8 +66,8 @@ Detector::~Detector() {
   device_data_->Cleanup();
 }
 
-void Detector::AddModel(const std::string &classname, const clt::JointModel &jm, float log_prior) {
-  device_data_->AddModel(jm, range_x_, range_y_, log_prior);
+void Detector::AddModel(const std::string &classname, const clt::MarginalModel &mm, float log_prior) {
+  device_data_->AddModel(mm, range_x_, range_y_, log_prior, kScoringThreads_);
   classnames_.push_back(classname);
 }
 
@@ -84,11 +84,11 @@ int Detector::GetModelIndex(const std::string &classname) const {
 }
 
 
-void Detector::UpdateModel(const std::string &classname, const clt::JointModel &jm) {
+void Detector::UpdateModel(const std::string &classname, const clt::MarginalModel &mm) {
   int idx = GetModelIndex(classname);
   BOOST_ASSERT(idx >= 0);
 
-  device_data_->UpdateModel(idx, jm);
+  device_data_->UpdateModel(idx, mm);
 }
 
 void Detector::UpdateModel(const std::string &classname, const rt::DeviceOccGrid &dog) {
@@ -98,51 +98,22 @@ void Detector::UpdateModel(const std::string &classname, const rt::DeviceOccGrid
   device_data_->UpdateModel(idx, dog);
 }
 
-void Detector::LoadIntoJointModel(const std::string &classname, clt::JointModel *jm) const {
+void Detector::LoadIntoMarginalModel(const std::string &classname, clt::MarginalModel *mm) const {
   int idx = GetModelIndex(classname);
   BOOST_ASSERT(idx >= 0);
 
-  device_data_->LoadIntoJointModel(idx, jm);
+  device_data_->LoadIntoMarginalModel(idx, mm);
 }
 
-
-struct LocsBuffer {
-  static constexpr int kNumLocs = 10;
-
-  rt::Location locs[kNumLocs];
-  int idx_at = 0;
-  bool all_valid = false;
-
-  __device__ void Mark(const rt::Location &loc) {
-    locs[idx_at] = loc;
-
-    idx_at++;
-    if (idx_at >= kNumLocs) {
-      idx_at = 0;
-      all_valid = true;
-    }
-  }
-
-  __device__ int NumValid() const {
-    return all_valid ? kNumLocs:idx_at;
-  }
-
-  __device__ const rt::Location& Get(int i) const {
-    return locs[i];
-  }
-};
-
-__global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel model, const DeviceScores scores) {
+__global__ void Evaluate(const rt::DeviceOccGrid dog, const DeviceModel model, const DeviceScores scores) {
   const int bidx = blockIdx.x;
   const int tidx = threadIdx.x;
-  const int threads = blockDim.x;
+  const int tidy = threadIdx.y;
 
-  const int idx = tidx + bidx * threads;
-  if (!scores.InRange(idx)) {
+  const int scoring_thread_idx = bidx;
+  if (scoring_thread_idx >= scores.scoring_threads) {
     return;
   }
-
-  ObjectState os = scores.GetState(idx);
 
   int min_ij = -(model.n_xy/2);
   int max_ij = min_ij + model.n_xy;
@@ -150,97 +121,77 @@ __global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel mo
   int min_k = -(model.n_z/2);
   int max_k = min_k + model.n_z;
 
-  float log_p = 0;
-  float total_mi = 0;
+  for (int voxel_idx = scoring_thread_idx; voxel_idx < dog.size; voxel_idx+=scores.scoring_threads) {
 
-  LocsBuffer locs_seen;
+    // Get the voxel we're looking at
+    rt::Location &loc_global = dog.locs[voxel_idx];
+    bool occ = dog.los[voxel_idx] > 0;
 
-  for (int i=min_ij; i < max_ij; i++) {
-    for (int j=min_ij; j < max_ij; j++) {
-      for (int k=min_k; k < max_k; k++) {
-        rt::Location loc(i, j, k);
+    // Check k
+    if (loc_global.k < min_k || loc_global.k >= max_k) {
+      continue;
+    }
 
-        // TODO transform
-        rt::Location loc_global(loc.i + os.x/model.res, loc.j + os.y/model.res, loc.k);
+    // Update
+    int di = tidx + min_ij;
+    int dj = tidy + min_ij;
 
-        if (!ddog.IsKnown(loc_global)) {
-          continue;
-        }
+    if (di < max_ij && dj < max_ij) {
+      int i = loc_global.i + di;
+      int j = loc_global.j + dj;
 
-        // Search through locs for best dependency
-        rt::Location best_loc;
-        float best_mi = 0;
-        for (int i=0; i<locs_seen.NumValid(); i++) {
-          const auto &loc_prev = locs_seen.Get(i);
+      ObjectState os(i*model.res, j*model.res, 0);
+      size_t idx = scores.GetThreadIndex(os, scoring_thread_idx);
 
-          // Get mi
-          float mi = model.GetMutualInformation(loc, loc_prev);
+      if (idx > 0) {
+        rt::Location loc_model(-di, -dj, loc_global.k);
+        float update = model.GetLogP(loc_model, occ);
 
-          if (mi > best_mi) {
-            best_mi = mi;
-            best_loc = loc_prev;
-          }
-        }
-
-        bool occ = ddog.IsOccu(loc_global);
-
-        if (best_mi > 0) {
-          // TODO transform
-          rt::Location loc_prev_global(best_loc.i + os.x/model.res, best_loc.j + os.y/model.res, best_loc.k);
-          bool occ_prev = ddog.IsOccu(loc_prev_global);
-
-          log_p += model.GetLogP(loc, occ, best_loc, occ_prev);
-          total_mi += best_mi;
-        } else {
-          log_p += model.GetLogP(loc, occ);
-        }
-
-        locs_seen.Mark(loc);
+        scores.d_scores_thread[idx] += update;
       }
     }
+
+    // Sync
+    __syncthreads();
   }
-
-  scores.d_scores[idx] = log_p;
-
-  //printf("total mi: %5.3f\n", total_mi);
 }
 
 void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
-  library::timer::Timer t;
+  //library::timer::Timer t;
 
-  t.Start();
+  //t.Start();
   auto dog = og_builder_.GenerateOccGridDevice(hits);
-  //printf("Took %5.3f ms to build device occ grid\n", t.GetMs());
+  //printf("\tTook %5.3f ms to build device occ grid with %d voxels\n", t.GetMs(), dog->size);
 
   cudaError_t err = cudaDeviceSynchronize();
   BOOST_ASSERT(err == cudaSuccess);
 
-  t.Start();
-  rt::DeviceDenseOccGrid ddog(*dog, 50.0, 2.0);
-  //printf("Made Device Dense Occ Grid in %5.3f ms\n", t.GetMs());
-
-  err = cudaDeviceSynchronize();
-  BOOST_ASSERT(err == cudaSuccess);
-
   for (int i=0; i<device_data_->NumModels(); i++) {
-    //printf("\tApplying Model %d\n", i);
-
     auto &model = device_data_->models[i];
     auto &scores = device_data_->scores[i];
     scores.Reset();
 
-    int threads = kThreadsPerBlock_;
-    int blocks = scores.Size() / threads + 1;
+    int blocks = kScoringThreads_;
+    dim3 blockDim;
+    blockDim.x = 32;
+    blockDim.y = 32;
+    BOOST_ASSERT(model.n_xy <= 32);
 
-    Evaluate<<<blocks, threads>>>(ddog, model, scores);
-
+    //t.Start();
+    Evaluate<<<blocks, blockDim>>>(*dog, model, scores);
     err = cudaDeviceSynchronize();
+    //printf("\t\tTook %5.3f ms to apply %dx%dx%d model %s with %dx%d threads and %d blocks\n",
+    //    t.GetMs(), model.n_xy, model.n_xy, model.n_z, classnames_[i].c_str(), blockDim.x, blockDim.y, blocks);
+
     BOOST_ASSERT(err == cudaSuccess);
+
+    //t.Start();
+    scores.Reduce();
+    //printf("\t\tTook %5.3f ms to reduce scores\n", t.GetMs());
 
     scores.CopyToHost();
   }
 
-  ddog.Cleanup();
   dog->Cleanup();
 }
 

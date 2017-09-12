@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
   kt::KittiChallengeData kcd = kt::KittiChallengeData::LoadFrame(dirname, frame_num);
 
   // Detector
-  dt::Detector detector(0.5, 50, 50);
+  dt::Detector detector(0.3, 50, 50);
 
   // Load models
   printf("loading models from %s\n", model_dir.c_str());
@@ -80,8 +80,8 @@ int main(int argc, char** argv) {
       continue;
     }
 
-    // Make sure it's a joint model
-    if (fs::extension(it->path()) != ".jm") {
+    // Make sure it's a marginal model
+    if (fs::extension(it->path()) != ".mm") {
       continue;
     }
 
@@ -93,8 +93,8 @@ int main(int argc, char** argv) {
 
     printf("Found %s\n", classname.c_str());
 
-    clt::JointModel jm = clt::JointModel::Load(it->path().string().c_str());
-    detector.AddModel(classname, jm);
+    clt::MarginalModel mm = clt::MarginalModel::Load(it->path().string().c_str());
+    detector.AddModel(classname, mm);
   }
   printf("Loaded all models\n");
 

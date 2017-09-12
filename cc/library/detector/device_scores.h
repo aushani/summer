@@ -14,13 +14,18 @@ namespace detector {
 struct DeviceScores {
   float *h_scores = nullptr;
   float *d_scores = nullptr;
+
   int n_x = 0;
   int n_y = 0;
+  size_t num_pos = 0;
   float res = 0;
 
   float log_prior = 0;
 
-  DeviceScores(float r, float range_x, float range_y, float log_prior);
+  float *d_scores_thread = nullptr;
+  int scoring_threads = 0;
+
+  DeviceScores(float r, float range_x, float range_y, float log_prior, int threads);
 
   void Cleanup();
 
@@ -49,8 +54,8 @@ struct DeviceScores {
     int dix = ix - n_x/2;
     int diy = iy - n_y/2;
 
-    float x = dix * res;
-    float y = diy * res;
+    float x = dix * res + res/2;
+    float y = diy * res + res/2;
 
     return ObjectState(x, y, 0);
   }
@@ -66,6 +71,17 @@ struct DeviceScores {
     size_t idx = ix * n_y + iy;
     return idx;
   }
+
+  CUDA_CALLABLE int GetThreadIndex(const ObjectState &os, int thread) const {
+    if (thread < 0 || thread >= scoring_threads) {
+      return -1;
+    }
+
+    size_t idx = GetIndex(os);
+    return thread*num_pos + idx;
+  }
+
+  void Reduce();
 };
 
 } // namespace ray_tracing

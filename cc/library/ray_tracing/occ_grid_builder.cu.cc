@@ -395,7 +395,7 @@ std::shared_ptr<DeviceOccGrid> OccGridBuilder::GenerateOccGridDevice(const std::
 
   size_t num_updates = ProcessData(hits);
 
-  return std::make_shared<DeviceOccGrid>(device_data_->locations_reduced, device_data_->log_odds_updates_reduced , num_updates, resolution_);
+  return std::make_shared<DeviceOccGrid>(device_data_->locations_reduced, device_data_->log_odds_updates_reduced, num_updates, resolution_);
 }
 
 }  // namespace ray_tracing

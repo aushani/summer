@@ -23,12 +23,14 @@ Trainer::Trainer(const std::string &save_base_fn) :
  og_builder_(200000, kRes_, 100.0) {
 
   // Configure occ grid builder size
-  og_builder_.ConfigureSizeInPixels(7, 7, 5);
+  int pixels_xy = std::ceil(kModelXY_ / kRes_);
+  int pixels_z = std::ceil(kModelZ_ / kRes_);
+  og_builder_.ConfigureSizeInPixels(pixels_xy, pixels_xy, pixels_z);
 
-  models_.insert({"Car", clt::JointModel(3.0, 2.0, kRes_)});
-  models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
-  models_.insert({"Pedestrian", clt::JointModel(3.0, 2.0, kRes_)});
-  models_.insert({"Background", clt::JointModel(3.0, 2.0, kRes_)});
+  models_.insert({"Car",        clt::MarginalModel(kModelXY_, kModelZ_, kRes_)});
+  models_.insert({"Cyclist",    clt::MarginalModel(kModelXY_, kModelZ_, kRes_)});
+  models_.insert({"Pedestrian", clt::MarginalModel(kModelXY_, kModelZ_, kRes_)});
+  models_.insert({"Background", clt::MarginalModel(kModelXY_, kModelZ_, kRes_)});
 
   for (const auto &kv : models_) {
     detector_.AddModel(kv.first, kv.second);
@@ -53,7 +55,7 @@ void Trainer::LoadFrom(const std::string &load_base_dir) {
     }
 
     // Make sure it's a joint model
-    if (fs::extension(it->path()) != ".jm") {
+    if (fs::extension(it->path()) != ".mm") {
       continue;
     }
 
@@ -64,9 +66,9 @@ void Trainer::LoadFrom(const std::string &load_base_dir) {
     }
 
     printf("Found %s\n", classname.c_str());
-    clt::JointModel jm = clt::JointModel::Load(it->path().string().c_str());
+    clt::MarginalModel mm = clt::MarginalModel::Load(it->path().string().c_str());
 
-    detector_.UpdateModel(classname, jm);
+    detector_.UpdateModel(classname, mm);
   }
   printf("Loaded all models\n");
 }
@@ -93,10 +95,10 @@ void Trainer::Run(int first_epoch, int first_frame) {
         fs::path dir = save_base_path_ / (boost::format("%|04|_%|06|") % epoch % frame).str();
         fs::create_directories(dir);
         for (auto &kv : models_) {
-          fs::path fn = dir / (kv.first + ".jm");
+          fs::path fn = dir / (kv.first + ".mm");
 
           // Load back from detector
-          detector_.LoadIntoJointModel(kv.first, &kv.second);
+          detector_.LoadIntoMarginalModel(kv.first, &kv.second);
 
           // Now save
           kv.second.Save(fn.string().c_str());
@@ -207,18 +209,11 @@ std::vector<Trainer::Sample> Trainer::GetTrainingSamples(const kt::KittiChalleng
     } else {
       std::random_shuffle(class_samples.begin(), class_samples.end());
 
-      double weight_rollover = total_weight[kv.first] / kSamplesPerFrame_;
-      double weight_at = 0.0;
-      for (const auto &s : class_samples) {
-        weight_at += s.p_wrong;
-        if (weight_at > weight_rollover) {
-          weight_at -= weight_rollover;
-          chosen_samples.push_back(s);
-        }
+      for (int i=0; i<kSamplesPerFrame_; i++) {
+        chosen_samples.push_back(class_samples[i]);
       }
     }
   }
-
 
   return chosen_samples;
 }

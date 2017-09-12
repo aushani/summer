@@ -53,7 +53,9 @@ class Trainer {
 
   const char* kKittiBaseFilename = "/home/aushani/data/kitti_challenge/";
   const int kNumFrames = 7481;
-  static constexpr double kRes_ = 0.50;                    // 50 cm
+  static constexpr double kRes_ = 0.30;                    // 30 cm
+  static constexpr double kModelXY_ = 3.0;
+  static constexpr double kModelZ_ = 2.0;
   static constexpr int kSamplesPerFrame_ = 10;
 
   fs::path save_base_path_;
@@ -63,7 +65,7 @@ class Trainer {
   dt::Detector detector_;
   rt::OccGridBuilder og_builder_;
 
-  std::map<std::string, clt::JointModel> models_;
+  std::map<std::string, clt::MarginalModel> models_;
   std::map<std::string, int> samples_per_class_;
 
   std::vector<dt::ObjectState> states_;

@@ -3,7 +3,7 @@
 #include <memory>
 #include <Eigen/Core>
 
-#include "library/chow_liu_tree/joint_model.h"
+#include "library/chow_liu_tree/marginal_model.h"
 #include "library/ray_tracing/device_occ_grid.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 
@@ -25,11 +25,11 @@ class Detector {
   Detector(float res, float range_x, float range_y);
   ~Detector();
 
-  void AddModel(const std::string &classname, const clt::JointModel &mm, float log_prior=0.0);
-  void UpdateModel(const std::string &classname, const clt::JointModel &jm);
+  void AddModel(const std::string &classname, const clt::MarginalModel &mm, float log_prior=0.0);
+  void UpdateModel(const std::string &classname, const clt::MarginalModel &mm);
   void UpdateModel(const std::string &classname, const rt::DeviceOccGrid &dog);
 
-  void LoadIntoJointModel(const std::string &classname, clt::JointModel *jm) const;
+  void LoadIntoMarginalModel(const std::string &classname, clt::MarginalModel *jm) const;
 
   void Run(const std::vector<Eigen::Vector3d> &hits);
 
@@ -50,7 +50,7 @@ class Detector {
   const std::vector<std::string>& GetClasses() const;
 
  private:
-  static constexpr int kThreadsPerBlock_ = 128;
+  static constexpr int kScoringThreads_ = 64;
 
   const float range_x_;
   const float range_y_;
