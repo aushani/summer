@@ -1,3 +1,5 @@
+// adapted from devkit_object.zip from KITTI
+
 #include <iostream>
 #include <algorithm>
 #include <stdio.h>
@@ -31,8 +33,8 @@ STATIC EVALUATION PARAMETERS
 =======================================================================*/
 
 // holds the number of test images on the server
-const int32_t N_TESTIMAGES = 7518;
-//const int32_t N_TESTIMAGES = 7480;
+//const int32_t N_TESTIMAGES = 7518;
+const int32_t N_TESTIMAGES = 7480;
 
 // easy, moderate and hard evaluation level
 enum DIFFICULTY{EASY=0, MODERATE=1, HARD=2};
@@ -900,8 +902,8 @@ bool eval(string result_sha,Mail* mail){
 int32_t main (int32_t argc,char *argv[]) {
 
   // we need 2 or 4 arguments!
-  if (argc!=2 && argc!=4) {
-    cout << "Usage: ./eval_detection result_sha [user_sha email]" << endl;
+  if (argc!=2) {
+    cout << "Usage: ./eval_detection result_sha" << endl;
     return 1;
   }
 
@@ -909,17 +911,14 @@ int32_t main (int32_t argc,char *argv[]) {
   string result_sha = argv[1];
 
   // init notification mail
-  Mail *mail;
-  if (argc==4) mail = new Mail(argv[3]);
-  else         mail = new Mail();
+  Mail *mail = new Mail();
   mail->msg("Thank you for participating in our evaluation!");
 
   // run evaluation
   if (eval(result_sha,mail)) {
-    mail->msg("Your evaluation results are available at:");
-    mail->msg("http://www.cvlibs.net/datasets/kitti/user_submit_check_login.php?benchmark=object&user=%s&result=%s",argv[2], result_sha.c_str());
+    mail->msg("Your evaluation results are available at %s:", result_sha.c_str());
   } else {
-    system(("rm -r results/" + result_sha).c_str());
+    //system(("rm -r results/" + result_sha).c_str());
     mail->msg("An error occured while processing your results.");
     mail->msg("Please make sure that the data in your zip archive has the right format!");
   }

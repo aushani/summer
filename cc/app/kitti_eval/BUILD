@@ -1,13 +1,10 @@
 cc_binary(
-    name = "viewer",
+    name = "evaluate",
     srcs = [
-            "main.cc",
+            "evaluate_object.cpp", "mail.h"
            ],
+    linkopts = ["-lm"],
     deps = [
-            "//library/kitti",
-            "//library/osg_nodes",
-            "//library/timer",
-            "//library/viewer",
-            "@openscenegraph//:openscenegraph",
+            "@boost//:boost_headers",
            ],
 )
