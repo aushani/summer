@@ -25,26 +25,32 @@ DetectorApp::DetectorApp(osg::ArgumentParser *args) :
 
   fs::directory_iterator end_it;
   for (fs::directory_iterator it(model_dir); it != end_it; it++) {
-    // Make sure it's not a directory
-    if (!fs::is_regular_file(it->path())) {
+    // Make sure it's a directory
+    if (fs::is_regular_file(it->path())) {
       continue;
     }
 
-    // Make sure it's a joint model
-    if (fs::extension(it->path()) != ".jm") {
-      continue;
-    }
-
+    // Is it a class we care about?
     std::string classname = it->path().stem().string();
+    printf("classname: %s\n", classname.c_str());
 
-    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
+    //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
+    if (! (classname == "Car" || classname == "Background")) {
       continue;
     }
 
-    printf("Found %s\n", classname.c_str());
+    // Enter directory and look for angle bins
+    for (int angle_bin = 0; angle_bin < 8; angle_bin++) {
+      char fn[1000];
+      sprintf(fn, "angle_bin_%02d/jm.jm", angle_bin);
+      fs::path p_jm = it->path() / fn;
 
-    clt::JointModel jm = clt::JointModel::Load(it->path().string().c_str());
-    detector_.AddModel(classname, jm);
+      if (fs::exists(p_jm)) {
+        printf("Loading class %s angle bin %d\n", classname.c_str(), angle_bin);
+        clt::JointModel jm = clt::JointModel::Load(p_jm.string().c_str());
+        detector_.AddModel(classname, angle_bin, jm);
+      }
+    }
   }
   printf("Loaded all models\n");
 
@@ -117,7 +123,7 @@ void DetectorApp::Process() {
   viewer_.AddChild(pc);
   //viewer_.AddChild(ln);
   viewer_.AddChild(map_node);
-  viewer_.AddChild(ogn);
+  //viewer_.AddChild(ogn);
 }
 
 } // namespace viewer

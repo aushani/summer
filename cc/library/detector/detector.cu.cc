@@ -11,44 +11,56 @@ namespace library {
 namespace detector {
 
 struct DeviceData {
-  std::vector<DeviceModel> models;
-  std::vector<DeviceScores> scores;
+  //std::vector<DeviceModel> models;
+  //std::vector<DeviceScores> scores;
+  typedef std::pair<DeviceModel, DeviceScores> Data;
+  std::map<ModelKey, Data> data;
 
   DeviceData() {
   }
 
   void Cleanup() {
-    for (auto &model : models) {
-      model.Cleanup();
-    }
-
-    for (auto &s : scores) {
-      s.Cleanup();
+    for (auto &kv : data) {
+      auto &d = kv.second;
+      d.first.Cleanup();
+      d.second.Cleanup();
     }
   }
 
-  void AddModel(const clt::JointModel &jm, float range_x, float range_y, float log_prior) {
-    //printf("Adding model...\n");
-    models.emplace_back(jm);
-
-    //printf("Adding scores...\n");
-    scores.emplace_back(jm.GetResolution(), range_x, range_y, log_prior);
+  void AddModel(const ModelKey &key, const clt::JointModel &jm, float range_x, float range_y, float log_prior) {
+    Data d(DeviceModel(jm), DeviceScores(jm.GetResolution(), range_x, range_y, log_prior));
+    data.insert({key, d});
   }
 
-  void UpdateModel(int i, const clt::JointModel &jm) {
-    models[i].BuildModel(jm);
+  void UpdateModel(const ModelKey &key, const clt::JointModel &jm) {
+    auto it = data.find(key);
+    BOOST_ASSERT(it != data.end());
+
+    Data &d = it->second;
+    d.first.BuildModel(jm);
   }
 
-  void UpdateModel(int i, const rt::DeviceOccGrid &dog) {
-    models[i].UpdateModel(dog);
+  void UpdateModel(const ModelKey &key, const rt::DeviceOccGrid &dog) {
+    auto it = data.find(key);
+    BOOST_ASSERT(it != data.end());
+
+    Data &d = it->second;
+    d.first.UpdateModel(dog);
   }
 
-  void LoadIntoJointModel(int i, clt::JointModel *jm) {
-    models[i].LoadIntoJointModel(jm);
+  void LoadIntoJointModel(const ModelKey &key, clt::JointModel *jm) {
+    auto it = data.find(key);
+    BOOST_ASSERT(it != data.end());
+
+    Data &d = it->second;
+    d.first.LoadIntoJointModel(jm);
   }
 
-  size_t NumModels() const {
-    return models.size();
+  const DeviceScores& GetScores(const ModelKey &key) const {
+    auto it = data.find(key);
+    BOOST_ASSERT(it != data.end());
+
+    return it->second.second;
   }
 };
 
@@ -66,8 +78,10 @@ Detector::~Detector() {
   device_data_->Cleanup();
 }
 
-void Detector::AddModel(const std::string &classname, const clt::JointModel &jm, float log_prior) {
-  device_data_->AddModel(jm, range_x_, range_y_, log_prior);
+void Detector::AddModel(const std::string &classname, int angle_bin, const clt::JointModel &jm, float log_prior) {
+  ModelKey key(classname, angle_bin);
+
+  device_data_->AddModel(key, jm, range_x_, range_y_, log_prior);
   classnames_.push_back(classname);
 }
 
@@ -84,25 +98,19 @@ int Detector::GetModelIndex(const std::string &classname) const {
 }
 
 
-void Detector::UpdateModel(const std::string &classname, const clt::JointModel &jm) {
-  int idx = GetModelIndex(classname);
-  BOOST_ASSERT(idx >= 0);
-
-  device_data_->UpdateModel(idx, jm);
+void Detector::UpdateModel(const std::string &classname, int angle_bin, const clt::JointModel &jm) {
+  ModelKey key(classname, angle_bin);
+  device_data_->UpdateModel(key, jm);
 }
 
-void Detector::UpdateModel(const std::string &classname, const rt::DeviceOccGrid &dog) {
-  int idx = GetModelIndex(classname);
-  BOOST_ASSERT(idx >= 0);
-
-  device_data_->UpdateModel(idx, dog);
+void Detector::UpdateModel(const std::string &classname,  int angle_bin, const rt::DeviceOccGrid &dog) {
+  ModelKey key(classname, angle_bin);
+  device_data_->UpdateModel(key, dog);
 }
 
-void Detector::LoadIntoJointModel(const std::string &classname, clt::JointModel *jm) const {
-  int idx = GetModelIndex(classname);
-  BOOST_ASSERT(idx >= 0);
-
-  device_data_->LoadIntoJointModel(idx, jm);
+void Detector::LoadIntoJointModel(const std::string &classname, int angle_bin, clt::JointModel *jm) const {
+  ModelKey key(classname, angle_bin);
+  device_data_->LoadIntoJointModel(key, jm);
 }
 
 
@@ -222,11 +230,12 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
   err = cudaDeviceSynchronize();
   BOOST_ASSERT(err == cudaSuccess);
 
-  for (int i=0; i<device_data_->NumModels(); i++) {
+  for (auto &kv : device_data_->data) {
+    auto &d = kv.second;
     //printf("\tApplying Model %d\n", i);
 
-    auto &model = device_data_->models[i];
-    auto &scores = device_data_->scores[i];
+    DeviceModel &model = d.first;
+    DeviceScores &scores = d.second;
     scores.Reset();
 
     int threads = kThreadsPerBlock_;
@@ -244,27 +253,44 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
   dog->Cleanup();
 }
 
-const DeviceScores& Detector::GetScores(const std::string &classname) const {
-  int idx = -1;
-  for (size_t i=0; i < classnames_.size(); i++) {
-    if (classnames_[i] == classname) {
-      idx = i;
-      break;
-    }
-  }
-
-  BOOST_ASSERT(idx >= 0);
-
-  return device_data_->scores[idx];
+const DeviceScores& Detector::GetScores(const std::string &classname, int angle_bin) const {
+  ModelKey key(classname, angle_bin);
+  return device_data_->GetScores(key);
 }
 
 float Detector::GetScore(const std::string &classname, const ObjectState &os) const {
-  auto &scores = GetScores(classname);
+  auto &scores = GetScores(classname, os.angle_bin);
   return scores.GetScore(os);
 }
 
+float Detector::GetProb(const std::string &classname, double x, double y) const {
+  // TODO Hacky
+  double p = 0;
+  for (int angle_bin = 0; angle_bin < 8; angle_bin++) {
+    ObjectState os(x, y, angle_bin);
+    p += GetProb(classname, os);
+  }
+
+  return p;
+}
+
+float Detector::GetLogOdds(const std::string &classname, double x, double y) const {
+  double prob = GetProb(classname, x, y);
+  double lo = -std::log(1/prob - 1);
+
+  if (lo > 40) {
+    lo = 40;
+  }
+
+  if (lo < -40) {
+    lo = -40;
+  }
+
+  return lo;
+}
+
 float Detector::GetProb(const std::string &classname, const ObjectState &os) const {
-  auto &my_scores = GetScores(classname);
+  auto &my_scores = GetScores(classname, os.angle_bin);
   if (!my_scores.InRange(os)) {
     return 0.0;
   }
@@ -272,7 +298,9 @@ float Detector::GetProb(const std::string &classname, const ObjectState &os) con
   float my_score = GetScore(classname, os);
   float max_score = my_score;
 
-  for (const auto &class_scores : device_data_->scores) {
+  // Normalize over classes and orientations
+  for (const auto &kv : device_data_->data) {
+    const auto &class_scores = kv.second.second;
     float score = class_scores.GetScore(os);
 
     if (score > max_score) {
@@ -282,7 +310,8 @@ float Detector::GetProb(const std::string &classname, const ObjectState &os) con
 
   float sum = 0;
 
-  for (const auto &class_scores : device_data_->scores) {
+  for (const auto &kv : device_data_->data) {
+    const auto &class_scores = kv.second.second;
     float score = class_scores.GetScore(os);
     sum += exp(score - max_score);
   }

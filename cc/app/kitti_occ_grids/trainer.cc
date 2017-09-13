@@ -25,13 +25,14 @@ Trainer::Trainer(const std::string &save_base_fn) :
   // Configure occ grid builder size
   og_builder_.ConfigureSizeInPixels(7, 7, 5);
 
+  // TODO MULTIPLE ANGLE BINS
   models_.insert({"Car", clt::JointModel(3.0, 2.0, kRes_)});
   models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
   models_.insert({"Pedestrian", clt::JointModel(3.0, 2.0, kRes_)});
   models_.insert({"Background", clt::JointModel(3.0, 2.0, kRes_)});
 
   for (const auto &kv : models_) {
-    detector_.AddModel(kv.first, kv.second);
+    detector_.AddModel(kv.first, 0, kv.second);
   }
 
   printf("Initialized all models\n");
@@ -66,7 +67,7 @@ void Trainer::LoadFrom(const std::string &load_base_dir) {
     printf("Found %s\n", classname.c_str());
     clt::JointModel jm = clt::JointModel::Load(it->path().string().c_str());
 
-    detector_.UpdateModel(classname, jm);
+    detector_.UpdateModel(classname, 0, jm); // TODO
   }
   printf("Loaded all models\n");
 }
@@ -96,7 +97,7 @@ void Trainer::Run(int first_epoch, int first_frame) {
           fs::path fn = dir / (kv.first + ".jm");
 
           // Load back from detector
-          detector_.LoadIntoJointModel(kv.first, &kv.second);
+          detector_.LoadIntoJointModel(kv.first, 0, &kv.second); // TODO
 
           // Now save
           kv.second.Save(fn.string().c_str());
@@ -256,7 +257,7 @@ void Trainer::Train(Trainer *trainer, const kt::KittiChallengeData &kcd, const s
     trainer->og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), 0); // TODO rotation
     auto dog = trainer->og_builder_.GenerateOccGridDevice(kcd.GetScan().GetHits());
 
-    trainer->detector_.UpdateModel(s.classname, *dog);
+    trainer->detector_.UpdateModel(s.classname, 0, *dog); // TODO
     trainer->samples_per_class_[s.classname]++;
 
     // Cleanup

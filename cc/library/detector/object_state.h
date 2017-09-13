@@ -14,10 +14,10 @@ struct ObjectState {
   float x;
   float y;
 
-  float theta;
+  int angle_bin;
 
-  CUDA_CALLABLE ObjectState(float xx, float yy, float tt) :
-    x(xx), y(yy), theta(tt) {}
+  CUDA_CALLABLE ObjectState(float xx, float yy, int b) :
+    x(xx), y(yy), angle_bin(b) {}
 
   CUDA_CALLABLE bool operator<(const ObjectState &rhs) const {
     if (fabs(x - rhs.x) >= kTolerance_) {
@@ -28,11 +28,7 @@ struct ObjectState {
       return y < rhs.y;
     }
 
-    if (fabs(theta - rhs.theta) >= kTolerance_) {
-      return theta < rhs.theta;
-    }
-
-    return false;
+    return angle_bin < rhs.angle_bin;
   }
 
  private:

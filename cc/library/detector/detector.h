@@ -20,24 +20,43 @@ namespace detector {
 // Forward declarations
 typedef struct DeviceData DeviceData;
 
+struct ModelKey {
+  std::string classname;
+  int angle_bin;
+
+  ModelKey(const std::string &cn, int b) :
+    classname(cn), angle_bin(b) {}
+
+  bool operator<(const ModelKey &k) const {
+    if (classname != k.classname) {
+      return classname < k.classname;
+    }
+
+    return angle_bin < k.angle_bin;
+  }
+};
+
 class Detector {
  public:
   Detector(float res, float range_x, float range_y);
   ~Detector();
 
-  void AddModel(const std::string &classname, const clt::JointModel &mm, float log_prior=0.0);
-  void UpdateModel(const std::string &classname, const clt::JointModel &jm);
-  void UpdateModel(const std::string &classname, const rt::DeviceOccGrid &dog);
+  void AddModel(const std::string &classname, int angle_bin, const clt::JointModel &mm, float log_prior=0.0);
+  void UpdateModel(const std::string &classname, int angle_bin, const clt::JointModel &jm);
+  void UpdateModel(const std::string &classname, int angle_bin, const rt::DeviceOccGrid &dog);
 
-  void LoadIntoJointModel(const std::string &classname, clt::JointModel *jm) const;
+  void LoadIntoJointModel(const std::string &classname, int angle_bin, clt::JointModel *jm) const;
 
   void Run(const std::vector<Eigen::Vector3d> &hits);
 
-  const DeviceScores& GetScores(const std::string &classname) const;
+  const DeviceScores& GetScores(const std::string &classname, int angle_bin) const;
 
   float GetScore(const std::string &classname, const ObjectState &os) const;
   float GetProb(const std::string &classname, const ObjectState &os) const;
   float GetLogOdds(const std::string &classname, const ObjectState &os) const;
+
+  float GetProb(const std::string &classname, double x, double y) const;
+  float GetLogOdds(const std::string &classname, double x, double y) const;
 
   float GetResolution() const;
   float GetRangeX() const;
