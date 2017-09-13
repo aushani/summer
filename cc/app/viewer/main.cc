@@ -5,6 +5,7 @@
 #include "library/osg_nodes/point_cloud.h"
 #include "library/osg_nodes/occ_grid.h"
 #include "library/osg_nodes/tracklets.h"
+#include "library/osg_nodes/car.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 #include "library/timer/timer.h"
 #include "library/viewer/viewer.h"
@@ -123,6 +124,14 @@ int main(int argc, char** argv) {
   v.AddChild(ogn);
   v.AddChild(tn);
   v.AddHandler(ph);
+
+  osg::ref_ptr<osg::MatrixTransform> xform_car = new osg::MatrixTransform();
+  osg::Matrixd D(osg::Quat(M_PI, osg::Vec3d(1, 0, 0)));
+  D.postMultTranslate(osg::Vec3d(-1, 0, -1.2));
+  xform_car->setMatrix(D);
+  xform_car->addChild(new osgn::Car());
+
+  v.AddChild(xform_car);
 
   v.Start();
 

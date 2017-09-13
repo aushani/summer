@@ -1,5 +1,7 @@
 #include "app/kitti_occ_grids/detector_app.h"
 
+#include "library/osg_nodes/car.h"
+
 namespace app {
 namespace kitti_occ_grids {
 
@@ -124,6 +126,14 @@ void DetectorApp::Process() {
   //viewer_.AddChild(ln);
   viewer_.AddChild(map_node);
   //viewer_.AddChild(ogn);
+
+  osg::ref_ptr<osg::MatrixTransform> xform_car = new osg::MatrixTransform();
+  osg::Matrixd D(osg::Quat(M_PI, osg::Vec3d(1, 0, 0)));
+  D.postMultTranslate(osg::Vec3d(-1, 0, -1.2));
+  xform_car->setMatrix(D);
+  xform_car->addChild(new osgn::Car());
+
+  viewer_.AddChild(xform_car);
 }
 
 } // namespace viewer

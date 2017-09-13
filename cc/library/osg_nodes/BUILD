@@ -7,6 +7,7 @@ cc_library(
             "//library/chow_liu_tree",
             "//library/kitti",
             "//library/ray_tracing",
+            "//library/util",
             "@openscenegraph//:openscenegraph"
            ],
 )
