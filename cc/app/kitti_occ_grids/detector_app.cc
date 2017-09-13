@@ -97,7 +97,7 @@ void DetectorApp::ProcessBackground() {
     process_thread_->join();
   }
 
-  process_thread_ = std::make_unique<std::thread>(&DetectorApp::Process, this);
+  process_thread_ = std::make_shared<std::thread>(&DetectorApp::Process, this);
 }
 
 void DetectorApp::Process() {
@@ -111,11 +111,13 @@ void DetectorApp::Process() {
   osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(kcd.GetScan());
   osg::ref_ptr<osgn::ObjectLabels> ln = new osgn::ObjectLabels(kcd.GetLabels(), kcd.GetTcv());
   osg::ref_ptr<MapNode> map_node = new MapNode(detector_, kcd);
+  osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og_builder_.GenerateOccGrid(kcd.GetScan().GetHits()));
 
   viewer_.RemoveAllChildren();
   viewer_.AddChild(pc);
   //viewer_.AddChild(ln);
   viewer_.AddChild(map_node);
+  viewer_.AddChild(ogn);
 }
 
 } // namespace viewer

@@ -13,6 +13,7 @@
 #include "library/osg_nodes/point_cloud.h"
 #include "library/osg_nodes/object_labels.h"
 #include "library/osg_nodes/tracklets.h"
+#include "library/osg_nodes/occ_grid.h"
 #include "library/kitti/kitti_challenge_data.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 #include "library/timer/timer.h"
@@ -51,7 +52,7 @@ class DetectorApp : public osgGA::GUIEventHandler {
   vw::Viewer viewer_;
   rt::OccGridBuilder og_builder_;
 
-  std::unique_ptr<std::thread> process_thread_;
+  std::shared_ptr<std::thread> process_thread_;
 
   void ProcessBackground();
 };

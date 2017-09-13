@@ -40,7 +40,7 @@ MapNode::MapNode(const dt::Detector &detector, const kt::KittiChallengeData &kcd
 }
 
 osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const kt::KittiChallengeData &kcd) const {
-  const double min = -5;
+  const double min = 0;
   const double max = 10;
   const double range = max - min;
 
@@ -60,25 +60,24 @@ osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const k
       dt::ObjectState os(x, y, 0);
 
       double p_car = detector.GetLogOdds("Car", os);
-      //double p_car = detector.GetLogOdds("Pedestrian", os);
-      //double p_cyclist = detector.GetLogOdds("Cyclist", os);
-      //double p_pedestrian = detector.GetLogOdds("Pedestrian", os);
+      double p_cyclist = detector.GetLogOdds("Cyclist", os);
+      double p_pedestrian = detector.GetLogOdds("Pedestrian", os);
 
       double r = (p_car-min) / range;
-      //double g = (p_cyclist-min) / range;
-      //double b = (p_pedestrian-min) / range;
+      double g = (p_cyclist-min) / range;
+      double b = (p_pedestrian-min) / range;
 
       if (r < 0) r = 0;
       if (r > 1) r = 1;
 
-      //if (g < 0) g = 0;
-      //if (g > 1) g = 1;
+      if (g < 0) g = 0;
+      if (g > 1) g = 1;
 
-      //if (b < 0) b = 0;
-      //if (b > 1) b = 1;
+      if (b < 0) b = 0;
+      if (b > 1) b = 1;
 
-      double g = 0;
-      double b = 1 - r;
+      //double g = 0;
+      //double b = 0;
 
       osg::Vec4 color(r, g, b, 0.5);
 

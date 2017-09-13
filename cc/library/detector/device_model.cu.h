@@ -14,7 +14,9 @@ namespace rt = library::ray_tracing;
 namespace library {
 namespace detector {
 
-static constexpr int kShrinkage = 1000;
+static constexpr int kShrinkage = 1;
+static constexpr float kMinP = 0.20;
+static constexpr float kMaxP = 0.80;
 
 struct Marginal {
   float log_ps[2] = {0.0, 0.0};
@@ -59,7 +61,13 @@ struct Marginal {
       bool occ = (i == 0);
       int idx = GetIndex(occ);
 
-      log_ps[idx] = log(GetCount(occ) / counts_total);
+      float p = GetCount(occ) / counts_total;
+
+      // Clip
+      if (p > kMaxP) p = kMaxP;
+      if (p < kMinP) p = kMinP;
+
+      log_ps[idx] = log(p);
     }
   }
 };
@@ -127,7 +135,13 @@ struct Conditional {
         int other_count = GetCount(!occ_eval, occ_given);
         float denom = my_count + other_count;
 
-        log_ps[idx] = log(my_count / denom);
+        float p = my_count / denom;
+
+        // Clip
+        if (p > kMaxP) p = kMaxP;
+        if (p < kMinP) p = kMinP;
+
+        log_ps[idx] = log(p);
       }
     }
 
