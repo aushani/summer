@@ -1,7 +1,14 @@
 #pragma once
 
+#include <thread>
+
 #include <osg/ArgumentParser>
 #include <boost/filesystem.hpp>
+
+#include <osgGA/GUIActionAdapter>
+#include <osgGA/GUIEventAdapter>
+#include <osgGA/GUIEventHandler>
+#include <osgViewer/CompositeViewer>
 
 #include "library/osg_nodes/point_cloud.h"
 #include "library/osg_nodes/object_labels.h"
@@ -24,13 +31,15 @@ namespace vw = library::viewer;
 namespace app {
 namespace kitti_occ_grids {
 
-class DetectorApp {
+class DetectorApp : public osgGA::GUIEventHandler {
  public:
   DetectorApp(osg::ArgumentParser *args);
 
   void Run();
 
   void Process();
+
+  bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa);
 
  private:
   static constexpr int kFirstFrame_ = 0;
@@ -42,6 +51,9 @@ class DetectorApp {
   vw::Viewer viewer_;
   rt::OccGridBuilder og_builder_;
 
+  std::unique_ptr<std::thread> process_thread_;
+
+  void ProcessBackground();
 };
 
 } // namespace viewer

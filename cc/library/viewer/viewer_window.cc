@@ -142,5 +142,13 @@ void ViewerWindow::RunThread() {
   }
 }
 
+void ViewerWindow::Lock() {
+  vwidget_->lock();
+}
+
+void ViewerWindow::Unlock() {
+  vwidget_->unlock();
+}
+
 }  // namespace viewer
 }  // namespace library

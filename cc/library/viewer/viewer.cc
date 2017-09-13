@@ -33,5 +33,13 @@ void Viewer::Start() {
   qapp_->exec();
 }
 
+void Viewer::Lock() {
+  vwindow_->Lock();
+}
+
+void Viewer::Unlock() {
+  vwindow_->Unlock();
+}
+
 }  // namespace viewer
 }  // namespace library

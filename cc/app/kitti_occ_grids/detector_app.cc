@@ -51,11 +51,53 @@ DetectorApp::DetectorApp(osg::ArgumentParser *args) :
   osg::ref_ptr<DetectorHandler> dh = new DetectorHandler(detector_);
   viewer_.AddHandler(dh);
 
+  viewer_.AddHandler(this);
+
   Process();
 }
 
 void DetectorApp::Run() {
   viewer_.Start();
+}
+
+bool DetectorApp::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa) {
+
+  if (ea.getEventType() == osgGA::GUIEventAdapter::KEYDOWN) {
+    if (ea.getKey() == 'n') {
+      frame_at_++ ;
+      if (frame_at_ >= kLastFrame_) {
+        frame_at_ = kLastFrame_ - 1;
+      }
+
+      printf("Processing %d\n", frame_at_);
+
+      ProcessBackground();
+      return true;
+    }
+
+    if (ea.getKey() == 'p') {
+      frame_at_-- ;
+      if (frame_at_ < kFirstFrame_) {
+        frame_at_ = kFirstFrame_;
+      }
+
+      printf("Processing %d\n", frame_at_);
+
+      ProcessBackground();
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void DetectorApp::ProcessBackground() {
+  // Finish old thread, if applicable
+  if (process_thread_) {
+    process_thread_->join();
+  }
+
+  process_thread_ = std::make_unique<std::thread>(&DetectorApp::Process, this);
 }
 
 void DetectorApp::Process() {

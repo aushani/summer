@@ -24,8 +24,6 @@ int main(int argc, char** argv) {
   au->addCommandLineOption("--models <dir>", "Models to evaluate", "");
   au->addCommandLineOption("--num <num>", "KITTI scan number", "0");
 
-  kog::DetectorApp app(&args);
-
   // handle help text
   // call AFTER init viewer so key bindings have been set
   unsigned int helpType = 0;
@@ -33,6 +31,8 @@ int main(int argc, char** argv) {
     au->write(std::cout, helpType);
     return EXIT_SUCCESS;
   }
+
+  kog::DetectorApp app(&args);
 
   app.Run();
 

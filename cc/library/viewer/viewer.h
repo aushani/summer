@@ -30,6 +30,9 @@ class Viewer {
 
   void Start();
 
+  void Lock();
+  void Unlock();
+
  private:
   QApplication *qapp_;
   ViewerWindow *vwindow_;

@@ -27,6 +27,9 @@ class ViewerWindow : public QMainWindow {
 
   void AddHandler(osgGA::GUIEventHandler *h);
 
+  void Lock();
+  void Unlock();
+
  public slots:
   void SlotCleanup();
 
