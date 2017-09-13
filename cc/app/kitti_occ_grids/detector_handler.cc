@@ -12,6 +12,15 @@ DetectorHandler::DetectorHandler(const dt::Detector &detector) :
 void DetectorHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& ea) {
   osgUtil::LineSegmentIntersector::Intersections intersections;
 
+  bool ctrl = false;
+  if (ea.getModKeyMask() && osgGA::GUIEventAdapter::ModKeyMask::MODKEY_CTRL) {
+    ctrl = true;
+  }
+
+  if (!ctrl) {
+    return;
+  }
+
   if (view->computeIntersections(ea, intersections)) {
     for (osgUtil::LineSegmentIntersector::Intersections::iterator hitr = intersections.begin();
          hitr != intersections.end(); ++hitr) {
