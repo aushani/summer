@@ -110,13 +110,13 @@ int main(int argc, char** argv) {
   rt::OccGridBuilder builder(200000, 0.3, 100.0);
 
   library::timer::Timer t;
-  rt::OccGrid og = builder.GenerateOccGrid(scan.GetHits());
+  auto fog = builder.GenerateFeatureOccGrid(scan.GetHits(), scan.GetIntensities());
   printf("Took %5.3f ms to build occ grid\n", t.GetMs());
 
   vw::Viewer v(&args);
 
   osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);
-  osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);
+  osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(fog);
   osg::ref_ptr<osgn::Tracklets> tn = new osgn::Tracklets(&tracklets, frame_num);
   osg::ref_ptr<avw::SimpleHandler> ph = new avw::SimpleHandler(tracklets, frame_num);
 

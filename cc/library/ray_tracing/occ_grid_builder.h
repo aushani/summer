@@ -1,12 +1,13 @@
 // Adapted from dascar
 #pragma once
 
-#include "library/ray_tracing/occ_grid.h"
-#include "library/ray_tracing/device_occ_grid.h"
-
 #include <memory>
 
 #include <Eigen/Core>
+
+#include "library/ray_tracing/occ_grid.h"
+#include "library/ray_tracing/device_occ_grid.h"
+#include "library/ray_tracing/feature_occ_grid.h"
 
 namespace library {
 namespace ray_tracing {
@@ -36,12 +37,9 @@ class OccGridBuilder {
 
   std::shared_ptr<DeviceOccGrid> GenerateOccGridDevice(const std::vector<Eigen::Vector3d> &hits);
 
- private:
-  static constexpr float kLogOddsFree_ = -0.1;
-  static constexpr float kLogOddsOccupied_ = 1.0;
-  static constexpr float kLogOddsUnknown_ = 0.0;
+  FeatureOccGrid GenerateFeatureOccGrid(const std::vector<Eigen::Vector3d> &hits, const std::vector<float> &intensity);
 
-  static constexpr int kThreadsPerBlock_ = 1024;
+ private:
   const float resolution_;
   const int max_observations_;
 

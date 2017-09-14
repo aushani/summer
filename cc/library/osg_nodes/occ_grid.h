@@ -6,6 +6,7 @@
 #include <osg/MatrixTransform>
 
 #include "library/ray_tracing/occ_grid.h"
+#include "library/ray_tracing/feature_occ_grid.h"
 
 namespace rt = library::ray_tracing;
 
@@ -22,6 +23,7 @@ namespace osg_nodes {
 class OccGrid : public osg::Group {
  public:
   OccGrid(const rt::OccGrid &og, double thresh_lo=0);
+  OccGrid(const rt::FeatureOccGrid &fog, double thresh_lo=0);
 };
 
 } // osg_nodes
