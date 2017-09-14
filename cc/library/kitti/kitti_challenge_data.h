@@ -17,6 +17,7 @@ class KittiChallengeData {
   const Eigen::Matrix4d& GetTcv() const;
 
   bool InCameraView(double x, double y, double z) const;
+  Eigen::Vector2d ToCameraPixels(double x, double y, double z) const;
 
  private:
   struct Calib {

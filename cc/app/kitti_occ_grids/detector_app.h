@@ -34,13 +34,16 @@ namespace kitti_occ_grids {
 
 class DetectorApp : public osgGA::GUIEventHandler {
  public:
-  DetectorApp(osg::ArgumentParser *args);
+  DetectorApp(osg::ArgumentParser *args, bool viewer = true);
 
   void Run();
 
-  void Process();
+  bool SetFrame(int f);
+  kt::KittiChallengeData Process();
 
   bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa);
+
+  const dt::Detector& GetDetector() const;
 
  private:
   static constexpr int kFirstFrame_ = 0;
@@ -49,7 +52,7 @@ class DetectorApp : public osgGA::GUIEventHandler {
   std::string dirname_;
 
   dt::Detector detector_;
-  vw::Viewer viewer_;
+  std::shared_ptr<vw::Viewer> viewer_;
   rt::OccGridBuilder og_builder_;
 
   std::shared_ptr<std::thread> process_thread_;

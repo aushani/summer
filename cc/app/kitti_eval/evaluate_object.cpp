@@ -800,8 +800,10 @@ bool eval(string result_sha,Mail* mail){
   for (int32_t i=0; i<N_TESTIMAGES; i++) {
 
     // file name
-    char file_name[256];
+    char file_name[256] = {0};
     sprintf(file_name,"%06d.txt",i);
+
+    printf("Reading %d %s\n", i, file_name);
 
     // read ground truth and result poses
     bool gt_success,det_success;
@@ -814,11 +816,13 @@ bool eval(string result_sha,Mail* mail){
     // check for errors
     if (!gt_success) {
       mail->msg("ERROR: Couldn't read: %s of ground truth. Please write me an email!", file_name);
-      return false;
+      //return false;
+      break;
     }
     if (!det_success) {
-      mail->msg("ERROR: Couldn't read: %s", file_name);
-      return false;
+      mail->msg("ERROR: Couldn't read %d: %s", i, file_name);
+      //return false;
+      break;
     }
   }
   mail->msg("  done.");

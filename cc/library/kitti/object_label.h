@@ -28,6 +28,10 @@ struct ObjectLabel {
     DONT_CARE
   };
 
+  ObjectLabel() {
+    H_camera_object.setZero();
+  }
+
   static ObjectLabels Load(const char *fn);
   static void Save(const ObjectLabels &labels, const char *fn);
 
@@ -54,9 +58,6 @@ struct ObjectLabel {
   }
 
  private:
-  ObjectLabel() {
-    H_camera_object.setZero();
-  }
 
   void ComputeTransforms() {
     // Transformations

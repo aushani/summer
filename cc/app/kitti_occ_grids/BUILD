@@ -131,3 +131,22 @@ cc_binary(
             "@boost//:boost_filesystem",
            ],
 )
+
+cc_binary(
+    name = "koc_eval",
+    srcs = [
+            "koc_eval.cc",
+            "detector_app.cc", "detector_app.h", # TODO repeated, fix
+            "detector_handler.cc", "detector_handler.h", # TODO repeated, fix
+            "map_node.cc", "map_node.h", # repeated, TODO fix
+           ],
+    deps = [
+            "//library/chow_liu_tree",
+            "//library/util",
+            "//library/kitti",
+            "//library/osg_nodes",
+            "//library/viewer",
+            "//library/detector",
+            "@boost//:boost_filesystem",
+           ],
+)

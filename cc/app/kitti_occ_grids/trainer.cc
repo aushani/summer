@@ -19,7 +19,7 @@ namespace kitti_occ_grids {
 
 Trainer::Trainer(const std::string &save_base_fn) :
  save_base_path_(save_base_fn),
- detector_(kRes_, 50, 50),
+ detector_(dt::Dim(-50, 50, -50, 50, 0.5)),
  og_builder_(200000, kRes_, 100.0) {
 
   // Configure occ grid builder size
@@ -37,10 +37,12 @@ Trainer::Trainer(const std::string &save_base_fn) :
 
   printf("Initialized all models\n");
 
-  for (double x = -detector_.GetRangeX(); x < detector_.GetRangeX(); x += detector_.GetResolution()) {
-    for (double y = -detector_.GetRangeY(); y < detector_.GetRangeY(); y += detector_.GetResolution()) {
-      dt::ObjectState os(x, y, 0);
-      states_.emplace_back(x, y, 0);
+  const int width = detector_.GetDim().n_x;
+  const int height = detector_.GetDim().n_y;
+  for (int i = 0; i < width; i++) {
+    for (int j = 0; j < height; j++) {
+      dt::ObjectState os = detector_.GetDim().GetState(i, j);
+      states_.emplace_back(os);
     }
   }
 }
@@ -241,7 +243,7 @@ void Trainer::UpdateViewer(Trainer *trainer, const kt::KittiChallengeData &kcd, 
       osg::ref_ptr<osgn::ColorfulBox> box
         = new osgn::ColorfulBox(osg::Vec4(1, 1, 1, 0.8),
                                 osg::Vec3(s.os.x, s.os.y, 0.0),
-                                trainer->detector_.GetResolution());
+                                trainer->detector_.GetDim().res);
       trainer->viewer_->AddChild(box);
     }
     printf("\tTook %9.3f ms to update viewer\n", t.GetMs());

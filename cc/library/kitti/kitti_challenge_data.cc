@@ -66,6 +66,13 @@ const Eigen::Matrix4d& KittiChallengeData::GetTcv() const {
   return calib_.t_cv;
 }
 
+Eigen::Vector2d KittiChallengeData::ToCameraPixels(double x, double y, double z) const {
+  Eigen::Vector4d p_x(x, y, z, 1.0);
+  Eigen::Vector3d p_c = calib_.p * calib_.r_rect * calib_.t_cv * p_x;
+
+  return p_c.hnormalized();
+}
+
 bool KittiChallengeData::InCameraView(double x, double y, double z) const {
   Eigen::Vector4d p_x(x, y, z, 1.0);
   Eigen::Vector3d p_c = calib_.p * calib_.r_rect * calib_.t_cv * p_x;

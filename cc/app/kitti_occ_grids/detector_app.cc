@@ -1,13 +1,13 @@
 #include "app/kitti_occ_grids/detector_app.h"
 
 #include "library/osg_nodes/car.h"
+#include "library/osg_nodes/colorful_box.h"
 
 namespace app {
 namespace kitti_occ_grids {
 
-DetectorApp::DetectorApp(osg::ArgumentParser *args) :
- detector_(0.5, 50, 50),
- viewer_(args),
+DetectorApp::DetectorApp(osg::ArgumentParser *args, bool viewer) :
+ detector_(dt::Dim(0, 100, -50, 50, 0.5)),
  og_builder_(200000, 0.5, 100.0) {
 
   // Get parameters
@@ -42,7 +42,7 @@ DetectorApp::DetectorApp(osg::ArgumentParser *args) :
     }
 
     // Enter directory and look for angle bins
-    for (int angle_bin = 0; angle_bin < 8; angle_bin++) {
+    for (int angle_bin = 0; angle_bin < dt::Detector::kAngleBins; angle_bin++) {
       char fn[1000];
       sprintf(fn, "angle_bin_%02d/jm.jm", angle_bin);
       fs::path p_jm = it->path() / fn;
@@ -57,15 +57,18 @@ DetectorApp::DetectorApp(osg::ArgumentParser *args) :
   printf("Loaded all models\n");
 
   osg::ref_ptr<DetectorHandler> dh = new DetectorHandler(detector_);
-  viewer_.AddHandler(dh);
+  if (viewer) {
+    viewer_ = std::make_shared<vw::Viewer>(args);
+    viewer_->AddHandler(dh);
 
-  viewer_.AddHandler(this);
+    viewer_->AddHandler(this);
+  }
 
   Process();
 }
 
 void DetectorApp::Run() {
-  viewer_.Start();
+  viewer_->Start();
 }
 
 bool DetectorApp::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa) {
@@ -108,7 +111,22 @@ void DetectorApp::ProcessBackground() {
   process_thread_ = std::make_shared<std::thread>(&DetectorApp::Process, this);
 }
 
-void DetectorApp::Process() {
+bool DetectorApp::SetFrame(int f) {
+  frame_at_ = f;
+
+  bool res = frame_at_ >= kFirstFrame_ && frame_at_ < kLastFrame_;
+  if (frame_at_ < kFirstFrame_) {
+    frame_at_ = kFirstFrame_;
+  }
+
+  if (frame_at_ >= kLastFrame_) {
+    frame_at_ = kLastFrame_ - 1;
+  }
+
+  return res;
+}
+
+kt::KittiChallengeData DetectorApp::Process() {
   kt::KittiChallengeData kcd = kt::KittiChallengeData::LoadFrame(dirname_, frame_at_);
 
   library::timer::Timer t;
@@ -116,24 +134,36 @@ void DetectorApp::Process() {
   detector_.Run(kcd.GetScan().GetHits());
   printf("Took %5.3f ms to run detector\n", t.GetMs());
 
-  osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(kcd.GetScan());
-  osg::ref_ptr<osgn::ObjectLabels> ln = new osgn::ObjectLabels(kcd.GetLabels(), kcd.GetTcv());
-  osg::ref_ptr<MapNode> map_node = new MapNode(detector_, kcd);
-  osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og_builder_.GenerateOccGrid(kcd.GetScan().GetHits()));
+  if (viewer_) {
+    osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(kcd.GetScan());
+    osg::ref_ptr<osgn::ObjectLabels> ln = new osgn::ObjectLabels(kcd.GetLabels(), kcd.GetTcv());
+    osg::ref_ptr<MapNode> map_node = new MapNode(detector_, kcd);
+    osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og_builder_.GenerateOccGrid(kcd.GetScan().GetHits()));
 
-  viewer_.RemoveAllChildren();
-  viewer_.AddChild(pc);
-  //viewer_.AddChild(ln);
-  viewer_.AddChild(map_node);
-  //viewer_.AddChild(ogn);
+    viewer_->RemoveAllChildren();
+    viewer_->AddChild(pc);
+    viewer_->AddChild(ln);
+    viewer_->AddChild(map_node);
+    //viewer_->AddChild(ogn);
 
-  osg::ref_ptr<osg::MatrixTransform> xform_car = new osg::MatrixTransform();
-  osg::Matrixd D(osg::Quat(M_PI, osg::Vec3d(1, 0, 0)));
-  D.postMultTranslate(osg::Vec3d(-1, 0, -1.2));
-  xform_car->setMatrix(D);
-  xform_car->addChild(new osgn::Car());
+    osg::ref_ptr<osg::MatrixTransform> xform_car = new osg::MatrixTransform();
+    osg::Matrixd D(osg::Quat(M_PI, osg::Vec3d(1, 0, 0)));
+    D.postMultTranslate(osg::Vec3d(-1, 0, -1.2));
+    xform_car->setMatrix(D);
+    xform_car->addChild(new osgn::Car());
 
-  viewer_.AddChild(xform_car);
+    viewer_->AddChild(xform_car);
+
+    for (const auto &d : detector_.GetDetections()) {
+      viewer_->AddChild(new osgn::ColorfulBox(osg::Vec4(1, 1, 1, 1), osg::Vec3(d.os.x, d.os.y, 2.0), 1));
+    }
+  }
+
+  return kcd;
+}
+
+const dt::Detector& DetectorApp::GetDetector() const {
+  return detector_;
 }
 
 } // namespace viewer

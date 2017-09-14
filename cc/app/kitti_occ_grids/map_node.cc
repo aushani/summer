@@ -22,18 +22,18 @@ MapNode::MapNode(const dt::Detector &detector, const kt::KittiChallengeData &kcd
 
   osg::ref_ptr<osg::Geode> geode = new osg::Geode();
 
-  const int width = detector.GetNX();
-  const int height = detector.GetNY();
+  const int width = detector.GetDim().n_x;
+  const int height = detector.GetDim().n_y;
   SetUpTexture(texture, geode, 0, 0, width, height, 12);
 
   // Origin
-  double scale = detector.GetResolution();
-  double x0 = width/2 * scale;
-  double y0 = height/2 * scale;
+  double scale = detector.GetDim().res;
+  double x0 = detector.GetDim().min_x;
+  double y0 = detector.GetDim().min_y;
 
   osg::Matrix m = osg::Matrix::identity();
   m.makeScale(scale, scale, scale);
-  m.postMultTranslate(osg::Vec3d(-x0, -y0, -1.7)); // ground plane
+  m.postMultTranslate(osg::Vec3d(x0, y0, -1.7)); // ground plane
 
   osg::ref_ptr<osg::MatrixTransform> map_image = new osg::MatrixTransform();
   map_image->setMatrix(m);
@@ -48,8 +48,8 @@ osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const k
   const double max = 10;
   const double range = max - min;
 
-  const int width = detector.GetNX();
-  const int height = detector.GetNY();
+  const int width = detector.GetDim().n_x;
+  const int height = detector.GetDim().n_y;
   const int depth = 1;
 
   osg::ref_ptr<osg::Image> im = new osg::Image();
@@ -57,9 +57,9 @@ osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const k
 
   for (int i = 0; i < width; i++) {
     for (int j = 0; j < height; j++) {
-      // +1 weirdness... osg being strange?
-      double x = (i + 1 - width/2.0) * detector.GetResolution();
-      double y = (j + 1 - height/2.0) * detector.GetResolution();
+      dt::ObjectState os = detector.GetDim().GetState(i, j);
+      double x = os.x;
+      double y = os.y;
 
       double p_car = detector.GetLogOdds("Car", x, y);
       //double p_cyclist = detector.GetLogOdds("Cyclist", os);
@@ -87,6 +87,7 @@ osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const k
     }
   }
 
+  /*
   Eigen::Matrix4d t_cv = kcd.GetTcv().inverse();
   for (const auto &label : kcd.GetLabels()) {
     Eigen::Vector4d center_camera(label.location[0], label.location[1], label.location[2], 1.0);
@@ -101,6 +102,7 @@ osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const k
 
     //im->setColor(osg::Vec4(1, 1, 1, 1), i, j, 0);
   }
+  */
 
   return im;
 }

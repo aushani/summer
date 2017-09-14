@@ -27,8 +27,8 @@ struct DeviceData {
     }
   }
 
-  void AddModel(const ModelKey &key, const clt::JointModel &jm, float range_x, float range_y, float log_prior) {
-    Data d(DeviceModel(jm), DeviceScores(jm.GetResolution(), range_x, range_y, log_prior));
+  void AddModel(const ModelKey &key, const clt::JointModel &jm, const Dim &dim, float lp) {
+    Data d(DeviceModel(jm), DeviceScores(dim, lp));
     data.insert({key, d});
   }
 
@@ -64,13 +64,10 @@ struct DeviceData {
   }
 };
 
-Detector::Detector(float res, float range_x, float range_y) :
- range_x_(range_x), range_y_(range_y),
- n_x_(2 * std::ceil(range_x / res) + 1),
- n_y_(2 * std::ceil(range_y / res) + 1),
- res_(res),
+Detector::Detector(const Dim &d) :
+ dim_(d),
  device_data_(new DeviceData()),
- og_builder_(200000, res, sqrt(range_x*range_x + range_y * range_y)) {
+ og_builder_(200000, dim_.res, 100.0) {
 
 }
 
@@ -81,7 +78,7 @@ Detector::~Detector() {
 void Detector::AddModel(const std::string &classname, int angle_bin, const clt::JointModel &jm, float log_prior) {
   ModelKey key(classname, angle_bin);
 
-  device_data_->AddModel(key, jm, range_x_, range_y_, log_prior);
+  device_data_->AddModel(key, jm, dim_, log_prior);
   classnames_.push_back(classname);
 }
 
@@ -146,11 +143,11 @@ __global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel mo
   const int threads = blockDim.x;
 
   const int idx = tidx + bidx * threads;
-  if (!scores.InRange(idx)) {
+  if (!scores.dim.InRange(idx)) {
     return;
   }
 
-  ObjectState os = scores.GetState(idx);
+  ObjectState os = scores.dim.GetState(idx);
 
   int min_ij = -(model.n_xy/2);
   int max_ij = min_ij + model.n_xy;
@@ -239,7 +236,7 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
     scores.Reset();
 
     int threads = kThreadsPerBlock_;
-    int blocks = scores.Size() / threads + 1;
+    int blocks = scores.dim.Size() / threads + 1;
 
     Evaluate<<<blocks, threads>>>(ddog, model, scores);
 
@@ -251,6 +248,48 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
 
   ddog.Cleanup();
   dog->Cleanup();
+}
+
+std::vector<Detection> Detector::GetDetections() const {
+  // This is something really stupid just to get started
+
+  std::vector<Detection> detections;
+
+  for (int i = 0; i < dim_.n_x; i++) {
+    for (int j = 0; j < dim_.n_y; j++) {
+      ObjectState os = dim_.GetState(i, j);
+
+      float lo_car = GetLogOdds("Car", os.x, os.y);
+
+      if (lo_car > 0) {
+        // Check for max
+        bool max = true;
+        for (int di = -5; di <= 5; di++) {
+          for (int dj = -5; dj <= 5; dj++) {
+            if (di == 0 && dj == 0) {
+              continue;
+            }
+
+            float lo = GetLogOdds("Car", os.x + di * dim_.res, os.y + dj * dim_.res);
+            if (lo > lo_car || (lo == lo_car && (di<0 || dj<0))) {
+              max = false;
+              break;
+            }
+          }
+
+          if (!max) {
+            break;
+          }
+        }
+
+        if (max) {
+          detections.emplace_back("Car", os, lo_car);
+        }
+      }
+    }
+  }
+
+  return detections;
 }
 
 const DeviceScores& Detector::GetScores(const std::string &classname, int angle_bin) const {
@@ -266,7 +305,7 @@ float Detector::GetScore(const std::string &classname, const ObjectState &os) co
 float Detector::GetProb(const std::string &classname, double x, double y) const {
   // TODO Hacky
   double p = 0;
-  for (int angle_bin = 0; angle_bin < 8; angle_bin++) {
+  for (int angle_bin = 0; angle_bin < kAngleBins; angle_bin++) {
     ObjectState os(x, y, angle_bin);
     p += GetProb(classname, os);
   }
@@ -291,7 +330,7 @@ float Detector::GetLogOdds(const std::string &classname, double x, double y) con
 
 float Detector::GetProb(const std::string &classname, const ObjectState &os) const {
   auto &my_scores = GetScores(classname, os.angle_bin);
-  if (!my_scores.InRange(os)) {
+  if (!my_scores.dim.InRange(os)) {
     return 0.0;
   }
 
@@ -335,24 +374,8 @@ float Detector::GetLogOdds(const std::string &classname, const ObjectState &os) 
   return lo;
 }
 
-float Detector::GetRangeX() const {
-  return range_x_;
-}
-
-float Detector::GetRangeY() const {
-  return range_y_;
-}
-
-float Detector::GetResolution() const {
-  return res_;
-}
-
-float Detector::GetNX() const {
-  return n_x_;
-}
-
-float Detector::GetNY() const {
-  return n_y_;
+const Dim& Detector::GetDim() const {
+  return dim_;
 }
 
 const std::vector<std::string>& Detector::GetClasses() const {

@@ -10,6 +10,8 @@
 #include "library/detector/detection_map.h"
 #include "library/detector/object_state.h"
 #include "library/detector/device_scores.h"
+#include "library/detector/dim.h"
+
 
 namespace clt = library::chow_liu_tree;
 namespace rt = library::ray_tracing;
@@ -36,9 +38,19 @@ struct ModelKey {
   }
 };
 
+struct Detection {
+  std::string classname;
+  ObjectState os;
+
+  float log_odds_score;
+
+  Detection(const std::string &cn, const ObjectState &o, float score) :
+    classname(cn), os(o), log_odds_score(score) {}
+};
+
 class Detector {
  public:
-  Detector(float res, float range_x, float range_y);
+  Detector(const Dim &d);
   ~Detector();
 
   void AddModel(const std::string &classname, int angle_bin, const clt::JointModel &mm, float log_prior=0.0);
@@ -49,6 +61,8 @@ class Detector {
 
   void Run(const std::vector<Eigen::Vector3d> &hits);
 
+  std::vector<Detection> GetDetections() const;
+
   const DeviceScores& GetScores(const std::string &classname, int angle_bin) const;
 
   float GetScore(const std::string &classname, const ObjectState &os) const;
@@ -58,25 +72,15 @@ class Detector {
   float GetProb(const std::string &classname, double x, double y) const;
   float GetLogOdds(const std::string &classname, double x, double y) const;
 
-  float GetResolution() const;
-  float GetRangeX() const;
-  float GetRangeY() const;
-  bool InRange(const ObjectState &os) const;
-
-  float GetNX() const;
-  float GetNY() const;
+  const Dim& GetDim() const;
 
   const std::vector<std::string>& GetClasses() const;
 
+  static constexpr int kAngleBins = 1;
  private:
   static constexpr int kThreadsPerBlock_ = 128;
 
-  const float range_x_;
-  const float range_y_;
-  const int n_x_;
-  const int n_y_;
-
-  const float res_;
+  const Dim dim_;
 
   std::unique_ptr<DeviceData> device_data_;
   std::vector<std::string> classnames_;
