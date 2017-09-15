@@ -60,6 +60,7 @@ int main(int argc, char** argv) {
   // Save
   printf("Done! Saving to %s...\n", argv[2]);
   model->Save(argv[2]);
+  printf("Saved! Goodbye\n");
 
   delete model;
 

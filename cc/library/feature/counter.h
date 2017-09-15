@@ -54,10 +54,13 @@ struct Counter {
     while (phi < 0)      phi += 2*M_PI;
     while (phi > 2*M_PI) phi -= 2*M_PI;
 
-    int n_t = round(theta / angle_res);
-    int n_p = round(phi / angle_res);
+    int n_t = theta / angle_res;
+    int n_p = phi / angle_res;
 
-    return n_t * n_x + n_p;
+    int idx =  n_t * n_x + n_p;
+    BOOST_ASSERT(idx < n_x * n_x);
+
+    return idx;
   }
 
   int GetNumOccuObservations() const {
