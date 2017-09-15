@@ -692,6 +692,9 @@ bool eval_class (FILE *fp_det, FILE *fp_ori, CLASSES current_class,
     r = pr[i].tp/(double)(pr[i].tp + pr[i].fn);
     recall.push_back(r);
     precision[i] = pr[i].tp/(double)(pr[i].tp + pr[i].fp);
+    printf("CLASS %d DIFF %d: Threshold %7.5f\n", current_class, difficulty, thresholds[i]);
+    printf("\t TP  FP  FN  R        P\n");
+    printf("\t %d  %d  %d  %7.3f  %7.3f\n", pr[i].tp, pr[i].fp, pr[i].fn, r, precision[i]);
     if(compute_aos)
       aos[i] = pr[i].similarity/(double)(pr[i].tp + pr[i].fp);
   }

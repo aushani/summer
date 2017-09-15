@@ -4,6 +4,7 @@
 #include <Eigen/Core>
 
 #include "library/chow_liu_tree/joint_model.h"
+#include "library/chow_liu_tree/marginal_model.h"
 #include "library/ray_tracing/device_occ_grid.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 
@@ -36,16 +37,28 @@ struct ModelKey {
 
     return angle_bin < k.angle_bin;
   }
+
+  bool operator==(const ModelKey &k) const {
+    return classname == k.classname && angle_bin == k.angle_bin;
+  }
+
+  bool operator!=(const ModelKey &k) const {
+    return !( (*this)==k );
+  }
 };
 
 struct Detection {
   std::string classname;
   ObjectState os;
 
-  float log_odds_score;
+  float confidence;
 
-  Detection(const std::string &cn, const ObjectState &o, float score) :
-    classname(cn), os(o), log_odds_score(score) {}
+  Detection(const std::string &cn, const ObjectState &o, float c) :
+    classname(cn), os(o), confidence(c) {}
+
+  bool operator<(const Detection &d) const {
+    return confidence > d.confidence;
+  }
 };
 
 class Detector {
@@ -54,14 +67,18 @@ class Detector {
   ~Detector();
 
   void AddModel(const std::string &classname, int angle_bin, const clt::JointModel &mm, float log_prior=0.0);
+  void AddModel(const std::string &classname, int angle_bin, const clt::MarginalModel &mm, float log_prior=0.0);
+
   void UpdateModel(const std::string &classname, int angle_bin, const clt::JointModel &jm);
+  void UpdateModel(const std::string &classname, int angle_bin, const clt::MarginalModel &mm);
   void UpdateModel(const std::string &classname, int angle_bin, const rt::DeviceOccGrid &dog);
 
   void LoadIntoJointModel(const std::string &classname, int angle_bin, clt::JointModel *jm) const;
+  void LoadIntoMarginalModel(const std::string &classname, int angle_bin, clt::MarginalModel *mm) const;
 
   void Run(const std::vector<Eigen::Vector3d> &hits);
 
-  std::vector<Detection> GetDetections() const;
+  std::vector<Detection> GetDetections(double thresh) const;
 
   const DeviceScores& GetScores(const std::string &classname, int angle_bin) const;
 

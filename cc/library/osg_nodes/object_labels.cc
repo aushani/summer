@@ -16,7 +16,7 @@ namespace kt = library::kitti;
 namespace library {
 namespace osg_nodes {
 
-ObjectLabels::ObjectLabels(const kt::ObjectLabels &labels, const Eigen::Matrix4d &T_cv) : osg::Group() {
+ObjectLabels::ObjectLabels(const kt::ObjectLabels &labels, const Eigen::Matrix4d &T_cv, bool gt) : osg::Group() {
   osg::ref_ptr<CompositeShapeGroup> csg = new CompositeShapeGroup();
 
   osg::ref_ptr<osg::StateSet> ss = csg->getOrCreateStateSet();
@@ -36,15 +36,18 @@ ObjectLabels::ObjectLabels(const kt::ObjectLabels &labels, const Eigen::Matrix4d
     box->setRotation(quat);
 
     osg::ref_ptr<osg::ShapeDrawable> shape = new osg::ShapeDrawable(box);
+    shape->setColor(osg::Vec4(0.9, 0.9, 0.9, 1.0));
 
-    if (label.type == kt::ObjectLabel::CAR) {
-      shape->setColor(color_car_);
-    } else if (label.type == kt::ObjectLabel::PEDESTRIAN) {
-      shape->setColor(color_pedestrian_);
-    } else if (label.type == kt::ObjectLabel::CYCLIST) {
-      shape->setColor(color_cyclist_);
-    } else {
-      shape->setColor(color_other_);
+    if (gt) {
+      if (label.type == kt::ObjectLabel::CAR) {
+        shape->setColor(color_car_);
+      } else if (label.type == kt::ObjectLabel::PEDESTRIAN) {
+        shape->setColor(color_pedestrian_);
+      } else if (label.type == kt::ObjectLabel::CYCLIST) {
+        shape->setColor(color_cyclist_);
+      } else {
+        shape->setColor(color_other_);
+      }
     }
 
     csg->addChild(shape);

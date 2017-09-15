@@ -5,6 +5,7 @@
 #include <boost/assert.hpp>
 
 #include "library/chow_liu_tree/joint_model.h"
+#include "library/chow_liu_tree/marginal_model.h"
 #include "library/ray_tracing/device_occ_grid.h"
 #include "library/ray_tracing/occ_grid_location.h"
 
@@ -15,8 +16,8 @@ namespace library {
 namespace detector {
 
 static constexpr int kShrinkage = 1;
-static constexpr float kMinP = 0.20;
-static constexpr float kMaxP = 0.80;
+static constexpr float kMinP = 0.01;
+static constexpr float kMaxP = 0.99;
 
 struct Marginal {
   float log_ps[2] = {0.0, 0.0};
@@ -68,6 +69,8 @@ struct Marginal {
       if (p < kMinP) p = kMinP;
 
       log_ps[idx] = log(p);
+      //printf("p: %d / %f, %5.3f, log p -> %5.3f\n",
+      //    GetCount(occ), counts_total, p, log_ps[idx]);
     }
   }
 };
@@ -196,6 +199,13 @@ struct DeviceModel {
     printf("Allocated %ld Mbytes on device for model\n", sz/(1024*1024));
   }
 
+  DeviceModel(const clt::MarginalModel &mm) {
+    BuildModel(mm);
+
+    size_t sz = sizeof(Marginal) * locs;
+    printf("Allocated %ld Kbytes for %d locs on device for model\n", sz/(1024), locs);
+  }
+
   void UpdateModel(const rt::DeviceOccGrid &dog) {
     int threads = 128;
     int blocks = std::ceil(dog.size / static_cast<double>(threads));
@@ -203,6 +213,44 @@ struct DeviceModel {
     UpdateModelKernel<<<blocks, threads>>>((*this), dog);
     cudaError_t err = cudaDeviceSynchronize();
     BOOST_ASSERT(err == cudaSuccess);
+  }
+
+  void LoadIntoMarginalModel(clt::MarginalModel *mm) {
+    // Check dimensions
+    BOOST_ASSERT(n_xy == mm->GetNXY());
+    BOOST_ASSERT(n_z == mm->GetNZ());
+
+    std::vector<Marginal> h_marg(locs);
+
+    cudaMemcpy(h_marg.data(), marginals, locs*sizeof(Marginal), cudaMemcpyDeviceToHost);
+
+    // Get all locations
+    int min_ij = - (mm->GetNXY() / 2);
+    int max_ij = min_ij + mm->GetNXY();
+
+    int min_k = - (mm->GetNZ() / 2);
+    int max_k = min_k + mm->GetNZ();
+
+    for (int i=min_ij; i < max_ij; i++) {
+      for (int j=min_ij; j < max_ij; j++) {
+        for (int k=min_k; k < max_k; k++) {
+          rt::Location loc(i, j, k);
+
+          int idx = GetIndex(loc);
+
+          const Marginal &m = h_marg[idx];
+
+          for (int i_eval = 0; i_eval<2; i_eval++) {
+            bool eval = i_eval == 0;
+            int my_count = m.GetActualCount(eval);
+            mm->SetCount(loc, eval, my_count);
+          }
+
+        }
+      }
+    }
+
+
   }
 
   void LoadIntoJointModel(clt::JointModel *jm) {
@@ -324,6 +372,49 @@ struct DeviceModel {
     // Send to device
     //printf("\tCopying to device...\n");
     cudaMemcpy(conditionals, h_cond.data(), sz*sizeof(Conditional), cudaMemcpyHostToDevice);
+    cudaMemcpy(marginals, h_marg.data(), locs*sizeof(Marginal), cudaMemcpyHostToDevice);
+  }
+
+  void BuildModel(const clt::MarginalModel &mm) {
+    n_xy = mm.GetNXY();
+    n_z = mm.GetNZ();
+    res = mm.GetResolution();
+
+    locs = n_xy * n_xy * n_z;
+
+    if (marginals == nullptr) {
+      size_t sz = sizeof(Marginal) * locs;
+      cudaMalloc(&marginals, sz);
+      printf("Allocated %ld Kbytes for %d locs on device for model\n", sz/(1024), locs);
+    }
+
+    std::vector<Marginal> h_marg(locs);
+
+    // Get all locations
+    int min_ij = - (mm.GetNXY() / 2);
+    int max_ij = min_ij + mm.GetNXY();
+
+    int min_k = - (mm.GetNZ() / 2);
+    int max_k = min_k + mm.GetNZ();
+
+    //printf("\tFilling look up tables...\n");
+    for (int i=min_ij; i < max_ij; i++) {
+      for (int j=min_ij; j < max_ij; j++) {
+        for (int k=min_k; k < max_k; k++) {
+          rt::Location loc(i, j, k);
+
+          // Marginal
+          int idx = GetIndex(loc);
+          int c_t = mm.GetCount(loc, true);
+          int c_f = mm.GetCount(loc, false);
+          h_marg[idx].SetCount(true, c_t);
+          h_marg[idx].SetCount(false, c_f);
+        }
+      }
+    }
+
+    // Send to device
+    //printf("\tCopying to device...\n");
     cudaMemcpy(marginals, h_marg.data(), locs*sizeof(Marginal), cudaMemcpyHostToDevice);
   }
 

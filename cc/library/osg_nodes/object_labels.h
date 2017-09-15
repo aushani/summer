@@ -10,7 +10,7 @@ namespace osg_nodes {
 
 class ObjectLabels : public osg::Group {
  public:
-  ObjectLabels(const library::kitti::ObjectLabels &labels, const Eigen::Matrix4d &T_cv);
+  ObjectLabels(const library::kitti::ObjectLabels &labels, const Eigen::Matrix4d &T_cv, bool gt=true);
  private:
   osg::Vec4 color_car_        = osg::Vec4(1.0, 0.0, 0.0, 0.8);
   osg::Vec4 color_cyclist_    = osg::Vec4(0.0, 1.0, 0.0, 0.8);

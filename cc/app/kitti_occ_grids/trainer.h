@@ -4,6 +4,7 @@
 #include <fstream>
 #include <set>
 #include <thread>
+#include <mutex>
 
 #include <boost/filesystem.hpp>
 
@@ -53,7 +54,7 @@ class Trainer {
 
   const char* kKittiBaseFilename = "/home/aushani/data/kitti_challenge/";
   const int kNumFrames = 7481;
-  static constexpr double kRes_ = 0.50;                    // 50 cm
+  static constexpr double kRes_ = 0.20;                    // 20 cm
   static constexpr int kSamplesPerFrame_ = 10;
 
   fs::path save_base_path_;
@@ -63,7 +64,8 @@ class Trainer {
   dt::Detector detector_;
   rt::OccGridBuilder og_builder_;
 
-  std::map<std::string, clt::JointModel> models_;
+  //std::map<std::string, clt::JointModel> models_;
+  std::map<std::string, clt::MarginalModel> models_;
   std::map<std::string, int> samples_per_class_;
 
   std::vector<dt::ObjectState> states_;
@@ -74,6 +76,8 @@ class Trainer {
 
   std::string GetTrueClass(const kt::KittiChallengeData &kcd, const dt::ObjectState &os) const;
   std::vector<Sample> GetTrainingSamples(const kt::KittiChallengeData &kcd) const;
+  void GetTrainingSamplesWorker(const kt::KittiChallengeData &kcd, size_t idx0, size_t idx1,
+    std::map<std::string, std::vector<Sample> > *samples, std::map<std::string, double> *total_weight, std::mutex *mutex) const;
 
   static void Train(Trainer *trainer, const kt::KittiChallengeData &kcd, const std::vector<Sample> &samples);
   static void UpdateViewer(Trainer *trainer, const kt::KittiChallengeData &kcd, const std::vector<Sample> &samples);

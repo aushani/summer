@@ -32,12 +32,25 @@ struct DeviceData {
     data.insert({key, d});
   }
 
+  void AddModel(const ModelKey &key, const clt::MarginalModel &mm, const Dim &dim, float lp) {
+    Data d(DeviceModel(mm), DeviceScores(dim, lp));
+    data.insert({key, d});
+  }
+
   void UpdateModel(const ModelKey &key, const clt::JointModel &jm) {
     auto it = data.find(key);
     BOOST_ASSERT(it != data.end());
 
     Data &d = it->second;
     d.first.BuildModel(jm);
+  }
+
+  void UpdateModel(const ModelKey &key, const clt::MarginalModel &mm) {
+    auto it = data.find(key);
+    BOOST_ASSERT(it != data.end());
+
+    Data &d = it->second;
+    d.first.BuildModel(mm);
   }
 
   void UpdateModel(const ModelKey &key, const rt::DeviceOccGrid &dog) {
@@ -56,11 +69,26 @@ struct DeviceData {
     d.first.LoadIntoJointModel(jm);
   }
 
+  void LoadIntoMarginalModel(const ModelKey &key, clt::MarginalModel *mm) {
+    auto it = data.find(key);
+    BOOST_ASSERT(it != data.end());
+
+    Data &d = it->second;
+    d.first.LoadIntoMarginalModel(mm);
+  }
+
   const DeviceScores& GetScores(const ModelKey &key) const {
     auto it = data.find(key);
     BOOST_ASSERT(it != data.end());
 
     return it->second.second;
+  }
+
+  const DeviceModel& GetModel(const ModelKey &key) const {
+    auto it = data.find(key);
+    BOOST_ASSERT(it != data.end());
+
+    return it->second.first;
   }
 };
 
@@ -82,6 +110,13 @@ void Detector::AddModel(const std::string &classname, int angle_bin, const clt::
   classnames_.push_back(classname);
 }
 
+void Detector::AddModel(const std::string &classname, int angle_bin, const clt::MarginalModel &mm, float log_prior) {
+  ModelKey key(classname, angle_bin);
+
+  device_data_->AddModel(key, mm, dim_, log_prior);
+  classnames_.push_back(classname);
+}
+
 int Detector::GetModelIndex(const std::string &classname) const {
   int idx = -1;
   for (size_t i=0; i < classnames_.size(); i++) {
@@ -100,6 +135,11 @@ void Detector::UpdateModel(const std::string &classname, int angle_bin, const cl
   device_data_->UpdateModel(key, jm);
 }
 
+void Detector::UpdateModel(const std::string &classname, int angle_bin, const clt::MarginalModel &mm) {
+  ModelKey key(classname, angle_bin);
+  device_data_->UpdateModel(key, mm);
+}
+
 void Detector::UpdateModel(const std::string &classname,  int angle_bin, const rt::DeviceOccGrid &dog) {
   ModelKey key(classname, angle_bin);
   device_data_->UpdateModel(key, dog);
@@ -108,6 +148,11 @@ void Detector::UpdateModel(const std::string &classname,  int angle_bin, const r
 void Detector::LoadIntoJointModel(const std::string &classname, int angle_bin, clt::JointModel *jm) const {
   ModelKey key(classname, angle_bin);
   device_data_->LoadIntoJointModel(key, jm);
+}
+
+void Detector::LoadIntoMarginalModel(const std::string &classname, int angle_bin, clt::MarginalModel *mm) const {
+  ModelKey key(classname, angle_bin);
+  device_data_->LoadIntoMarginalModel(key, mm);
 }
 
 
@@ -137,7 +182,7 @@ struct LocsBuffer {
   }
 };
 
-__global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel model, const DeviceScores scores) {
+__global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel model, const DeviceModel bg_model, const DeviceScores scores) {
   const int bidx = blockIdx.x;
   const int tidx = threadIdx.x;
   const int threads = blockDim.x;
@@ -167,40 +212,46 @@ __global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel mo
 
         // TODO transform
         rt::Location loc_global(loc.i + os.x/model.res, loc.j + os.y/model.res, loc.k);
-
         if (!ddog.IsKnown(loc_global)) {
           continue;
         }
 
-        // Search through locs for best dependency
-        rt::Location best_loc;
-        float best_mi = 0;
-        for (int i=0; i<locs_seen.NumValid(); i++) {
-          const auto &loc_prev = locs_seen.Get(i);
+        if (model.conditionals != nullptr) {
+          // Search through locs for best dependency
+          rt::Location best_loc;
+          float best_mi = 0;
+          for (int i=0; i<locs_seen.NumValid(); i++) {
+            const auto &loc_prev = locs_seen.Get(i);
 
-          // Get mi
-          float mi = model.GetMutualInformation(loc, loc_prev);
+            // Get mi
+            float mi = model.GetMutualInformation(loc, loc_prev);
 
-          if (mi > best_mi) {
-            best_mi = mi;
-            best_loc = loc_prev;
+            if (mi > best_mi) {
+              best_mi = mi;
+              best_loc = loc_prev;
+            }
           }
-        }
 
-        bool occ = ddog.IsOccu(loc_global);
+          bool occ = ddog.IsOccu(loc_global);
 
-        if (best_mi > 0) {
-          // TODO transform
-          rt::Location loc_prev_global(best_loc.i + os.x/model.res, best_loc.j + os.y/model.res, best_loc.k);
-          bool occ_prev = ddog.IsOccu(loc_prev_global);
+          if (best_mi > 0) {
+            // TODO transform
+            rt::Location loc_prev_global(best_loc.i + os.x/model.res, best_loc.j + os.y/model.res, best_loc.k);
+            bool occ_prev = ddog.IsOccu(loc_prev_global);
 
-          log_p += model.GetLogP(loc, occ, best_loc, occ_prev);
-          total_mi += best_mi;
+            log_p += model.GetLogP(loc, occ, best_loc, occ_prev);
+            total_mi += best_mi;
+          } else {
+            log_p += model.GetLogP(loc, occ);
+          }
+
+          locs_seen.Mark(loc);
         } else {
-          log_p += model.GetLogP(loc, occ);
+          // Marginal only
+          bool occ = ddog.IsOccu(loc_global);
+          float update = model.GetLogP(loc, occ);
+          log_p += update;
         }
-
-        locs_seen.Mark(loc);
       }
     }
   }
@@ -221,7 +272,7 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
   BOOST_ASSERT(err == cudaSuccess);
 
   t.Start();
-  rt::DeviceDenseOccGrid ddog(*dog, 50.0, 2.0);
+  rt::DeviceDenseOccGrid ddog(*dog, 100.0, 4.0);
   //printf("Made Device Dense Occ Grid in %5.3f ms\n", t.GetMs());
 
   err = cudaDeviceSynchronize();
@@ -235,10 +286,12 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
     DeviceScores &scores = d.second;
     scores.Reset();
 
+    const DeviceModel &bg_model = device_data_->GetModel(ModelKey("Background", 0));
+
     int threads = kThreadsPerBlock_;
     int blocks = scores.dim.Size() / threads + 1;
 
-    Evaluate<<<blocks, threads>>>(ddog, model, scores);
+    Evaluate<<<blocks, threads>>>(ddog, model, bg_model, scores);
 
     err = cudaDeviceSynchronize();
     BOOST_ASSERT(err == cudaSuccess);
@@ -250,40 +303,50 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
   dog->Cleanup();
 }
 
-std::vector<Detection> Detector::GetDetections() const {
+std::vector<Detection> Detector::GetDetections(double thresh) const {
   // This is something really stupid just to get started
 
   std::vector<Detection> detections;
 
   for (int i = 0; i < dim_.n_x; i++) {
     for (int j = 0; j < dim_.n_y; j++) {
-      ObjectState os = dim_.GetState(i, j);
+      for (int angle_bin = 0; angle_bin < kAngleBins; angle_bin++) {
+        ObjectState os = dim_.GetState(i, j);
+        os.angle_bin = angle_bin;
 
-      float lo_car = GetLogOdds("Car", os.x, os.y);
+        float lo_car = GetLogOdds("Car", os);
+        float my_score = GetScore("Car", os);
 
-      if (lo_car > 0) {
-        // Check for max
-        bool max = true;
-        for (int di = -5; di <= 5; di++) {
-          for (int dj = -5; dj <= 5; dj++) {
-            if (di == 0 && dj == 0) {
-              continue;
-            }
+        if (lo_car > thresh) {
+          // Check for max
+          bool max = true;
+          for (int di = -2/dim_.res; di <= 2/dim_.res && max; di++) {
+            for (int dj = -2/dim_.res; dj <= 2/dim_.res && max; dj++) {
+              for (int b=0; b<kAngleBins && max; b++) {
+                if (di == 0 && dj == 0 && b == angle_bin) {
+                  continue;
+                }
 
-            float lo = GetLogOdds("Car", os.x + di * dim_.res, os.y + dj * dim_.res);
-            if (lo > lo_car || (lo == lo_car && (di<0 || dj<0))) {
-              max = false;
-              break;
+                ObjectState n_os = dim_.GetState(i + di, j + dj);
+                n_os.angle_bin = b;
+                float lo = GetLogOdds("Car", n_os);
+
+                if (lo > lo_car) {
+                  max = false;
+                } else if (lo == lo_car) {
+                  double score = GetScore("Car", n_os);
+                  if (score > my_score) {
+                    max = false;
+                  }
+                }
+              }
             }
           }
 
-          if (!max) {
-            break;
+          if (max) {
+            float confidence = lo_car;
+            detections.emplace_back("Car", os, confidence);
           }
-        }
-
-        if (max) {
-          detections.emplace_back("Car", os, lo_car);
         }
       }
     }
@@ -360,15 +423,53 @@ float Detector::GetProb(const std::string &classname, const ObjectState &os) con
 }
 
 float Detector::GetLogOdds(const std::string &classname, const ObjectState &os) const {
-  double prob = GetProb(classname, os);
-  double lo = -std::log(1/prob - 1);
-
-  if (lo > 40) {
-    lo = 40;
+  auto &my_scores = GetScores(classname, os.angle_bin);
+  if (!my_scores.dim.InRange(os)) {
+    return 0.0;
   }
 
-  if (lo < -40) {
-    lo = -40;
+  ModelKey my_key(classname, os.angle_bin);
+
+  float my_score = GetScore(classname, os);
+  float max_score = my_score;
+  float max_other = -100000;
+
+  // Normalize over classes and orientations
+  for (const auto &kv : device_data_->data) {
+    const auto &class_scores = kv.second.second;
+    float score = class_scores.GetScore(os);
+
+    if (score > max_score) {
+      max_score = score;
+    }
+
+    if (score > max_other && kv.first != my_key) {
+      max_other = score;
+    }
+  }
+
+  float sum = 0;
+
+  for (const auto &kv : device_data_->data) {
+    const auto &class_scores = kv.second.second;
+    float score = class_scores.GetScore(os);
+    sum += exp(score - max_score);
+  }
+  float prob = exp(my_score - max_score) / sum;
+
+  //double prob = GetProb(os);
+  double lo = -std::log(1/prob - 1);
+
+  if (lo > 10) {
+    //printf("%5.3f vs %5.3f, %5.3f\n", lo, my_score, max_other);
+    //lo = 10;
+    lo = my_score - max_other; // approx for multiclass
+  }
+
+  if (lo < -10) {
+    //printf("%5.3f vs %5.3f, %5.3f\n", lo, my_score, max_other);
+    //lo = -10;
+    lo = my_score - max_other; // approx for multiclass
   }
 
   return lo;
