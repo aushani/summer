@@ -70,7 +70,10 @@ void FeatureOccGrid::ComputeNormalsForIdx(size_t idx) {
     }
   }
 
-  normals_[idx] = stats.GetNormal(loc);
+  normals_[idx] = stats.GetNormal();
+  if (normals_[idx].dot(Eigen::Vector3f(loc.i, loc.j, loc.k)) > 0) {
+    normals_[idx] *= -1;
+  }
 }
 
 }  // namespace ray_tracing

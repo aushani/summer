@@ -31,6 +31,11 @@ struct Stats {
   float sum_cov_xz = 0;
   float sum_cov_yz = 0;
 
+  bool normal_valid = false;
+  Eigen::Vector3f normal;
+  float theta = 0;
+  float phi = 0;
+
   int count = 0;
 
   CUDA_CALLABLE Stats operator+(const Stats &other) const {
@@ -107,7 +112,31 @@ struct Stats {
     return sum_cov_yz / count;
   }
 
-  CUDA_CALLABLE Eigen::Vector3f GetNormal(const Location &my_loc) const {
+  CUDA_CALLABLE Eigen::Vector3f GetNormal() {
+    if (!normal_valid) {
+      ComputeNormal();
+    }
+
+    return normal;
+  }
+
+  CUDA_CALLABLE float GetTheta() {
+    if (!normal_valid) {
+      ComputeNormal();
+    }
+
+    return theta;
+  }
+
+  CUDA_CALLABLE float GetPhi() {
+    if (!normal_valid) {
+      ComputeNormal();
+    }
+
+    return phi;
+  }
+
+  CUDA_CALLABLE void ComputeNormal() {
     // Get covariance matrix
     Eigen::Matrix3f cov;
     cov(0, 0) = GetCovX();
@@ -138,14 +167,17 @@ struct Stats {
     }
 
     Eigen::Matrix3f evecs = eig.eigenvectors();
-    Eigen::Vector3f normal = evecs.col(idx_min);
+    normal = evecs.col(idx_min);
 
-    Eigen::Vector3f pos(my_loc.i, my_loc.j, my_loc.k);
-    if (pos.dot(normal) > 0) {
-      normal *= -1;
-    }
+    float x = normal.x();
+    float y = normal.y();
+    float z = normal.z();
 
-    return normal;
+    float d = sqrt(x*x + y*y + z*z);
+    theta = atan2(y, x);
+    phi = atan2(z, d);
+
+    normal_valid = true;
   }
 };
 
