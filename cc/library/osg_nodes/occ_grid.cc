@@ -67,7 +67,7 @@ OccGrid::OccGrid(const rt::FeatureOccGrid &fog, double thresh_lo) : osg::Group()
     double g = 0.9;
     if (fog.HasStats(loc)) {
       const auto &stats = fog.GetStats(loc);
-      printf("intensity: %5.3f, %d\n", stats.intensity, stats.count);
+      //printf("intensity: %5.3f, %d\n", stats.intensity, stats.count);
       float intens = stats.intensity;
       if (intens < 0) {
         intens = 0.0;
