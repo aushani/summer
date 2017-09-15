@@ -9,6 +9,7 @@
 #include "library/ray_tracing/occ_grid_builder.h"
 #include "library/timer/timer.h"
 #include "library/viewer/viewer.h"
+#include "library/gpu_util/util.h"
 
 #include "app/viewer/simple_handler.h"
 
@@ -62,6 +63,7 @@ int main(int argc, char** argv) {
   au->addCommandLineOption("--kitti-log-date <dirname>", "KITTI date", "2011_09_26");
   au->addCommandLineOption("--log-num <num>", "KITTI log number", "18");
   au->addCommandLineOption("--frame-num <num>", "KITTI frame number", "0");
+  au->addCommandLineOption("--alt", "Run on alt device", "");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -69,6 +71,10 @@ int main(int argc, char** argv) {
   if ((helpType = args.readHelpType())) {
     au->write(std::cout, helpType);
     return EXIT_SUCCESS;
+  }
+
+  if (args.read("--alt")) {
+      library::gpu_util::SetDevice(1);
   }
 
   // Read params
@@ -107,10 +113,11 @@ int main(int argc, char** argv) {
   printf("Have %ld points\n", scan.GetHits().size());
 
   // Build occ grid
-  rt::OccGridBuilder builder(200000, 0.3, 100.0);
+  rt::OccGridBuilder builder(150000, 0.2, 100.0);
 
   library::timer::Timer t;
   auto fog = builder.GenerateFeatureOccGrid(scan.GetHits(), scan.GetIntensities());
+  //auto fog = builder.GenerateOccGrid(scan.GetHits());
   printf("Took %5.3f ms to build occ grid\n", t.GetMs());
 
   vw::Viewer v(&args);

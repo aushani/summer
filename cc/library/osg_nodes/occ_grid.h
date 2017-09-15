@@ -24,6 +24,9 @@ class OccGrid : public osg::Group {
  public:
   OccGrid(const rt::OccGrid &og, double thresh_lo=0);
   OccGrid(const rt::FeatureOccGrid &fog, double thresh_lo=0);
+
+ private:
+  void DrawNormal(double x, double y, double z, double dx, double dy, double dz);
 };
 
 } // osg_nodes
