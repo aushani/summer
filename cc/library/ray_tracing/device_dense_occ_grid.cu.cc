@@ -39,6 +39,10 @@ __global__ void PopulateDenseKernel(const DeviceDenseOccGrid ddog, const DeviceO
   }
 
   int idx_dense = ddog.GetIndex(dog.locs[idx]);
+  if (idx_dense < 0) {
+    return;
+  }
+
   occu[idx_dense] = dog.los[idx] > 0;
   known[idx_dense] = true;
 }

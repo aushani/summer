@@ -13,6 +13,14 @@ bool FeatureOccGrid::HasStats(const Location &loc) const {
   return (it != stat_locs_.end() && (*it) == loc);
 }
 
+const std::vector<Location>& FeatureOccGrid::GetStatLocations() const {
+  return stat_locs_;
+}
+
+const std::vector<Stats>& FeatureOccGrid::GetStats() const {
+  return stats_;
+}
+
 const Stats& FeatureOccGrid::GetStats(const Location &loc) const {
   size_t pos = GetStatsPos(loc);
   return stats_[pos];
@@ -33,7 +41,7 @@ size_t FeatureOccGrid::GetStatsPos(const Location &loc) const {
 }
 
 void FeatureOccGrid::ComputeNormals() {
-  int n_threads = 4;
+  int n_threads = 1;
 
   std::vector<std::thread> threads;
   for (int i=0; i<n_threads; i++) {
@@ -57,10 +65,11 @@ void FeatureOccGrid::ComputeNormalsForIdx(size_t idx) {
   const Location &loc = stat_locs_[idx];
 
   // Blur
+  int blur_size = 1;
   Stats stats;
-  for (int di=-1; di<=1; di++) {
-    for (int dj=-1; dj<=1; dj++) {
-      for (int dk=-1; dk<=1; dk++) {
+  for (int di=-blur_size; di<=blur_size; di++) {
+    for (int dj=-blur_size; dj<=blur_size; dj++) {
+      for (int dk=-blur_size; dk<=blur_size; dk++) {
         Location loc_i(loc.i + di, loc.j + dj, loc.k + dk);
 
         if (HasStats(loc_i)) {

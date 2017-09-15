@@ -124,6 +124,14 @@ int main(int argc, char** argv) {
   fog.ComputeNormals();
   printf("Took %5.3f ms to compute normals\n", t.GetMs());
 
+  t.Start();
+  auto ddfog = builder.GenerateDeviceDenseFeatureOccGrid(scan.GetHits(), scan.GetIntensities(), 100.0, 5.0);
+  printf("Took %5.3f ms to build DDFOG\n", t.GetMs());
+
+  t.Start();
+  ddfog.Cleanup();
+  printf("Took %5.3f ms to cleanup DDFOG\n", t.GetMs());
+
   vw::Viewer v(&args);
 
   osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);

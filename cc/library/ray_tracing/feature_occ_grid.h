@@ -16,6 +16,9 @@ class FeatureOccGrid : public OccGrid {
                  const std::vector<Location> &stat_locs, const std::vector<Stats> &stats, float res) :
      OccGrid(locs, los, res), stat_locs_(stat_locs), stats_(stats), normals_(stat_locs.size()) { }
 
+  const std::vector<Location>& GetStatLocations() const;
+  const std::vector<Stats>& GetStats() const;
+
   bool HasStats(const Location &loc) const;
 
   const Stats& GetStats(const Location &loc) const;

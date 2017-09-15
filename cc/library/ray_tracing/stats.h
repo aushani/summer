@@ -7,6 +7,8 @@
 #define CUDA_CALLABLE
 #endif
 
+#include <iostream>
+
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
 
@@ -136,8 +138,89 @@ struct Stats {
     return phi;
   }
 
+  CUDA_CALLABLE static Eigen::Matrix3f jacobiRot(int k, int l, float c, float s) {
+    Eigen::Matrix3f out;
+    out.setZero();
+    out(0, 0) = 1.0;
+    out(1, 1) = 1.0;
+    out(2, 2) = 1.0;
+
+    out(k, k) = c;
+    out(l, l) = c;
+
+    out(l, k) = s;
+    out(k, l) = -s;
+
+    return out;
+  }
+
+  CUDA_CALLABLE static int biggestAxis(const Eigen::Vector3f &v) {
+    if (v(0) > v(1) && v(0) > v(2)) return 0;
+    if (v(1) > v(0) && v(1) > v(2)) return 1;
+    if (v(2) > v(1) && v(2) > v(0)) return 2;
+
+    return 0;
+  };
+
+  CUDA_CALLABLE static void eigenDecomp(const Eigen::Matrix3f &in, Eigen::Matrix3f &eigVals, Eigen::Matrix3f &eigVecs) {
+    // Thanks sparkison
+    //
+    // A must be a symmetric matrix.
+    // returns quaternion q such that its corresponding matrix Q
+    // can be used to Diagonalize A
+    // Diagonal matrix D = Q * A * Transpose(Q);  and  A = QT*D*Q
+    // The rows of q are the eigenvectors D's diagonal is the eigenvalues
+    // As per 'row' convention if float3x3 Q = q.getmatrix(); then v*Q = q*v*conj(q)
+    int maxsteps = 24;  // certainly wont need that many.
+    int i;
+    //float q[4] = {0, 0, 0, 1};
+    Eigen::Matrix3f Q;  // v*Q == q*v*conj(q)
+    Q.setZero();
+    Q(0, 0) = 1.0;
+    Q(1, 1) = 1.0;
+    Q(2, 2) = 1.0;
+    Eigen::Matrix3f D;
+    for (i = 0; i < maxsteps; i++) {
+      D = Q * in * Q.transpose();
+      //D = matrix_multiply(matrix_multiply(Q, in), trans(Q));  // A = Q^T*D*Q
+      Eigen::Vector3f om, offdiag;
+      offdiag(0) = D(1, 2);
+      offdiag(1) = D(0, 2);
+      offdiag(2) = D(0, 1);
+      // elements not on the diagonal
+      om(0) = fabs(D(1, 2));
+      om(1) = fabs(D(0, 2));
+      om(2) = fabs(D(0, 1));
+      // mag of each offdiag elem
+      int k = biggestAxis(om);
+      int k1 = (k + 1) % 3;
+      int k2 = (k + 2) % 3;
+      if (om(k) == 0.0f) {
+        break;  // diagonal already
+      }
+      float thet = (D(k2, k2) - D(k1, k1)) / (2.0f * offdiag(k));
+      float sgn = (thet > 0.0f) ? 1.0f : -1.0f;
+      thet *= sgn;                                           // make it positive
+      float t = sgn / (thet + (sqrt(pow(thet, 2) + 1.0f)));  // sign(T)/(|T|+sqrt(T^2+1))
+      float c = 1.0f / sqrt(pow(t, 2) + 1.0f);               //  c= 1/(t^2+1) , t=s/c
+      if (c == 1.0f) {
+        break;  // no room for improvement - reached machine precision.
+      }
+      float s = c * t;
+      Eigen::Matrix3f J = jacobiRot(k1, k2, c, s);  // quaternion(jr[0], jr[1], jr[2], jr[3]);
+      Q = J*Q;
+    }
+
+    eigVals.setZero();
+    eigVals(0, 0) = D(0, 0);
+    eigVals(1, 1) = D(1, 1);
+    eigVals(2, 2) = D(2, 2);
+    eigVecs = Q;
+    return;
+  };
+
   CUDA_CALLABLE void ComputeNormal() {
-    // Get covariance matrix
+    //// Get covariance matrix
     Eigen::Matrix3f cov;
     cov(0, 0) = GetCovX();
     cov(1, 1) = GetCovY();
@@ -153,21 +236,24 @@ struct Stats {
     cov(2, 1) = cov(1, 2);
 
     // Solve for eigenvalues
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eig(cov);
+    Eigen::Matrix3f evals;
+    Eigen::Matrix3f evecs;
+    eigenDecomp(cov, evals, evecs);
 
     // Get the normal
-    Eigen::Vector3f evals = eig.eigenvalues();
     int idx_min = 0;
-    if (std::abs(evals(1)) < std::abs(evals(idx_min))) {
+    //if (fabs(evals(1)) < fabs(evals(idx_min))) {
+    if (fabs(evals(1, 1)) < fabs(evals(idx_min, idx_min))) {
       idx_min = 1;
     }
 
-    if (std::abs(evals(2)) < std::abs(evals(idx_min))) {
+    //if (fabs(evals(2)) < fabs(evals(idx_min))) {
+    if (fabs(evals(2, 2)) < fabs(evals(idx_min, idx_min))) {
       idx_min = 2;
     }
 
-    Eigen::Matrix3f evecs = eig.eigenvectors();
-    normal = evecs.col(idx_min);
+    //normal = evecs.col(idx_min);
+    normal = evecs.row(idx_min);
 
     float x = normal.x();
     float y = normal.y();
@@ -178,6 +264,24 @@ struct Stats {
     phi = atan2(z, d);
 
     normal_valid = true;
+
+    //if (true) {
+    //  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eig(cov);
+    //  Eigen::Vector3f e_evals = eig.eigenvalues();
+    //  Eigen::Matrix3f e_evecs = eig.eigenvectors();
+
+    //  printf("---- TEST ----\n");
+    //  printf("\t\nSPARKI\n\n");
+    //  std::cout << evecs << std::endl;
+    //  printf("\n");
+    //  std::cout << evals << std::endl;
+
+    //  printf("\t\nEIGEN\n\n");
+    //  std::cout << e_evecs << std::endl;
+    //  printf("\n");
+    //  std::cout << e_evals << std::endl;
+
+    //}
   }
 };
 
