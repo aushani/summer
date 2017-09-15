@@ -16,7 +16,7 @@ struct Feature {
 class DeviceDenseFeatureOccGrid {
  public:
   DeviceDenseFeatureOccGrid(const Location *d_locs, const float *d_los, size_t sz_occ,
-                            const Location *d_stats_locs, Stats *d_stats, size_t sz_stats,
+                            const Location *d_stats_locs, const Stats *d_stats, size_t sz_stats,
                             float max_xy, float max_z, float res);
 
   void Cleanup();
@@ -94,7 +94,7 @@ class DeviceDenseFeatureOccGrid {
   float resolution_ = 0;
 
   void Populate(const Location *d_locs, const float *d_los, size_t sz_occ,
-      const Location *d_stats_locs, Stats *d_stats, size_t sz_stats);
+      const Location *d_stats_locs, const Stats *d_stats, size_t sz_stats);
 };
 
 }  // namespace ray_tracing
