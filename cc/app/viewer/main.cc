@@ -120,6 +120,10 @@ int main(int argc, char** argv) {
   //auto fog = builder.GenerateOccGrid(scan.GetHits());
   printf("Took %5.3f ms to build occ grid\n", t.GetMs());
 
+  t.Start();
+  fog.ComputeNormals();
+  printf("Took %5.3f ms to compute normals\n", t.GetMs());
+
   vw::Viewer v(&args);
 
   osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(scan);

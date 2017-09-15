@@ -3,8 +3,6 @@
 
 #include <iostream>
 
-#include <Eigen/Core>
-#include <Eigen/Eigenvalues>
 #include <osg/Geometry>
 #include <osg/LineWidth>
 
@@ -68,58 +66,8 @@ OccGrid::OccGrid(const rt::FeatureOccGrid &fog, double thresh_lo) : osg::Group()
     double g = 0.9;
     double b = 0.1;
     if (fog.HasStats(loc)) {
-      rt::Stats stats;
 
-      for (int di=-1; di<=1; di++) {
-        for (int dj=-1; dj<=1; dj++) {
-          for (int dk=-1; dk<=1; dk++) {
-            rt::Location loc_i(loc.i + di, loc.j + dj, loc.k + dk);
-
-            if (fog.HasStats(loc_i)) {
-              stats = stats + fog.GetStats(loc_i);
-            }
-          }
-        }
-      }
-      //printf("count: %d\n", stats.count);
-      //printf("var: %f, %f, %f\n", stats.GetCovX(), stats.GetCovY(), stats.GetCovZ());
-      //printf("int: %f, %f\n", stats.intensity, stats.GetIntensityCov());
-      //printf("\n");
-      //r = stats.var_x;
-      //g = stats.var_y;
-      //b = stats.var_z;
-
-      Eigen::Matrix3d cov;
-      cov(0, 0) = stats.GetCovX();
-      cov(1, 1) = stats.GetCovY();
-      cov(2, 2) = stats.GetCovZ();
-
-      cov(0, 1) = stats.GetCovXY();
-      cov(1, 0) = stats.GetCovXY();
-
-      cov(0, 2) = stats.GetCovXZ();
-      cov(2, 0) = stats.GetCovXZ();
-
-      cov(1, 2) = stats.GetCovYZ();
-      cov(2, 1) = stats.GetCovYZ();
-
-      Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(cov);
-
-      // Get the normal
-      Eigen::Vector3d evals = eig.eigenvalues();
-      int idx = 0;
-      if (std::abs(evals(1)) < std::abs(evals(idx))) idx = 1;
-      if (std::abs(evals(2)) < std::abs(evals(idx))) idx = 2;
-
-      Eigen::Matrix3d evecs = eig.eigenvectors();
-      Eigen::Vector3d normal = evecs.col(idx);
-
-      //std::cout << "normal vector: \n" << normal << std::endl;
-
-      Eigen::Vector3d pos(x, y, z);
-      if (pos.dot(normal) > 0) {
-        normal *= -1;
-      }
+      const Eigen::Vector3d &normal = fog.GetNormal(loc);
 
       // Get angles
       double dx = 0.3*normal.x();
