@@ -41,7 +41,7 @@ size_t FeatureOccGrid::GetStatsPos(const Location &loc) const {
 }
 
 void FeatureOccGrid::ComputeNormals() {
-  int n_threads = 1;
+  int n_threads = 32;
 
   std::vector<std::thread> threads;
   for (int i=0; i<n_threads; i++) {

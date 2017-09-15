@@ -150,14 +150,14 @@ void DeviceDenseFeatureOccGrid::Populate(const Location *d_locs, const float *d_
   PopulateDenseOcc<<<blocks, threads>>>((*this), d_locs, d_los, occu_, known_, sz_occ);
   cudaError_t err = cudaDeviceSynchronize();
   BOOST_ASSERT(err == cudaSuccess);
-  printf("Took %5.3f ms to populate occ\n", t.GetMs());
+  printf("Took %5.3f ms to populate occ with %ld elements\n", t.GetMs(), sz_occ);
 
   blocks = std::ceil(sz_stats / static_cast<double>(threads));
   t.Start();
   PopulateDenseOcc<<<blocks, threads>>>((*this), d_stats_locs, d_stats, features_, has_features_, sz_stats);
   err = cudaDeviceSynchronize();
   BOOST_ASSERT(err == cudaSuccess);
-  printf("Took %5.3f ms to populate stats\n", t.GetMs());
+  printf("Took %5.3f ms to populate stats with %ld elements\n", t.GetMs(), sz_stats);
 }
 
 float DeviceDenseFeatureOccGrid::GetResolution() const {
