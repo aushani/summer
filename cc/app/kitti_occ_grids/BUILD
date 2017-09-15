@@ -59,6 +59,18 @@ cc_binary(
 )
 
 cc_binary(
+    name = "make_feature_model",
+    srcs = [
+            "make_feature_model.cc",
+           ],
+    deps = [
+            "//library/feature",
+            "//library/ray_tracing",
+            "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
     name = "view_joint_model",
     srcs = [
             "view_joint_model.cc",
