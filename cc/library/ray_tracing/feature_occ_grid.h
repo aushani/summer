@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Eigen/Core>
 
 #include "library/ray_tracing/occ_grid.h"
