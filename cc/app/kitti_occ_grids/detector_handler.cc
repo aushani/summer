@@ -30,6 +30,7 @@ void DetectorHandler::pick(osgViewer::View* view, const osgGA::GUIEventAdapter& 
       dt::ObjectState os(p[0], p[1], 0);
 
       for (const auto &cn : detector_.GetClasses()) {
+        printf("Class: %s, Score: %7.3f\n", cn.c_str(), detector_.GetScore(cn, os));
         printf("Class: %s, Log-odds: %7.3f\n", cn.c_str(), detector_.GetLogOdds(cn, os));
       }
 

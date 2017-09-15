@@ -20,6 +20,7 @@ class MarginalModel {
   void MarkObservations(const rt::OccGrid &og);
 
   int GetCount(const rt::Location &loc, bool occ) const;
+  void SetCount(const rt::Location &loc, bool occ, int count);
   int GetNumObservations(const rt::Location &loc) const;
 
   double Evaluate(const rt::OccGrid &og) const;

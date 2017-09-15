@@ -12,6 +12,17 @@ cc_binary(
 )
 
 cc_binary(
+    name = "make_dense",
+    srcs = [
+            "make_dense.cc",
+           ],
+    deps = [
+            "//library/ray_tracing",
+            "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
     name = "view_og",
     srcs = [
             "view_occ_grid.cc",
@@ -143,6 +154,7 @@ cc_binary(
     deps = [
             "//library/chow_liu_tree",
             "//library/util",
+            "//library/gpu_util",
             "//library/kitti",
             "//library/osg_nodes",
             "//library/viewer",

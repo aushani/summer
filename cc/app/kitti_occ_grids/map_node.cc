@@ -44,8 +44,8 @@ MapNode::MapNode(const dt::Detector &detector, const kt::KittiChallengeData &kcd
 }
 
 osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const kt::KittiChallengeData &kcd) const {
-  const double min = -5;
-  const double max = 10;
+  const double min = -100;
+  const double max = 100;
   const double range = max - min;
 
   const int width = detector.GetDim().n_x;
@@ -79,7 +79,7 @@ osg::ref_ptr<osg::Image> MapNode::GetImage(const dt::Detector &detector, const k
       //if (b > 1) b = 1;
 
       double g = 0;
-      double b = 0;
+      double b = 1-r;
 
       osg::Vec4 color(r, g, b, 0.5);
 

@@ -41,6 +41,8 @@ int main(int argc, char** argv) {
 
   clt::MarginalModel mm = clt::MarginalModel::Load(fn.c_str());
 
+  printf("%d x %d x %d\n", mm.GetNXY(), mm.GetNXY(), mm.GetNZ());
+
   vw::Viewer v(&args);
 
   osg::ref_ptr<osgn::OccModel> node = new osgn::OccModel(mm);

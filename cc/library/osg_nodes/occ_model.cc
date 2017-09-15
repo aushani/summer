@@ -75,7 +75,7 @@ OccModel::OccModel(const clt::MarginalModel &mm) : osg::Group() {
 
         double p_occ = c_t / (static_cast<double>(c_t + c_f));
 
-        if (p_occ < 0.10) {
+        if (p_occ < 0.20) {
           continue;
         }
 
@@ -85,7 +85,13 @@ OccModel::OccModel(const clt::MarginalModel &mm) : osg::Group() {
 
         double alpha = p_occ;
 
-        osg::Vec4 color(0.1, 0.9, 0.1, alpha);
+        double r = (z + 2) / 1.25;
+        if (r < 0) r = 0;
+        if (r > 1) r = 1;
+
+        double b = 1 - r;
+
+        osg::Vec4 color(r, 0.9, b, alpha);
         osg::Vec3 pos(x, y, z);
 
         osg::ref_ptr<ColorfulBox> box = new ColorfulBox(color, pos, scale);

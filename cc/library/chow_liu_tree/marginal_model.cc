@@ -74,6 +74,12 @@ int MarginalModel::GetCount(const rt::Location &loc, bool occ) const {
   return counts_[GetIndex(loc)].GetCount(occ);
 }
 
+void MarginalModel::SetCount(const rt::Location &loc, bool occ, int count) {
+  BOOST_ASSERT(InRange(loc));
+
+  counts_[GetIndex(loc)].SetCount(occ, count);
+}
+
 int MarginalModel::GetNumObservations(const rt::Location &loc) const {
   BOOST_ASSERT(InRange(loc));
   return counts_[GetIndex(loc)].GetTotalCount();

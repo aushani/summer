@@ -19,17 +19,21 @@ namespace kitti_occ_grids {
 
 Trainer::Trainer(const std::string &save_base_fn) :
  save_base_path_(save_base_fn),
- detector_(dt::Dim(-50, 50, -50, 50, 0.5)),
+ detector_(dt::Dim(0, 75, -50, 50, kRes_)),
  og_builder_(200000, kRes_, 100.0) {
 
   // Configure occ grid builder size
-  og_builder_.ConfigureSizeInPixels(7, 7, 5);
+  og_builder_.ConfigureSize(3.0, 3.0, 2.0);
 
   // TODO MULTIPLE ANGLE BINS
-  models_.insert({"Car", clt::JointModel(3.0, 2.0, kRes_)});
-  models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
-  models_.insert({"Pedestrian", clt::JointModel(3.0, 2.0, kRes_)});
-  models_.insert({"Background", clt::JointModel(3.0, 2.0, kRes_)});
+  //models_.insert({"Car", clt::JointModel(3.0, 2.0, kRes_)});
+  //models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
+  //models_.insert({"Pedestrian", clt::JointModel(3.0, 2.0, kRes_)});
+  //models_.insert({"Background", clt::JointModel(3.0, 2.0, kRes_)});
+  models_.insert({"Car", clt::MarginalModel(3.0, 2.0, kRes_)});
+  models_.insert({"Cyclist", clt::MarginalModel(3.0, 2.0, kRes_)});
+  models_.insert({"Pedestrian", clt::MarginalModel(3.0, 2.0, kRes_)});
+  models_.insert({"Background", clt::MarginalModel(3.0, 2.0, kRes_)});
 
   for (const auto &kv : models_) {
     detector_.AddModel(kv.first, 0, kv.second);
@@ -56,7 +60,7 @@ void Trainer::LoadFrom(const std::string &load_base_dir) {
     }
 
     // Make sure it's a joint model
-    if (fs::extension(it->path()) != ".jm") {
+    if (fs::extension(it->path()) != ".mm") {
       continue;
     }
 
@@ -67,9 +71,9 @@ void Trainer::LoadFrom(const std::string &load_base_dir) {
     }
 
     printf("Found %s\n", classname.c_str());
-    clt::JointModel jm = clt::JointModel::Load(it->path().string().c_str());
+    auto model = clt::MarginalModel::Load(it->path().string().c_str());
 
-    detector_.UpdateModel(classname, 0, jm); // TODO
+    detector_.UpdateModel(classname, 0, model); // TODO
   }
   printf("Loaded all models\n");
 }
@@ -99,7 +103,8 @@ void Trainer::Run(int first_epoch, int first_frame) {
           fs::path fn = dir / (kv.first + ".jm");
 
           // Load back from detector
-          detector_.LoadIntoJointModel(kv.first, 0, &kv.second); // TODO
+          //detector_.LoadIntoJointModel(kv.first, 0, &kv.second); // TODO
+          detector_.LoadIntoMarginalModel(kv.first, 0, &kv.second); // TODO
 
           // Now save
           kv.second.Save(fn.string().c_str());
@@ -156,11 +161,14 @@ std::string Trainer::GetTrueClass(const kt::KittiChallengeData &kcd, const dt::O
   return "Background";
 }
 
-std::vector<Trainer::Sample> Trainer::GetTrainingSamples(const kt::KittiChallengeData &kcd) const {
-  std::map<std::string, std::vector<Sample> > samples;
-  std::map<std::string, double > total_weight;
+void Trainer::GetTrainingSamplesWorker(const kt::KittiChallengeData &kcd, size_t idx0, size_t idx1,
+    std::map<std::string, std::vector<Sample> > *samples, std::map<std::string, double> *total_weight, std::mutex *mutex) const {
+  std::map<std::string, std::vector<Sample> > my_samples;
+  std::map<std::string, double > my_total_weight;
 
-  for (const auto &os : states_) {
+  for (size_t idx = idx0; idx < idx1; idx++) {
+    const auto &os = states_[idx];
+
     // This is ugly, but check a few times to make sure we're not on the boundary
     if (!kcd.InCameraView(os.x - 1.0, os.y + 1.0, 0.0)) {
       continue;
@@ -195,8 +203,36 @@ std::vector<Trainer::Sample> Trainer::GetTrainingSamples(const kt::KittiChalleng
     double p_class = detector_.GetProb(classname, os);
 
     Sample s(p_class, os, classname);
-    samples[classname].push_back(s);
-    total_weight[classname] += s.p_wrong;
+    my_samples[classname].push_back(s);
+    my_total_weight[classname] += s.p_wrong;
+  }
+
+  mutex->lock();
+  for (const auto &kv : my_samples) {
+    for (const auto &s : kv.second) {
+      (*samples)[kv.first].push_back(s);
+    }
+    (*total_weight)[kv.first] += my_total_weight[kv.first];
+  }
+  mutex->unlock();
+}
+
+std::vector<Trainer::Sample> Trainer::GetTrainingSamples(const kt::KittiChallengeData &kcd) const {
+  std::map<std::string, std::vector<Sample> > samples;
+  std::map<std::string, double > total_weight;
+
+  std::mutex mutex;
+
+  std::vector<std::thread> threads;
+  int n_threads = 32;
+  for (int i=0; i<n_threads; i++) {
+    size_t idx0 = i * states_.size() / n_threads;
+    size_t idx1 = (i+1) * states_.size() / n_threads;
+    threads.emplace_back(&Trainer::GetTrainingSamplesWorker, this, kcd, idx0, idx1, &samples, &total_weight, &mutex);
+  }
+
+  for (auto &t : threads) {
+    t.join();
   }
 
   std::vector<Sample> chosen_samples;
@@ -253,7 +289,7 @@ void Trainer::UpdateViewer(Trainer *trainer, const kt::KittiChallengeData &kcd, 
 void Trainer::Train(Trainer *trainer, const kt::KittiChallengeData &kcd, const std::vector<Sample> &samples) {
   library::timer::Timer t;
 
-  // Update joint models in detector
+  // Update models in detector
   for (const Sample &s : samples) {
     // Make occ grid
     trainer->og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), 0); // TODO rotation
@@ -265,7 +301,7 @@ void Trainer::Train(Trainer *trainer, const kt::KittiChallengeData &kcd, const s
     // Cleanup
     dog->Cleanup();
   }
-  printf("\tTook %9.3f ms to update joint models\n", t.GetMs());
+  printf("\tTook %9.3f ms to update models\n", t.GetMs());
 }
 
 void Trainer::ProcessFrame(int frame) {

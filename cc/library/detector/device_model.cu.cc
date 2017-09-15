@@ -22,12 +22,14 @@ __global__ void UpdateModelKernel(DeviceModel model, const rt::DeviceOccGrid dog
   model.marginals[marginal_idx].IncrementCount(occ);
 
   // Update conditionals
-  for (int i_given=0; i_given<dog.size; i_given++) {
-    rt::Location loc_given = dog.locs[i_given];
-    int conditional_idx = model.GetIndex(loc, loc_given);
-    bool occ_given = dog.los[i_given] > 0;
+  if (model.conditionals != nullptr) {
+    for (int i_given=0; i_given<dog.size; i_given++) {
+      rt::Location loc_given = dog.locs[i_given];
+      int conditional_idx = model.GetIndex(loc, loc_given);
+      bool occ_given = dog.los[i_given] > 0;
 
-    model.conditionals[conditional_idx].IncrementCount(occ, occ_given);
+      model.conditionals[conditional_idx].IncrementCount(occ, occ_given);
+    }
   }
 }
 

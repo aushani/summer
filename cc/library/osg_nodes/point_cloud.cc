@@ -1,6 +1,8 @@
 // Adpated from dascar
 #include "library/osg_nodes/point_cloud.h"
 
+#include <osg/Point>
+
 namespace kt = library::kitti;
 
 namespace library {
@@ -36,6 +38,7 @@ PointCloud::PointCloud(const kt::VelodyneScan &scan) :
   //_geode->addDrawable(this);
   osg::ref_ptr<osg::StateSet> state = getOrCreateStateSet();
   state->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+  state->setAttribute(new osg::Point(3), osg::StateAttribute::ON);
 }
 
 } // osg_nodes
