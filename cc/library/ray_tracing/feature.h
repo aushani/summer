@@ -20,6 +20,12 @@ struct Feature {
 
   CUDA_CALLABLE Feature(float t, float p) :
     theta(t), phi(p) {}
+
+  template<class Archive>
+  void serialize(Archive & ar, const unsigned int /* file_version */){
+    ar & theta;
+    ar & phi;
+  }
 };
 
 }  // namespace ray_tracing

@@ -109,7 +109,14 @@ DeviceFeatureOccGrid OccGridBuilder::GenerateDeviceFeatureOccGrid(const std::vec
 
   device_data_->RunKernel(true);
 
-  size_t num_updates = device_data_->ReduceLogOdds();
+  size_t num_updates = 0;
+  if (max_dimension_valid_) {
+    OutOfRange oor(max_i_, max_j_, max_k_);
+    num_updates = device_data_->ReduceLogOdds(oor);
+  } else {
+    num_updates = device_data_->ReduceLogOdds();
+  }
+
   size_t num_stats = device_data_->ReduceStats();
   //printf("Got %d stats\n", num_stats);
 

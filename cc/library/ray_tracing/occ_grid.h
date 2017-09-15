@@ -4,6 +4,8 @@
 #include <map>
 #include <vector>
 
+#include <boost/assert.hpp>
+
 #include "library/ray_tracing/occ_grid_location.h"
 
 namespace library {
@@ -37,7 +39,11 @@ struct OccGridData {
 class OccGrid {
  public:
   // locations and log_odds must be sorted and the same size
-  OccGrid(const std::vector<Location> &locs, const std::vector<float> &los, float res);
+  OccGrid(const std::vector<Location> &locs, const std::vector<float> &los, float res) : data_(locs, los, res) {
+    BOOST_ASSERT(locs.size() == los.size());
+    BOOST_ASSERT(res > 0);
+  }
+
   OccGrid(const OccGridData &ogd);
 
   float GetProbability(const Location &loc) const;

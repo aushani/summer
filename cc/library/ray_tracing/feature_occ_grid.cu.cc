@@ -1,8 +1,13 @@
 #include "library/ray_tracing/feature_occ_grid.h"
 
 #include <thread>
+#include <iostream>
+#include <fstream>
 
 #include <boost/assert.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+
 #include <Eigen/Eigenvalues>
 
 namespace library {
@@ -73,6 +78,21 @@ size_t FeatureOccGrid::GetFeaturePos(const Location &loc) const {
   size_t pos = it - feature_locs_.begin();
 
   return pos;
+}
+
+void FeatureOccGrid::Save(const char* fn) const {
+  std::ofstream ofs(fn);
+  boost::archive::binary_oarchive oa(ofs);
+  oa << (*this);
+}
+
+FeatureOccGrid FeatureOccGrid::Load(const char* fn) {
+  FeatureOccGrid fog;
+  std::ifstream ifs(fn);
+  boost::archive::binary_iarchive ia(ifs);
+  ia >> fog;
+
+  return fog;
 }
 
 }  // namespace ray_tracing

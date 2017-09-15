@@ -3,6 +3,7 @@
 
 #include "library/osg_nodes/occ_grid.h"
 #include "library/ray_tracing/occ_grid.h"
+#include "library/ray_tracing/feature_occ_grid.h"
 #include "library/viewer/viewer.h"
 
 namespace rt = library::ray_tracing;
@@ -23,7 +24,8 @@ int main(int argc, char** argv) {
   au->setCommandLineUsage( args.getApplicationName() + " [options]");
   au->setDescription(args.getApplicationName() + " viewer");
 
-  au->addCommandLineOption("--filename <dirname>", "Occ Grid Filename", "");
+  au->addCommandLineOption("--og <dirname>", "Occ Grid Filename", "");
+  au->addCommandLineOption("--fog <dirname>", "Occ Grid Filename", "");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -35,20 +37,23 @@ int main(int argc, char** argv) {
 
   // Load occ grid
   std::string fn;
-  if (!args.read("--filename", fn)) {
-    printf("Error! Need file to render!\n");
-    return 1;
+  if (args.read("--og", fn)) {
+    rt::OccGrid og = rt::OccGrid::Load(fn.c_str());
+
+    vw::Viewer v(&args);
+    osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);
+    v.AddChild(ogn);
+    v.Start();
+  } else if (args.read("--fog", fn)) {
+    rt::FeatureOccGrid fog = rt::FeatureOccGrid::Load(fn.c_str());
+
+    vw::Viewer v(&args);
+    osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(fog);
+    v.AddChild(ogn);
+    v.Start();
+  } else {
+    printf("No --og or --fog given!\n");
   }
-
-  rt::OccGrid og = rt::OccGrid::Load(fn.c_str());
-
-  vw::Viewer v(&args);
-
-  osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);
-
-  v.AddChild(ogn);
-
-  v.Start();
 
   return 0;
 }

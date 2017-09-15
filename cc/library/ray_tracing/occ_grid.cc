@@ -4,19 +4,12 @@
 #include <iostream>
 #include <fstream>
 
-#include <boost/assert.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/serialization/vector.hpp>
 
 namespace library {
 namespace ray_tracing {
-
-OccGrid::OccGrid(const std::vector<Location> &locs, const std::vector<float> &los, float res)
-    : data_(locs, los, res) {
-  BOOST_ASSERT(locs.size() == los.size());
-  BOOST_ASSERT(res > 0);
-}
 
 OccGrid::OccGrid(const OccGridData &ogd) :
  OccGrid(ogd.locations, ogd.log_odds, ogd.resolution) {

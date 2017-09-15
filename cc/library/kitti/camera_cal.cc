@@ -78,7 +78,7 @@ void CameraCal::LoadExtrinsics(FILE *f_vc) {
   //        R[0], R[1], R[2], R[3], R[4], R[5],
   //        R[6], R[7], R[8], t[0], t[1], t[2]);
 
-  //jT_cv_ = Eigen::MatrixXd(4, 4);
+  T_cv_ = Eigen::MatrixXd(4, 4);
   T_cv_.setZero();
   for (int i=0; i<3; i++) {
     for (int j=0; j<3; j++) {

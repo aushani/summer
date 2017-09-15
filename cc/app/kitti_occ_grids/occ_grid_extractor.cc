@@ -6,11 +6,12 @@ namespace app {
 namespace kitti_occ_grids {
 
 OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
- og_builder_(200000, kPosRes_, 100.0),
+ og_builder_(150000, kPosRes_, 75.0),
  camera_cal_("/home/aushani/data/kittidata/extracted/2011_09_26/"),
  rand_engine(std::chrono::system_clock::now().time_since_epoch().count()),
  save_base_path_(save_base_fn) {
-  og_builder_.ConfigureSizeInPixels(10, 10, 10); // +- 5 meters
+  //og_builder_.ConfigureSizeInPixels(10, 10, 10); // +- 5 meters
+  og_builder_.ConfigureSize(3.0, 3.0, 2.0);
 }
 
 void OccGridExtractor::Run() {
@@ -74,6 +75,11 @@ void OccGridExtractor::ProcessFrameObjects(kt::Tracklets *tracklets, const kt::V
     }
 
     auto *tt = tracklets->getTracklet(t_id);
+    std::string classname = tt->objectType;
+    if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
+      continue;
+    }
+
     kt::Tracklets::tPose* pose;
     tracklets->getPose(t_id, frame, pose);
 
@@ -88,7 +94,9 @@ void OccGridExtractor::ProcessFrameObjects(kt::Tracklets *tracklets, const kt::V
         double dt = theta_unif(rand_engine) + angle_bin * kAngleRes_;
 
         og_builder_.SetPose(Eigen::Vector3d(pose->tx + dx, pose->ty + dy, 0), pose->rz + dt);
-        rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
+        library::timer::Timer t;
+        rt::FeatureOccGrid fog = og_builder_.GenerateFeatureOccGrid(scan.GetHits(), scan.GetIntensities());
+        //printf("Took %5.3f ms to get fog\n", t.GetMs());
 
         // Save OccGrid
         char fn[1000];
@@ -100,25 +108,26 @@ void OccGridExtractor::ProcessFrameObjects(kt::Tracklets *tracklets, const kt::V
           fs::create_directories(dir);
         }
 
-        sprintf(fn, "%04d_%04d_%04d_%04d.og", log_num, frame, t_id, jitter);
+        sprintf(fn, "%04d_%04d_%04d_%04d.fog", log_num, frame, t_id, jitter);
         fs::path path = dir / fs::path(fn);
-        og.Save(path.string().c_str());
+
+        t.Start();
+        fog.Save(path.string().c_str());
+        //printf("Took %5.3f ms to save fog\n", t.GetMs());
       }
     }
   }
 }
 
 void OccGridExtractor::ProcessFrameBackground(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame) {
-  int background_samples = tracklets->numberOfTracklets();
-
-  double lower_bound = -50.0;
-  double upper_bound = 50.0;
+  double lower_bound = -75.0;
+  double upper_bound = 75.0;
   std::uniform_real_distribution<double> xy_unif(lower_bound, upper_bound);
   std::uniform_real_distribution<double> theta_unif(-kAngleRes_/2, kAngleRes_/2);
 
   for (int angle_bin = 0; angle_bin < kAngleBins_; angle_bin++) {
     int bg_sample = 0;
-    while (bg_sample < background_samples) {
+    while (bg_sample < kJittersPerObject_) {
       double x = xy_unif(rand_engine);
       double y = xy_unif(rand_engine);
       double t = theta_unif(rand_engine) + angle_bin * kAngleRes_;
@@ -150,9 +159,9 @@ void OccGridExtractor::ProcessFrameBackground(kt::Tracklets *tracklets, const kt
       }
 
       og_builder_.SetPose(Eigen::Vector3d(x, y, 0), t);
-      rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
+      rt::FeatureOccGrid fog = og_builder_.GenerateFeatureOccGrid(scan.GetHits(), scan.GetIntensities());
 
-      // Save OccGrid
+      // Save FeatureOccGrid
       char fn[1000];
       sprintf(fn, "angle_bin_%02d", angle_bin);
 
@@ -162,9 +171,9 @@ void OccGridExtractor::ProcessFrameBackground(kt::Tracklets *tracklets, const kt
         fs::create_directories(dir);
       }
 
-      sprintf(fn, "%04d_%04d_%04d.og", log_num, frame, bg_sample);
+      sprintf(fn, "%04d_%04d_%04d.fog", log_num, frame, bg_sample);
       fs::path path = dir / fs::path(fn);
-      og.Save(path.string().c_str());
+      fog.Save(path.string().c_str());
 
       bg_sample++;
     }

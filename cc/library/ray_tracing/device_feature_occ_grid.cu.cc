@@ -106,17 +106,17 @@ __global__ void ComputeFeatures(DeviceFeatureOccGrid dfog, const Location *d_loc
 }
 
 void DeviceFeatureOccGrid::PopulateFeatures(const Location *d_stats_locs, const Stats *d_stats) {
-  library::timer::Timer t;
+  //library::timer::Timer t;
 
   int threads = 1024;
   int blocks = std::ceil(sz_features / static_cast<double>(threads));
 
-  t.Start();
+  //t.Start();
   ComputeFeatures<<<blocks, threads>>>((*this), d_stats_locs, d_stats);
   cudaError_t err = cudaDeviceSynchronize();
   BOOST_ASSERT(err == cudaSuccess);
-  printf("Took %5.3f ms to populate stats with %ld elements with %d threads and %d blocks\n",
-      t.GetMs(), sz_features, threads, blocks);
+  //printf("Took %5.3f ms to populate stats with %ld elements with %d threads and %d blocks\n",
+  //    t.GetMs(), sz_features, threads, blocks);
 
 }
 
