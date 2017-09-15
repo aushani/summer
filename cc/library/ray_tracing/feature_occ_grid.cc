@@ -18,7 +18,7 @@ const Stats& FeatureOccGrid::GetStats(const Location &loc) const {
   return stats_[pos];
 }
 
-const Eigen::Vector3d& FeatureOccGrid::GetNormal(const Location &loc) const {
+const Eigen::Vector3f& FeatureOccGrid::GetNormal(const Location &loc) const {
   size_t pos = GetStatsPos(loc);
   return normals_[pos];
 }
@@ -70,44 +70,7 @@ void FeatureOccGrid::ComputeNormalsForIdx(size_t idx) {
     }
   }
 
-  // Get covariance matrix
-  Eigen::Matrix3d cov;
-  cov(0, 0) = stats.GetCovX();
-  cov(1, 1) = stats.GetCovY();
-  cov(2, 2) = stats.GetCovZ();
-
-  cov(0, 1) = stats.GetCovXY();
-  cov(1, 0) = stats.GetCovXY();
-
-  cov(0, 2) = stats.GetCovXZ();
-  cov(2, 0) = stats.GetCovXZ();
-
-  cov(1, 2) = stats.GetCovYZ();
-  cov(2, 1) = stats.GetCovYZ();
-
-  // Solve for eigenvalues
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(cov);
-
-  // Get the normal
-  Eigen::Vector3d evals = eig.eigenvalues();
-  int idx_min = 0;
-  if (std::abs(evals(1)) < std::abs(evals(idx_min))) {
-    idx_min = 1;
-  }
-
-  if (std::abs(evals(2)) < std::abs(evals(idx_min))) {
-    idx_min = 2;
-  }
-
-  Eigen::Matrix3d evecs = eig.eigenvectors();
-  Eigen::Vector3d normal = evecs.col(idx_min);
-
-  Eigen::Vector3d pos(loc.i, loc.j, loc.k);
-  if (pos.dot(normal) > 0) {
-    normal *= -1;
-  }
-
-  normals_[idx] = normal;
+  normals_[idx] = stats.GetNormal(loc);
 }
 
 }  // namespace ray_tracing

@@ -67,7 +67,7 @@ OccGrid::OccGrid(const rt::FeatureOccGrid &fog, double thresh_lo) : osg::Group()
     double b = 0.1;
     if (fog.HasStats(loc)) {
 
-      const Eigen::Vector3d &normal = fog.GetNormal(loc);
+      const Eigen::Vector3f &normal = fog.GetNormal(loc);
 
       // Get angles
       double dx = 0.3*normal.x();

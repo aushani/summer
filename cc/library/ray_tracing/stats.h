@@ -7,6 +7,11 @@
 #define CUDA_CALLABLE
 #endif
 
+#include <Eigen/Core>
+#include <Eigen/Eigenvalues>
+
+#include "library/ray_tracing/occ_grid_location.h"
+
 namespace library {
 namespace ray_tracing {
 
@@ -100,6 +105,47 @@ struct Stats {
 
   CUDA_CALLABLE float GetCovYZ() const {
     return sum_cov_yz / count;
+  }
+
+  CUDA_CALLABLE Eigen::Vector3f GetNormal(const Location &my_loc) const {
+    // Get covariance matrix
+    Eigen::Matrix3f cov;
+    cov(0, 0) = GetCovX();
+    cov(1, 1) = GetCovY();
+    cov(2, 2) = GetCovZ();
+
+    cov(0, 1) = GetCovXY();
+    cov(1, 0) = cov(0, 1);
+
+    cov(0, 2) = GetCovXZ();
+    cov(2, 0) = cov(0, 2);
+
+    cov(1, 2) = GetCovYZ();
+    cov(2, 1) = cov(1, 2);
+
+    // Solve for eigenvalues
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eig(cov);
+
+    // Get the normal
+    Eigen::Vector3f evals = eig.eigenvalues();
+    int idx_min = 0;
+    if (std::abs(evals(1)) < std::abs(evals(idx_min))) {
+      idx_min = 1;
+    }
+
+    if (std::abs(evals(2)) < std::abs(evals(idx_min))) {
+      idx_min = 2;
+    }
+
+    Eigen::Matrix3f evecs = eig.eigenvectors();
+    Eigen::Vector3f normal = evecs.col(idx_min);
+
+    Eigen::Vector3f pos(my_loc.i, my_loc.j, my_loc.k);
+    if (pos.dot(normal) > 0) {
+      normal *= -1;
+    }
+
+    return normal;
   }
 };
 

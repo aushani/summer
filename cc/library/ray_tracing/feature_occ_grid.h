@@ -1,7 +1,3 @@
-#pragma once
-
-#include <vector>
-
 #include <Eigen/Core>
 
 #include "library/ray_tracing/occ_grid.h"
@@ -21,7 +17,7 @@ class FeatureOccGrid : public OccGrid {
   bool HasStats(const Location &loc) const;
 
   const Stats& GetStats(const Location &loc) const;
-  const Eigen::Vector3d& GetNormal(const Location &loc) const;
+  const Eigen::Vector3f& GetNormal(const Location &loc) const;
 
   void ComputeNormals();
 
@@ -30,7 +26,7 @@ class FeatureOccGrid : public OccGrid {
   const std::vector<Location> stat_locs_;
   const std::vector<Stats> stats_;
 
-  std::vector<Eigen::Vector3d> normals_;
+  std::vector<Eigen::Vector3f> normals_;
 
   size_t GetStatsPos(const Location &loc) const;
 
