@@ -14,41 +14,56 @@ namespace ray_tracing {
 DeviceData::DeviceData(float resolution, float max_range, int max_observations)
     : resolution(resolution), max_voxel_visits_per_ray(max_range / resolution) {
   // Allocate memory on the device.
+  size_t alloced = 0;
   cudaError_t err = cudaMalloc(&hit_x, sizeof(float) * max_observations);
+  alloced += sizeof(float) * max_observations;
   BOOST_ASSERT(err == cudaSuccess);
 
   err = cudaMalloc(&hit_y, sizeof(float) * max_observations);
+  alloced += sizeof(float) * max_observations;
   BOOST_ASSERT(err == cudaSuccess);
 
   err = cudaMalloc(&hit_z, sizeof(float) * max_observations);
+  alloced += sizeof(float) * max_observations;
   BOOST_ASSERT(err == cudaSuccess);
 
   err = cudaMalloc(&hit_intensity, sizeof(float) * max_observations);
+  alloced += sizeof(float) * max_observations;
   BOOST_ASSERT(err == cudaSuccess);
 
   err = cudaMalloc(&locations, sizeof(Location) * max_observations * max_voxel_visits_per_ray);
+  alloced += sizeof(Location) * max_observations * max_voxel_visits_per_ray;
   BOOST_ASSERT(err == cudaSuccess);
 
   err = cudaMalloc(&log_odds_updates, sizeof(float) * max_observations * max_voxel_visits_per_ray);
+  alloced += sizeof(float) * max_observations * max_voxel_visits_per_ray;
   BOOST_ASSERT(err == cudaSuccess);
 
-  err = cudaMalloc(&stats_locs, sizeof(Stats) * max_observations);
+  err = cudaMalloc(&stats_locs, sizeof(Location) * max_observations);
+  alloced += sizeof(Location) * max_observations;
   BOOST_ASSERT(err == cudaSuccess);
 
-  err = cudaMalloc(&stats, sizeof(float) * max_observations);
+  err = cudaMalloc(&stats, sizeof(Stats) * max_observations);
+  alloced += sizeof(Stats) * max_observations;
   BOOST_ASSERT(err == cudaSuccess);
 
   err = cudaMalloc(&locations_reduced, sizeof(Location) * max_observations * max_voxel_visits_per_ray);
+  alloced += sizeof(Location) * max_observations * max_voxel_visits_per_ray;
   BOOST_ASSERT(err == cudaSuccess);
 
   err = cudaMalloc(&log_odds_updates_reduced, sizeof(float) * max_observations * max_voxel_visits_per_ray);
+  alloced += sizeof(float) * max_observations * max_voxel_visits_per_ray;
   BOOST_ASSERT(err == cudaSuccess);
 
-  err = cudaMalloc(&stats_locs_reduced, sizeof(Stats) * max_observations);
+  err = cudaMalloc(&stats_locs_reduced, sizeof(Location) * max_observations);
+  alloced += sizeof(Location) * max_observations;
   BOOST_ASSERT(err == cudaSuccess);
 
-  err = cudaMalloc(&stats_reduced, sizeof(float) * max_observations);
+  err = cudaMalloc(&stats_reduced, sizeof(Stats) * max_observations);
+  alloced += sizeof(Stats) * max_observations;
   BOOST_ASSERT(err == cudaSuccess);
+
+  printf("Alloced %ld MBytes for OccGridBuilder\n", alloced/(1024*1024));
 }
 
 void DeviceData::FreeDeviceMemory() {
@@ -226,8 +241,13 @@ __global__ void RayTracingKernel(DeviceData data) {
   // Stats!
   if (data.compute_stats) {
     Stats stats;
-    stats.intensity = data.hit_intensity[hit_idx];
     stats.count = 1;
+
+    stats.intensity = data.hit_intensity[hit_idx];
+
+    stats.x = hit[0];
+    stats.y = hit[1];
+    stats.z = hit[2];
 
     data.stats_locs[hit_idx] = loc;
     data.stats[hit_idx] = stats;
