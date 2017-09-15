@@ -54,7 +54,7 @@ class DeviceDenseOccGrid {
     return idx;
   }
 
- private:
+ protected:
   bool *occu_ = nullptr;
   bool *known_ = nullptr;
 

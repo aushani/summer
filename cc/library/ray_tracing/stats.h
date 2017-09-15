@@ -8,6 +8,7 @@
 #endif
 
 #include <iostream>
+#include <math.h>
 
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
@@ -259,9 +260,10 @@ struct Stats {
     float y = normal.y();
     float z = normal.z();
 
-    float d = sqrt(x*x + y*y + z*z);
     theta = atan2(y, x);
-    phi = atan2(z, d);
+
+    float d_xy = sqrt(x*x + y*y);
+    phi = atan2(z, d_xy);
 
     normal_valid = true;
 

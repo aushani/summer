@@ -3,7 +3,8 @@
 #include <Eigen/Core>
 
 #include "library/ray_tracing/occ_grid.h"
-#include "library/ray_tracing/stats.h"
+#include "library/ray_tracing/device_feature_occ_grid.h"
+#include "library/ray_tracing/feature.h"
 
 #include "library/ray_tracing/occ_grid_location.h"
 
@@ -12,31 +13,25 @@ namespace ray_tracing {
 
 class FeatureOccGrid : public OccGrid {
  public:
-  FeatureOccGrid(const std::vector<Location> &locs, const std::vector<float> &los,
-                 const std::vector<Location> &stat_locs, const std::vector<Stats> &stats, float res) :
-     OccGrid(locs, los, res), stat_locs_(stat_locs), stats_(stats), normals_(stat_locs.size()) { }
+  static FeatureOccGrid FromDevice(const DeviceFeatureOccGrid &dfog);
 
-  const std::vector<Location>& GetStatLocations() const;
-  const std::vector<Stats>& GetStats() const;
+  const std::vector<Location>& GetFeatureLocations() const;
+  const std::vector<Feature>& GetFeatures() const;
 
-  bool HasStats(const Location &loc) const;
+  bool HasFeature(const Location &loc) const;
 
-  const Stats& GetStats(const Location &loc) const;
-  const Eigen::Vector3f& GetNormal(const Location &loc) const;
-
-  void ComputeNormals();
+  const Feature& GetFeature(const Location &loc) const;
+  Eigen::Vector3f GetNormal(const Location &loc) const;
 
  private:
   // Parallel containers
-  const std::vector<Location> stat_locs_;
-  const std::vector<Stats> stats_;
+  std::vector<Location> feature_locs_;
+  std::vector<Feature> features_;
 
-  std::vector<Eigen::Vector3f> normals_;
+  // For convience
+  FeatureOccGrid() : OccGrid() {}
 
-  size_t GetStatsPos(const Location &loc) const;
-
-  void ComputeNormalsForIdx(size_t idx);
-  void ComputeNormalsWorker(size_t idx0, size_t idx1);
+  size_t GetFeaturePos(const Location &loc) const;
 };
 
 }  // namespace ray_tracing

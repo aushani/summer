@@ -55,8 +55,10 @@ class OccGrid {
   void Save(const char* fn) const;
   static OccGrid Load(const char* fn);
 
- private:
-  const OccGridData data_;
+ protected:
+  OccGrid() {}
+
+  OccGridData data_;
 };
 
 }  // namespace ray_tracing

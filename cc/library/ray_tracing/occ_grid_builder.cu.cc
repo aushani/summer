@@ -102,7 +102,7 @@ std::shared_ptr<DeviceOccGrid> OccGridBuilder::GenerateOccGridDevice(const std::
   return std::make_shared<DeviceOccGrid>(device_data_->locations_reduced, device_data_->log_odds_updates_reduced , num_updates, resolution_);
 }
 
-FeatureOccGrid OccGridBuilder::GenerateFeatureOccGrid(const std::vector<Eigen::Vector3d> &hits, const std::vector<float> &intensity) {
+DeviceFeatureOccGrid OccGridBuilder::GenerateDeviceFeatureOccGrid(const std::vector<Eigen::Vector3d> &hits, const std::vector<float> &intensity) {
   // Send data
   device_data_->CopyData(hits);
   device_data_->CopyIntensity(intensity);
@@ -113,52 +113,17 @@ FeatureOccGrid OccGridBuilder::GenerateFeatureOccGrid(const std::vector<Eigen::V
   size_t num_stats = device_data_->ReduceStats();
   //printf("Got %d stats\n", num_stats);
 
-  // Copy results back
-  std::vector<Location> location_vector(num_updates);
-  std::vector<float> lo_vector(num_updates);
-  cudaMemcpy(location_vector.data(), device_data_->locations_reduced, sizeof(Location) * num_updates, cudaMemcpyDeviceToHost);
-  cudaMemcpy(lo_vector.data(), device_data_->log_odds_updates_reduced, sizeof(float) * num_updates, cudaMemcpyDeviceToHost);
-
-  std::vector<Location> sl_vector(num_stats);
-  std::vector<Stats> s_vector(num_stats);
-  cudaMemcpy(sl_vector.data(), device_data_->stats_locs_reduced, sizeof(Location) * num_stats, cudaMemcpyDeviceToHost);
-  cudaMemcpy(s_vector.data(), device_data_->stats_reduced, sizeof(Stats) * num_stats, cudaMemcpyDeviceToHost);
-
-  cudaError_t err = cudaDeviceSynchronize();
-  BOOST_ASSERT(err == cudaSuccess);
-
-  return FeatureOccGrid(location_vector, lo_vector, sl_vector, s_vector, resolution_);
-  //return FeatureOccGrid(location_vector, lo_vector, resolution_);
+  return DeviceFeatureOccGrid(device_data_->locations_reduced, device_data_->log_odds_updates_reduced, num_updates,
+                              device_data_->stats_locs_reduced, device_data_->stats_reduced, num_stats, resolution_);
 }
 
-DeviceDenseFeatureOccGrid OccGridBuilder::GenerateDeviceDenseFeatureOccGrid(const std::vector<Eigen::Vector3d> &hits, const std::vector<float> &intensity, float max_xy, float max_z) {
-  // Send data
-  device_data_->CopyData(hits);
-  device_data_->CopyIntensity(intensity);
+FeatureOccGrid OccGridBuilder::GenerateFeatureOccGrid(const std::vector<Eigen::Vector3d> &hits, const std::vector<float> &intensity) {
+  auto dfog = GenerateDeviceFeatureOccGrid(hits, intensity);
+  auto fog = FeatureOccGrid::FromDevice(dfog);
 
-  device_data_->RunKernel(true);
+  dfog.Cleanup();
 
-  size_t num_updates = device_data_->ReduceLogOdds();
-  size_t num_stats = device_data_->ReduceStats();
-  //printf("Got %d stats\n", num_stats);
-
-  // Copy results back
-  std::vector<Location> location_vector(num_updates);
-  std::vector<float> lo_vector(num_updates);
-  cudaMemcpy(location_vector.data(), device_data_->locations_reduced, sizeof(Location) * num_updates, cudaMemcpyDeviceToHost);
-  cudaMemcpy(lo_vector.data(), device_data_->log_odds_updates_reduced, sizeof(float) * num_updates, cudaMemcpyDeviceToHost);
-
-  std::vector<Location> sl_vector(num_stats);
-  std::vector<Stats> s_vector(num_stats);
-  cudaMemcpy(sl_vector.data(), device_data_->stats_locs_reduced, sizeof(Location) * num_stats, cudaMemcpyDeviceToHost);
-  cudaMemcpy(s_vector.data(), device_data_->stats_reduced, sizeof(Stats) * num_stats, cudaMemcpyDeviceToHost);
-
-  cudaError_t err = cudaDeviceSynchronize();
-  BOOST_ASSERT(err == cudaSuccess);
-
-  return DeviceDenseFeatureOccGrid(device_data_->locations_reduced, device_data_->log_odds_updates_reduced, num_updates,
-                                   device_data_->stats_locs_reduced, device_data_->stats_reduced, num_stats,
-                                   max_xy, max_z, resolution_);
+  return fog;
 }
 
 }  // namespace ray_tracing

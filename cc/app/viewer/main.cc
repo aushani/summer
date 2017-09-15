@@ -120,17 +120,7 @@ int main(int argc, char** argv) {
   //auto fog = builder.GenerateOccGrid(scan.GetHits());
   printf("Took %5.3f ms to build occ grid\n", t.GetMs());
 
-  t.Start();
-  fog.ComputeNormals();
-  printf("Took %5.3f ms to compute normals\n", t.GetMs());
-
-  t.Start();
-  auto ddfog = builder.GenerateDeviceDenseFeatureOccGrid(scan.GetHits(), scan.GetIntensities(), 100.0, 5.0);
-  printf("Took %5.3f ms to build DDFOG\n", t.GetMs());
-
-  t.Start();
-  ddfog.Cleanup();
-  printf("Took %5.3f ms to cleanup DDFOG\n", t.GetMs());
+  printf("Fog has %ld voxels, %ld features\n", fog.GetLocations().size(), fog.GetFeatureLocations().size());
 
   vw::Viewer v(&args);
 
