@@ -5,6 +5,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
             "//library/chow_liu_tree",
+            "//library/feature",
             "//library/kitti",
             "//library/ray_tracing",
             "//library/util",

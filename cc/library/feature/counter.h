@@ -43,6 +43,25 @@ struct Counter {
     return counts_features[GetIndex(theta, phi)];
   }
 
+  int GetMode(float *theta, float *phi) const {
+    int max_i = 0;
+    int max_count = counts_features[0];
+    for (size_t i = 1; i<counts_features.size(); i++) {
+      if (counts_features[i] > max_count) {
+        max_i = i;
+        max_count = counts_features[i];
+      }
+    }
+
+    int n_t = max_i / n_x;
+    int n_p = max_i % n_x;
+
+    (*theta) = n_t * angle_res;
+    (*phi) = n_p * angle_res;
+
+    return max_count;
+  }
+
   int GetIndex(bool occu) const {
     return occu ? 0 : 1;
   }

@@ -71,6 +71,11 @@ int FeatureModel::GetNumFeatureObservations(const rt::Location &loc) const {
   return counters_[GetIndex(loc)].GetNumFeatureObservations();
 }
 
+int FeatureModel::GetMode(const rt::Location &loc, float *theta, float *phi) const {
+  BOOST_ASSERT(InRange(loc));
+  return counters_[GetIndex(loc)].GetMode(theta, phi);
+}
+
 double FeatureModel::GetResolution() const {
   return resolution_;
 }

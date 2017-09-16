@@ -24,6 +24,8 @@ class FeatureModel {
   int GetNumOccuObservations(const rt::Location &loc) const;
   int GetNumFeatureObservations(const rt::Location &loc) const;
 
+  int GetMode(const rt::Location &loc, float *theta, float *phi) const;
+
   double GetResolution() const;
   size_t GetNXY() const;
   size_t GetNZ() const;
@@ -32,7 +34,7 @@ class FeatureModel {
   void Save(const char *fn) const;
   static FeatureModel Load(const char *fn);
 
-  float kAngleRes = 0.3; // About 15 degrees, ~400 bins
+  float kAngleRes = 0.9; // About 45 degrees, ~400 bins
  private:
 
   float resolution_;
