@@ -49,6 +49,11 @@ void FeatureModel::MarkObservations(const rt::FeatureOccGrid &fog) {
   }
 }
 
+const Counter& FeatureModel::GetCounter(const rt::Location &loc) const {
+  BOOST_ASSERT(InRange(loc));
+  return counters_[GetIndex(loc)];
+}
+
 int FeatureModel::GetCount(const rt::Location &loc, bool occ) const {
   BOOST_ASSERT(InRange(loc));
 

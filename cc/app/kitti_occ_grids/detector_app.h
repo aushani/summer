@@ -10,6 +10,7 @@
 #include <osgGA/GUIEventHandler>
 #include <osgViewer/CompositeViewer>
 
+#include "library/feature/feature_model.h"
 #include "library/osg_nodes/point_cloud.h"
 #include "library/osg_nodes/object_labels.h"
 #include "library/osg_nodes/tracklets.h"
@@ -23,6 +24,7 @@
 #include "app/kitti_occ_grids/map_node.h"
 
 namespace dt = library::detector;
+namespace ft = library::feature;
 namespace kt = library::kitti;
 namespace rt = library::ray_tracing;
 namespace osgn = library::osg_nodes;

@@ -9,7 +9,7 @@ cc_library(
             "@eigen//:eigen",
             "@boost//:boost_headers",
             "//library/timer",
-            "//library/chow_liu_tree",
+            "//library/feature",
             "//library/ray_tracing",
            ],
 )
@@ -22,6 +22,7 @@ cc_library(
     copts = ["-x",  "cuda", "-std=c++11"],
     deps = [
             ":detector_cuda",
+            "//library/feature",
             "@eigen//:eigen",
             "@boost//:boost_headers",
            ],

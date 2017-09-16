@@ -3,8 +3,7 @@
 #include <memory>
 #include <Eigen/Core>
 
-#include "library/chow_liu_tree/joint_model.h"
-#include "library/chow_liu_tree/marginal_model.h"
+#include "library/feature/feature_model.h"
 #include "library/ray_tracing/device_occ_grid.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 
@@ -13,8 +12,7 @@
 #include "library/detector/device_scores.h"
 #include "library/detector/dim.h"
 
-
-namespace clt = library::chow_liu_tree;
+namespace ft = library::feature;
 namespace rt = library::ray_tracing;
 
 namespace library {
@@ -66,17 +64,9 @@ class Detector {
   Detector(const Dim &d);
   ~Detector();
 
-  void AddModel(const std::string &classname, int angle_bin, const clt::JointModel &mm, float log_prior=0.0);
-  void AddModel(const std::string &classname, int angle_bin, const clt::MarginalModel &mm, float log_prior=0.0);
+  void AddModel(const std::string &classname, int angle_bin, const ft::FeatureModel &fm, float log_prior=0.0);
 
-  void UpdateModel(const std::string &classname, int angle_bin, const clt::JointModel &jm);
-  void UpdateModel(const std::string &classname, int angle_bin, const clt::MarginalModel &mm);
-  void UpdateModel(const std::string &classname, int angle_bin, const rt::DeviceOccGrid &dog);
-
-  void LoadIntoJointModel(const std::string &classname, int angle_bin, clt::JointModel *jm) const;
-  void LoadIntoMarginalModel(const std::string &classname, int angle_bin, clt::MarginalModel *mm) const;
-
-  void Run(const std::vector<Eigen::Vector3d> &hits);
+  void Run(const std::vector<Eigen::Vector3d> &hits, const std::vector<float> &intensities);
 
   std::vector<Detection> GetDetections(double thresh) const;
 
@@ -94,6 +84,7 @@ class Detector {
   const std::vector<std::string>& GetClasses() const;
 
   static constexpr int kAngleBins = 1;
+  bool use_features = true;
  private:
   static constexpr int kThreadsPerBlock_ = 128;
 

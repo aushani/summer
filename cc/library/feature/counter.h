@@ -1,5 +1,12 @@
 #pragma once
 
+// This is gross but lets this play nicely with both cuda and non-cuda compilers
+#ifdef __CUDACC__
+#define CUDA_CALLABLE __host__ __device__
+#else
+#define CUDA_CALLABLE
+#endif
+
 #include <vector>
 
 namespace library {
@@ -31,12 +38,6 @@ struct Counter {
   }
 
   void Count(float theta, float phi) {
-    // Make sure phi is always positive
-    if (phi < 0) {
-      phi *= -1;
-      theta = theta + M_PI;
-    }
-
     counts_features[GetIndex(theta, phi)]++;
     total_feature_counts++;
   }
@@ -69,6 +70,17 @@ struct Counter {
   }
 
   int GetIndex(float theta, float phi) const {
+    return GetIndex(theta, phi, angle_res, n_theta, n_phi);
+  }
+
+  // To make things easier for the detector
+  CUDA_CALLABLE static int GetIndex(float theta, float phi, float angle_res, int n_theta, int n_phi) {
+    // Make sure phi is always positive
+    if (phi < 0) {
+      phi *= -1;
+      theta = theta + M_PI;
+    }
+
     while (theta < 0)      theta += 2*M_PI;
     while (theta > 2*M_PI) theta -= 2*M_PI;
 
@@ -83,7 +95,7 @@ struct Counter {
       return n_phi * n_theta;
     }
 
-    BOOST_ASSERT(n_t < n_theta);
+    //BOOST_ASSERT(n_t < n_theta);
 
     int idx =  n_t * n_phi + n_p;
 

@@ -53,6 +53,11 @@ int main(int argc, char** argv) {
 
     if (t_step.GetSeconds() > 60) {
       printf("Merged %d (%9.5f sec per fog)\n", count, t.GetSeconds() / count);
+
+      t_step.Start();
+      model->Save(argv[2]);
+      printf("Saved tmp result in %5.3f ms\n", t.GetMs());
+
       t_step.Start();
     }
   }

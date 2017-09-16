@@ -91,6 +91,12 @@ OccGrid::OccGrid(const rt::FeatureOccGrid &fog, double thresh_lo) : osg::Group()
 
       //if (b < 0) b = 0;
       //if (b > 1) b = 1;
+
+      double intens = fog.GetFeature(loc).intensity;
+
+      r *= intens;
+      g *= intens;
+      b *= intens;
     }
 
     osg::Vec4 color(r, g, b, alpha);

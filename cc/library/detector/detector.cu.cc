@@ -27,54 +27,9 @@ struct DeviceData {
     }
   }
 
-  void AddModel(const ModelKey &key, const clt::JointModel &jm, const Dim &dim, float lp) {
-    Data d(DeviceModel(jm), DeviceScores(dim, lp));
+  void AddModel(const ModelKey &key, const ft::FeatureModel &fm, const Dim &dim, float lp) {
+    Data d(DeviceModel(fm), DeviceScores(dim, lp));
     data.insert({key, d});
-  }
-
-  void AddModel(const ModelKey &key, const clt::MarginalModel &mm, const Dim &dim, float lp) {
-    Data d(DeviceModel(mm), DeviceScores(dim, lp));
-    data.insert({key, d});
-  }
-
-  void UpdateModel(const ModelKey &key, const clt::JointModel &jm) {
-    auto it = data.find(key);
-    BOOST_ASSERT(it != data.end());
-
-    Data &d = it->second;
-    d.first.BuildModel(jm);
-  }
-
-  void UpdateModel(const ModelKey &key, const clt::MarginalModel &mm) {
-    auto it = data.find(key);
-    BOOST_ASSERT(it != data.end());
-
-    Data &d = it->second;
-    d.first.BuildModel(mm);
-  }
-
-  void UpdateModel(const ModelKey &key, const rt::DeviceOccGrid &dog) {
-    auto it = data.find(key);
-    BOOST_ASSERT(it != data.end());
-
-    Data &d = it->second;
-    d.first.UpdateModel(dog);
-  }
-
-  void LoadIntoJointModel(const ModelKey &key, clt::JointModel *jm) {
-    auto it = data.find(key);
-    BOOST_ASSERT(it != data.end());
-
-    Data &d = it->second;
-    d.first.LoadIntoJointModel(jm);
-  }
-
-  void LoadIntoMarginalModel(const ModelKey &key, clt::MarginalModel *mm) {
-    auto it = data.find(key);
-    BOOST_ASSERT(it != data.end());
-
-    Data &d = it->second;
-    d.first.LoadIntoMarginalModel(mm);
   }
 
   const DeviceScores& GetScores(const ModelKey &key) const {
@@ -103,17 +58,10 @@ Detector::~Detector() {
   device_data_->Cleanup();
 }
 
-void Detector::AddModel(const std::string &classname, int angle_bin, const clt::JointModel &jm, float log_prior) {
+void Detector::AddModel(const std::string &classname, int angle_bin, const ft::FeatureModel &fm, float log_prior) {
   ModelKey key(classname, angle_bin);
 
-  device_data_->AddModel(key, jm, dim_, log_prior);
-  classnames_.push_back(classname);
-}
-
-void Detector::AddModel(const std::string &classname, int angle_bin, const clt::MarginalModel &mm, float log_prior) {
-  ModelKey key(classname, angle_bin);
-
-  device_data_->AddModel(key, mm, dim_, log_prior);
+  device_data_->AddModel(key, fm, dim_, log_prior);
   classnames_.push_back(classname);
 }
 
@@ -129,60 +77,7 @@ int Detector::GetModelIndex(const std::string &classname) const {
   return idx;
 }
 
-
-void Detector::UpdateModel(const std::string &classname, int angle_bin, const clt::JointModel &jm) {
-  ModelKey key(classname, angle_bin);
-  device_data_->UpdateModel(key, jm);
-}
-
-void Detector::UpdateModel(const std::string &classname, int angle_bin, const clt::MarginalModel &mm) {
-  ModelKey key(classname, angle_bin);
-  device_data_->UpdateModel(key, mm);
-}
-
-void Detector::UpdateModel(const std::string &classname,  int angle_bin, const rt::DeviceOccGrid &dog) {
-  ModelKey key(classname, angle_bin);
-  device_data_->UpdateModel(key, dog);
-}
-
-void Detector::LoadIntoJointModel(const std::string &classname, int angle_bin, clt::JointModel *jm) const {
-  ModelKey key(classname, angle_bin);
-  device_data_->LoadIntoJointModel(key, jm);
-}
-
-void Detector::LoadIntoMarginalModel(const std::string &classname, int angle_bin, clt::MarginalModel *mm) const {
-  ModelKey key(classname, angle_bin);
-  device_data_->LoadIntoMarginalModel(key, mm);
-}
-
-
-struct LocsBuffer {
-  static constexpr int kNumLocs = 10;
-
-  rt::Location locs[kNumLocs];
-  int idx_at = 0;
-  bool all_valid = false;
-
-  __device__ void Mark(const rt::Location &loc) {
-    locs[idx_at] = loc;
-
-    idx_at++;
-    if (idx_at >= kNumLocs) {
-      idx_at = 0;
-      all_valid = true;
-    }
-  }
-
-  __device__ int NumValid() const {
-    return all_valid ? kNumLocs:idx_at;
-  }
-
-  __device__ const rt::Location& Get(int i) const {
-    return locs[i];
-  }
-};
-
-__global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel model, const DeviceModel bg_model, const DeviceScores scores) {
+__global__ void Evaluate(const rt::DeviceDenseFeatureOccGrid grid, const DeviceModel model, const DeviceScores scores, bool use_features) {
   const int bidx = blockIdx.x;
   const int tidx = threadIdx.x;
   const int threads = blockDim.x;
@@ -201,79 +96,47 @@ __global__ void Evaluate(const rt::DeviceDenseOccGrid ddog, const DeviceModel mo
   int max_k = min_k + model.n_z;
 
   float log_p = 0;
-  float total_mi = 0;
-
-  LocsBuffer locs_seen;
 
   for (int i=min_ij; i < max_ij; i++) {
     for (int j=min_ij; j < max_ij; j++) {
       for (int k=min_k; k < max_k; k++) {
         rt::Location loc(i, j, k);
 
-        // TODO transform
         rt::Location loc_global(loc.i + os.x/model.res, loc.j + os.y/model.res, loc.k);
-        if (!ddog.IsKnown(loc_global)) {
+        if (!grid.IsKnown(loc_global)) {
           continue;
         }
 
-        if (model.conditionals != nullptr) {
-          // Search through locs for best dependency
-          rt::Location best_loc;
-          float best_mi = 0;
-          for (int i=0; i<locs_seen.NumValid(); i++) {
-            const auto &loc_prev = locs_seen.Get(i);
+        bool occ = grid.IsOccu(loc_global);
+        log_p += model.GetLogP(loc, occ);
 
-            // Get mi
-            float mi = model.GetMutualInformation(loc, loc_prev);
+        // Do we have a feature vector too?
+        if (use_features && grid.HasFeature(loc_global)) {
+          const rt::Feature &f = grid.GetFeature(loc_global);
 
-            if (mi > best_mi) {
-              best_mi = mi;
-              best_loc = loc_prev;
-            }
-          }
-
-          bool occ = ddog.IsOccu(loc_global);
-
-          if (best_mi > 0) {
-            // TODO transform
-            rt::Location loc_prev_global(best_loc.i + os.x/model.res, best_loc.j + os.y/model.res, best_loc.k);
-            bool occ_prev = ddog.IsOccu(loc_prev_global);
-
-            log_p += model.GetLogP(loc, occ, best_loc, occ_prev);
-            total_mi += best_mi;
-          } else {
-            log_p += model.GetLogP(loc, occ);
-          }
-
-          locs_seen.Mark(loc);
-        } else {
-          // Marginal only
-          bool occ = ddog.IsOccu(loc_global);
-          float update = model.GetLogP(loc, occ);
-          log_p += update;
+          // evaluate!
+          log_p += model.GetLogP(loc, f.theta, f.phi);
         }
       }
     }
   }
 
   scores.d_scores[idx] = log_p;
-
-  //printf("total mi: %5.3f\n", total_mi);
 }
 
-void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
+void Detector::Run(const std::vector<Eigen::Vector3d> &hits, const std::vector<float> &intensities) {
   library::timer::Timer t;
 
   t.Start();
-  auto dog = og_builder_.GenerateOccGridDevice(hits);
-  //printf("Took %5.3f ms to build device occ grid\n", t.GetMs());
+  auto dfog = og_builder_.GenerateDeviceFeatureOccGrid(hits, intensities);
+  printf("Took %5.3f ms to build device occ grid\n", t.GetMs());
 
   cudaError_t err = cudaDeviceSynchronize();
   BOOST_ASSERT(err == cudaSuccess);
 
   t.Start();
-  rt::DeviceDenseOccGrid ddog(*dog, 100.0, 4.0);
-  //printf("Made Device Dense Occ Grid in %5.3f ms\n", t.GetMs());
+  rt::DeviceDenseFeatureOccGrid grid(dfog, 100.0, 4.0);
+  printf("Made Device Dense Occ Grid in %5.3f ms\n", t.GetMs());
 
   err = cudaDeviceSynchronize();
   BOOST_ASSERT(err == cudaSuccess);
@@ -286,12 +149,10 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
     DeviceScores &scores = d.second;
     scores.Reset();
 
-    const DeviceModel &bg_model = device_data_->GetModel(ModelKey("Background", 0));
-
     int threads = kThreadsPerBlock_;
     int blocks = scores.dim.Size() / threads + 1;
 
-    Evaluate<<<blocks, threads>>>(ddog, model, bg_model, scores);
+    Evaluate<<<blocks, threads>>>(grid, model, scores, use_features);
 
     err = cudaDeviceSynchronize();
     BOOST_ASSERT(err == cudaSuccess);
@@ -299,8 +160,8 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits) {
     scores.CopyToHost();
   }
 
-  ddog.Cleanup();
-  dog->Cleanup();
+  dfog.Cleanup();
+  grid.Cleanup();
 }
 
 std::vector<Detection> Detector::GetDetections(double thresh) const {

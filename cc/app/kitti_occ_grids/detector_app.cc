@@ -44,14 +44,12 @@ DetectorApp::DetectorApp(osg::ArgumentParser *args, bool viewer) :
     // Enter directory and look for angle bins
     for (int angle_bin = 0; angle_bin < dt::Detector::kAngleBins; angle_bin++) {
       char fn[1000];
-      //sprintf(fn, "angle_bin_%02d/jm.jm", angle_bin);
-      sprintf(fn, "angle_bin_%02d/mm.mm", angle_bin);
+      sprintf(fn, "angle_bin_%02d/fm.fm", angle_bin);
       fs::path p_model = it->path() / fn;
 
       if (fs::exists(p_model)) {
         printf("Loading class %s angle bin %d\n", classname.c_str(), angle_bin);
-        //auto model = clt::JointModel::Load(p_model.string().c_str());
-        auto model = clt::MarginalModel::Load(p_model.string().c_str());
+        auto model = ft::FeatureModel::Load(p_model.string().c_str());
         detector_.AddModel(classname, angle_bin, model);
       }
     }
@@ -108,6 +106,12 @@ bool DetectorApp::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapt
       ProcessBackground();
       return true;
     }
+
+    if (ea.getKey() == 'f') {
+      detector_.use_features = !detector_.use_features;
+      printf("Use features now: %s\n", detector_.use_features ? "ON":"OFF");
+      return true;
+    }
   }
 
   return false;
@@ -142,7 +146,7 @@ kt::KittiChallengeData DetectorApp::Process() {
 
   library::timer::Timer t;
   t.Start();
-  detector_.Run(kcd.GetScan().GetHits());
+  detector_.Run(kcd.GetScan().GetHits(), kcd.GetScan().GetIntensities());
   printf("Took %5.3f ms to run detector\n", t.GetMs());
 
   if (viewer_) {
@@ -156,7 +160,8 @@ kt::KittiChallengeData DetectorApp::Process() {
     viewer_->AddChild(map_node);
 
     if (render_og_) {
-      osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og_builder_.GenerateOccGrid(kcd.GetScan().GetHits()));
+      auto fog = og_builder_.GenerateFeatureOccGrid(kcd.GetScan().GetHits(), kcd.GetScan().GetIntensities());
+      osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(fog);
       viewer_->AddChild(ogn);
     }
 

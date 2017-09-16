@@ -19,6 +19,7 @@ class FeatureModel {
 
   void MarkObservations(const rt::FeatureOccGrid &fog);
 
+  const Counter& GetCounter(const rt::Location &loc) const;
   int GetCount(const rt::Location &loc, bool occ) const;
   int GetCount(const rt::Location &loc, float theta, float phi) const;
   int GetNumOccuObservations(const rt::Location &loc) const;

@@ -15,11 +15,12 @@ namespace ray_tracing {
 struct Feature {
   float theta = 0;
   float phi = 0;
+  float intensity = 0;
 
   CUDA_CALLABLE Feature() {}
 
-  CUDA_CALLABLE Feature(float t, float p) :
-    theta(t), phi(p) {}
+  CUDA_CALLABLE Feature(float t, float p, float i) :
+    theta(t), phi(p), intensity(i) {}
 
   template<class Archive>
   void serialize(Archive & ar, const unsigned int /* file_version */){
