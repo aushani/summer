@@ -7,6 +7,7 @@
 #define CUDA_CALLABLE
 #endif
 
+#include <math.h>
 #include <vector>
 
 namespace library {
@@ -27,7 +28,7 @@ struct Counter {
 
   Counter(float ar) :
    angle_res(ar),
-   n_phi((2*M_PI / angle_res) - 1),      // after we get too high, just call everything a vertical vector
+   n_phi( floor(2*M_PI / angle_res) - 1),      // after we get too high, just call everything a vertical vector
    n_theta( ceil(2*M_PI / angle_res)) {
     int n_angle_bins = n_phi * n_theta + 1;
     counts_features.resize(n_angle_bins, 0);
@@ -38,7 +39,10 @@ struct Counter {
   }
 
   void Count(float theta, float phi) {
-    counts_features[GetIndex(theta, phi)]++;
+    if (!std::isfinite(theta) || !std::isfinite(phi)) {
+      return;
+    }
+    counts_features[GetIndex(theta, phi)];
     total_feature_counts++;
   }
 
@@ -75,6 +79,10 @@ struct Counter {
 
   // To make things easier for the detector
   CUDA_CALLABLE static int GetIndex(float theta, float phi, float angle_res, int n_theta, int n_phi) {
+    //if (!std::isfinite(theta) || !std::isfinite(phi)) {
+    //  return n_phi * n_theta;
+    //}
+
     // Make sure phi is always positive
     if (phi < 0) {
       phi *= -1;
