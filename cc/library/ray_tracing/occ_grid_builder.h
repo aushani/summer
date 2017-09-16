@@ -46,11 +46,6 @@ class OccGridBuilder {
   const float resolution_;
   const int max_observations_;
 
-  size_t max_i_ = 0;
-  size_t max_j_ = 0;
-  size_t max_k_ = 0;
-  bool max_dimension_valid_ = false;
-
   std::unique_ptr<DeviceData> device_data_;
 
   size_t ProcessData(const std::vector<Eigen::Vector3d> &hits);

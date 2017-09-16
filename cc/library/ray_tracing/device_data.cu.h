@@ -3,8 +3,6 @@
 #include <vector>
 #include <Eigen/Core>
 
-#include <boost/optional.hpp>
-
 #include "library/ray_tracing/stats.h"
 #include "library/ray_tracing/occ_grid_location.h"
 
@@ -12,9 +10,11 @@ namespace library {
 namespace ray_tracing {
 
 struct OutOfRange {
-  size_t max_i;
-  size_t max_j;
-  size_t max_k;
+  size_t max_i = 0;
+  size_t max_j = 0;
+  size_t max_k = 0;
+
+  OutOfRange() {}
 
   OutOfRange(size_t mi, size_t mj, size_t mk) :
    max_i(mi), max_j(mj), max_k(mk) {
@@ -50,7 +50,6 @@ struct DeviceData {
 
   void RunKernel(bool compute_stats);
   size_t ReduceLogOdds();
-  size_t ReduceLogOdds(const boost::optional<OutOfRange> &oor);
 
   size_t ReduceStats();
 
@@ -65,6 +64,10 @@ struct DeviceData {
   float *hit_y = nullptr;
   float *hit_z = nullptr;
   float *hit_intensity = nullptr;
+
+  OutOfRange oor;
+  bool oor_valid = false;
+  int steps_per_ray = 0;
 
   Location *locations = nullptr;
   float *log_odds_updates = nullptr;

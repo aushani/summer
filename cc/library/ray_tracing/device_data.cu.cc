@@ -12,7 +12,8 @@ namespace library {
 namespace ray_tracing {
 
 DeviceData::DeviceData(float resolution, float max_range, int max_observations)
-    : resolution(resolution), max_voxel_visits_per_ray(max_range / resolution) {
+    : resolution(resolution), max_voxel_visits_per_ray(max_range / resolution),
+      steps_per_ray(max_voxel_visits_per_ray) {
   // Allocate memory on the device.
   size_t alloced = 0;
   cudaError_t err = cudaMalloc(&hit_x, sizeof(float) * max_observations);
@@ -192,7 +193,7 @@ __global__ void RayTracingKernel(DeviceData data) {
   size_t mem_step_size = data.num_observations;
   size_t mem_idx = hit_idx;
   bool valid = true;
-  for (int step = 0; step < (data.max_voxel_visits_per_ray - 1); ++step) {
+  for (int step = 0; step < (data.steps_per_ray - 1); ++step) {
     Location loc(cur_loc[0], cur_loc[1], cur_loc[2]);
     float loUpdate = data.kLogOddsUnknown;
 
@@ -223,6 +224,12 @@ __global__ void RayTracingKernel(DeviceData data) {
       }
 
       loUpdate = data.kLogOddsFree;
+
+      // Are we in or out of range?
+      if (data.oor_valid && data.oor(loc)) {
+        step--;
+        continue;
+      }
     }
 
     // Now write out key value pair
@@ -234,12 +241,19 @@ __global__ void RayTracingKernel(DeviceData data) {
 
   Location loc(end_loc[0], end_loc[1], end_loc[2]);
 
+  bool valid_end_point = (!data.oor_valid || !data.oor(loc));
+
   // Now write out key value pair
-  data.locations[mem_idx] = loc;
-  data.log_odds_updates[mem_idx] = data.kLogOddsOccupied;
+  if (valid_end_point) {
+    data.locations[mem_idx] = loc;
+    data.log_odds_updates[mem_idx] = data.kLogOddsOccupied;
+  } else {
+    data.locations[mem_idx] = loc;
+    data.log_odds_updates[mem_idx] = data.kLogOddsUnknown;
+  }
 
   // Stats!
-  if (data.compute_stats) {
+  if (data.compute_stats && valid_end_point) {
     Stats stats;
     stats.count = 1;
 
@@ -279,13 +293,8 @@ void DeviceData::RunKernel(bool cs) {
 }
 
 size_t DeviceData::ReduceLogOdds() {
-  boost::optional<OutOfRange> oor;
-  return ReduceLogOdds(oor);
-}
-
-size_t DeviceData::ReduceLogOdds(const boost::optional<OutOfRange> &oor) {
   // Accumulate all the updates
-  size_t num_updates = num_observations * max_voxel_visits_per_ray;
+  size_t num_updates = num_observations * steps_per_ray;
 
   // First prune unnecessary updates
   //t.Start();
@@ -296,16 +305,6 @@ size_t DeviceData::ReduceLogOdds(const boost::optional<OutOfRange> &oor) {
   auto dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, NoUpdate());
   //printf("\tTook %5.3f to prune from %ld to %ld\n", t.GetMs(), num_updates, dp_locations_end - dp_locations);
   num_updates = dp_locations_end - dp_locations;
-
-  // Prune updates that are out of range
-  if (oor) {
-    //t.Start();
-    auto dp_updates_end = thrust::remove_if(dp_updates, dp_updates + num_updates, dp_locations, *oor);
-    auto dp_locations_end = thrust::remove_if(dp_locations, dp_locations + num_updates, *oor);
-    //printf("\tTook %5.3f to enfore in range (%ld->%ld)\n",
-    //       t.GetMs(), num_updates, dp_locations_end - dp_locations);
-    num_updates = dp_locations_end - dp_locations;
-  }
 
   // Now reduce updates to resulting log odds
   //t.Start();

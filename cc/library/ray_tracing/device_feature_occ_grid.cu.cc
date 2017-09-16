@@ -93,7 +93,9 @@ __global__ void ComputeFeatures(DeviceFeatureOccGrid dfog, const Location *d_loc
 
   // Now populate
   dfog.feature_locs[idx] = loc;
-  dfog.features[idx] = Feature(blurred_stats.GetTheta(), blurred_stats.GetPhi(), blurred_stats.intensity);
+
+  bool valid_normal = blurred_stats.count > 3;
+  dfog.features[idx] = Feature(blurred_stats.GetTheta(), blurred_stats.GetPhi(), valid_normal, blurred_stats.intensity);
 
   // DEBUG
   //float x = loc.i;

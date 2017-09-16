@@ -31,10 +31,17 @@ void OccGridBuilder::ConfigureSize(float max_x, float max_y, float max_z) {
 }
 
 void OccGridBuilder::ConfigureSizeInPixels(size_t max_i, size_t max_j, size_t max_k) {
-  max_i_ = max_i;
-  max_j_ = max_j;
-  max_k_ = max_k;
-  max_dimension_valid_ = true;
+  device_data_->oor = OutOfRange(max_i, max_j, max_k);
+  device_data_->oor_valid = true;
+
+  int max_ijk = max_i;
+  if (max_ijk < max_j ) max_ijk = max_j;
+  if (max_ijk < max_k ) max_ijk = max_k;
+
+  device_data_->steps_per_ray = max_ijk;
+  if (max_ijk > device_data_->max_voxel_visits_per_ray) {
+    device_data_->steps_per_ray = device_data_->max_voxel_visits_per_ray;
+  }
 }
 
 void OccGridBuilder::SetPose(const Eigen::Vector3d &pos, float theta) {
@@ -51,13 +58,7 @@ size_t OccGridBuilder::ProcessData(const std::vector<Eigen::Vector3d> &hits) {
 
   // Now run ray tracing on the GPU device
   device_data_->RunKernel(false);
-
-  if (max_dimension_valid_) {
-    OutOfRange oor(max_i_, max_j_, max_k_);
-    return device_data_->ReduceLogOdds(oor);
-  } else {
-    return device_data_->ReduceLogOdds();
-  }
+  return device_data_->ReduceLogOdds();
 }
 
 OccGrid OccGridBuilder::GenerateOccGrid(const std::vector<Eigen::Vector3d> &hits) {
@@ -109,14 +110,7 @@ DeviceFeatureOccGrid OccGridBuilder::GenerateDeviceFeatureOccGrid(const std::vec
 
   device_data_->RunKernel(true);
 
-  size_t num_updates = 0;
-  if (max_dimension_valid_) {
-    OutOfRange oor(max_i_, max_j_, max_k_);
-    num_updates = device_data_->ReduceLogOdds(oor);
-  } else {
-    num_updates = device_data_->ReduceLogOdds();
-  }
-
+  size_t num_updates = device_data_->ReduceLogOdds();
   size_t num_stats = device_data_->ReduceStats();
   //printf("Got %d stats\n", num_stats);
 
