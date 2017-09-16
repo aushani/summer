@@ -98,7 +98,7 @@ void Trainer::Run(int first_epoch, int first_frame) {
         fs::path dir = save_base_path_ / (boost::format("%|04|_%|06|") % epoch % frame).str();
         fs::create_directories(dir);
         for (auto &kv : models_) {
-          fs::path fn = dir / (kv.first + ".mm");
+          fs::path fn = dir / (kv.first + ".fm");
 
           // Now save
           kv.second.Save(fn.string().c_str());
