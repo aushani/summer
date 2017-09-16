@@ -7,7 +7,7 @@ namespace app {
 namespace kitti_occ_grids {
 
 DetectorApp::DetectorApp(osg::ArgumentParser *args, bool viewer) :
- detector_(dt::Dim(0, 60, -40, 40, kRes_)),
+ detector_(dt::Dim(0, 75, -50, 50, kRes_)),
  og_builder_(200000, kRes_, 100.0) {
 
   // Get parameters

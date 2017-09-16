@@ -27,8 +27,8 @@ Trainer::Trainer(const std::string &save_base_fn) :
 
   // TODO MULTIPLE ANGLE BINS
   models_.insert({"Car", ft::FeatureModel(3.0, 2.0, kRes_)});
-  //models_.insert({"Cyclist", ft::FeatureModel(3.0, 2.0, kRes_)});
-  //models_.insert({"Pedestrian", ft::FeatureModel(3.0, 2.0, kRes_)});
+  models_.insert({"Cyclist", ft::FeatureModel(3.0, 2.0, kRes_)});
+  models_.insert({"Pedestrian", ft::FeatureModel(3.0, 2.0, kRes_)});
   models_.insert({"Background", ft::FeatureModel(3.0, 2.0, kRes_)});
 
   for (const auto &kv : models_) {
