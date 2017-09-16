@@ -129,6 +129,10 @@ void FeatureModel::MarkFeaturesWorker(const rt::FeatureOccGrid &fog, size_t idx_
     }
 
     const rt::Feature &f = feats[idx];
+    if (!f.valid_normal) {
+      continue;
+    }
+
     counters_[GetIndex(loc)].Count(f.theta, f.phi);
   }
 }

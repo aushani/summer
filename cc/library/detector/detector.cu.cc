@@ -129,11 +129,12 @@ __global__ void Evaluate(const rt::DeviceDenseFeatureOccGrid grid, const DeviceM
         log_p += model.GetLogP(loc, occ);
 
         // Do we have a feature vector too?
-        if (use_features && grid.HasFeature(loc_global)) {
+        if (use_features && grid.HasFeature(loc_global) && occ) {
           const rt::Feature &f = grid.GetFeature(loc_global);
 
-          // evaluate!
-          log_p += model.GetLogP(loc, f.theta, f.phi);
+          if (f.valid_normal) {
+            log_p += model.GetLogP(loc, f.theta, f.phi);
+          }
         }
       }
     }

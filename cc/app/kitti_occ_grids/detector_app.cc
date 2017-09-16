@@ -199,15 +199,15 @@ kt::KittiChallengeData DetectorApp::Process() {
       viewer_->AddChild(new osgn::ColorfulBox(osg::Vec4(r, 0, 0, 1), osg::Vec3(d.os.x, d.os.y, 2.0), 1));
     }
 
-    char fn[1000];
-    sprintf(fn, "%s/%06d.txt", my_results_dir, frame_at_);
-    fs::path p(fn);
+    //char fn[1000];
+    //sprintf(fn, "%s/%06d.txt", my_results_dir, frame_at_);
+    //fs::path p(fn);
 
-    if (fs::exists(p)) {
-      auto my_labels = kt::ObjectLabel::Load(fn);
-      osg::ref_ptr<osgn::ObjectLabels> my_ln = new osgn::ObjectLabels(my_labels, kcd.GetTcv(), false);
-      viewer_->AddChild(my_ln);
-    }
+    //if (fs::exists(p)) {
+    //  auto my_labels = kt::ObjectLabel::Load(fn);
+    //  osg::ref_ptr<osgn::ObjectLabels> my_ln = new osgn::ObjectLabels(my_labels, kcd.GetTcv(), false);
+    //  viewer_->AddChild(my_ln);
+    //}
   }
 
   return kcd;

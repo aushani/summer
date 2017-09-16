@@ -35,7 +35,7 @@ class FeatureModel {
   void Save(const char *fn) const;
   static FeatureModel Load(const char *fn);
 
-  float kAngleRes = 0.6; // About 30 degrees, ~100 bins
+  float kAngleRes = 0.2; // About 10 degrees, ~1000 bins
  private:
 
   float resolution_;

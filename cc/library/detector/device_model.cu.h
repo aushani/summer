@@ -16,11 +16,11 @@ namespace library {
 namespace detector {
 
 //static constexpr int kShrinkage = 1;
-static constexpr float kMinP = 0.20;
-static constexpr float kMaxP = 0.80;
+static constexpr float kMinP = 0.0001;
+static constexpr float kMaxP = 0.9999;
 
 struct FeatureModelPoint {
-  static constexpr int kMaxFeaturePoints = 1000; // This is lazy and gross!
+  static constexpr int kMaxFeaturePoints = 2000; // This is lazy and gross!
 
   float log_ps_occu[2] = {0.0, 0.0};
   float log_ps_feature[kMaxFeaturePoints] = {0.0,};
