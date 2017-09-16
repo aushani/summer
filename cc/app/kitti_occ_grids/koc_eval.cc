@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
   int frame_at = 0;
   //int frame_at = 1117;
 
-  double thresh = 40.0;
+  double thresh = 1.0;
 
   while (app.SetFrame(frame_at)) {
     printf("\n\n---- Frame %6d ----\n\n", frame_at);

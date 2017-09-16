@@ -141,6 +141,7 @@ cc_binary(
            ],
     deps = [
             "//library/chow_liu_tree",
+            "//library/gpu_util",
             "//library/util",
             "//library/kitti",
             "//library/osg_nodes",
@@ -150,23 +151,23 @@ cc_binary(
            ],
 )
 
-#cc_binary(
-#    name = "trainer",
-#    srcs = [
-#            "run_trainer.cc",
-#            "trainer.cc", "trainer.h",
-#            "map_node.cc", "map_node.h", # repeated, TODO fix
-#           ],
-#    deps = [
-#            "//library/chow_liu_tree",
-#            "//library/util",
-#            "//library/kitti",
-#            "//library/osg_nodes",
-#            "//library/viewer",
-#            "//library/detector",
-#            "@boost//:boost_filesystem",
-#           ],
-#)
+cc_binary(
+    name = "trainer",
+    srcs = [
+            "run_trainer.cc",
+            "trainer.cc", "trainer.h",
+            "map_node.cc", "map_node.h", # repeated, TODO fix
+           ],
+    deps = [
+            "//library/chow_liu_tree",
+            "//library/util",
+            "//library/kitti",
+            "//library/osg_nodes",
+            "//library/viewer",
+            "//library/detector",
+            "@boost//:boost_filesystem",
+           ],
+)
 
 cc_binary(
     name = "koc_eval",

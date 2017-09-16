@@ -39,8 +39,8 @@ struct FeatureModelPoint {
     float denom = c_t + c_f;
 
     if (denom < 1) {
-      log_ps_occu[0] = 0;
-      log_ps_occu[1] = 0;
+      log_ps_occu[0] = log(0.5);
+      log_ps_occu[1] = log(0.5);
     } else {
       for (int i=0; i<2; i++) {
         bool occu = i==0;
@@ -67,7 +67,7 @@ struct FeatureModelPoint {
 
         log_ps_feature[i] = log(p);
       } else {
-        log_ps_feature[i] = 0;
+        log_ps_feature[i] = log(1.0/c.counts_features.size());
       }
     }
 
@@ -113,6 +113,10 @@ struct DeviceModel {
 
     size_t sz = sizeof(FeatureModelPoint) * locs;
     printf("Allocated %ld Mbytes on device for model\n", sz/(1024*1024));
+  }
+
+  void ReplaceModel(const ft::FeatureModel &fm) {
+    BuildModel(fm);
   }
 
   void BuildModel(const ft::FeatureModel &fm) {

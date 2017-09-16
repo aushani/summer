@@ -20,20 +20,16 @@ namespace kitti_occ_grids {
 Trainer::Trainer(const std::string &save_base_fn) :
  save_base_path_(save_base_fn),
  detector_(dt::Dim(0, 75, -50, 50, kRes_)),
- og_builder_(200000, kRes_, 100.0) {
+ og_builder_(150000, kRes_, 75.0) {
 
   // Configure occ grid builder size
   og_builder_.ConfigureSize(3.0, 3.0, 2.0);
 
   // TODO MULTIPLE ANGLE BINS
-  //models_.insert({"Car", clt::JointModel(3.0, 2.0, kRes_)});
-  //models_.insert({"Cyclist", clt::JointModel(3.0, 2.0, kRes_)});
-  //models_.insert({"Pedestrian", clt::JointModel(3.0, 2.0, kRes_)});
-  //models_.insert({"Background", clt::JointModel(3.0, 2.0, kRes_)});
-  models_.insert({"Car", clt::MarginalModel(3.0, 2.0, kRes_)});
-  models_.insert({"Cyclist", clt::MarginalModel(3.0, 2.0, kRes_)});
-  models_.insert({"Pedestrian", clt::MarginalModel(3.0, 2.0, kRes_)});
-  models_.insert({"Background", clt::MarginalModel(3.0, 2.0, kRes_)});
+  models_.insert({"Car", ft::FeatureModel(3.0, 2.0, kRes_)});
+  //models_.insert({"Cyclist", ft::FeatureModel(3.0, 2.0, kRes_)});
+  //models_.insert({"Pedestrian", ft::FeatureModel(3.0, 2.0, kRes_)});
+  models_.insert({"Background", ft::FeatureModel(3.0, 2.0, kRes_)});
 
   for (const auto &kv : models_) {
     detector_.AddModel(kv.first, 0, kv.second);
@@ -49,6 +45,8 @@ Trainer::Trainer(const std::string &save_base_fn) :
       states_.emplace_back(os);
     }
   }
+
+  printf("Have %ld states\n", states_.size());
 }
 
 void Trainer::LoadFrom(const std::string &load_base_dir) {
@@ -59,8 +57,8 @@ void Trainer::LoadFrom(const std::string &load_base_dir) {
       continue;
     }
 
-    // Make sure it's a joint model
-    if (fs::extension(it->path()) != ".mm") {
+    // Make sure it's a feature model
+    if (fs::extension(it->path()) != ".fm") {
       continue;
     }
 
@@ -71,9 +69,9 @@ void Trainer::LoadFrom(const std::string &load_base_dir) {
     }
 
     printf("Found %s\n", classname.c_str());
-    auto model = clt::MarginalModel::Load(it->path().string().c_str());
+    auto model = ft::FeatureModel::Load(it->path().string().c_str());
 
-    detector_.UpdateModel(classname, 0, model); // TODO
+    detector_.ReplaceModel(classname, 0, model); // TODO
   }
   printf("Loaded all models\n");
 }
@@ -100,15 +98,14 @@ void Trainer::Run(int first_epoch, int first_frame) {
         fs::path dir = save_base_path_ / (boost::format("%|04|_%|06|") % epoch % frame).str();
         fs::create_directories(dir);
         for (auto &kv : models_) {
-          fs::path fn = dir / (kv.first + ".jm");
-
-          // Load back from detector
-          //detector_.LoadIntoJointModel(kv.first, 0, &kv.second); // TODO
-          detector_.LoadIntoMarginalModel(kv.first, 0, &kv.second); // TODO
+          fs::path fn = dir / (kv.first + ".mm");
 
           // Now save
           kv.second.Save(fn.string().c_str());
           printf("\tSaved model to %s\n", fn.string().c_str());
+
+          // Update detector
+          detector_.ReplaceModel(kv.first, 0, kv.second); // TODO anglebin
         }
 
         printf("Took %9.3f ms to save models\n", t.GetMs());
@@ -196,9 +193,9 @@ void Trainer::GetTrainingSamplesWorker(const kt::KittiChallengeData &kcd, size_t
     }
 
     // Check score, if score = 0 no evidence, not worth pursing
-    if (detector_.GetScore(classname, os) == 0) {
-      continue;
-    }
+    //if (detector_.GetScore(classname, os) == 0) {
+    //  continue;
+    //}
 
     double p_class = detector_.GetProb(classname, os);
 
@@ -208,7 +205,9 @@ void Trainer::GetTrainingSamplesWorker(const kt::KittiChallengeData &kcd, size_t
   }
 
   mutex->lock();
+  //printf("Thread--- \n");
   for (const auto &kv : my_samples) {
+    //printf("\tHave %ld samples for %s\n", kv.second.size(), kv.first.c_str());
     for (const auto &s : kv.second) {
       (*samples)[kv.first].push_back(s);
     }
@@ -293,13 +292,13 @@ void Trainer::Train(Trainer *trainer, const kt::KittiChallengeData &kcd, const s
   for (const Sample &s : samples) {
     // Make occ grid
     trainer->og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), 0); // TODO rotation
-    auto dog = trainer->og_builder_.GenerateOccGridDevice(kcd.GetScan().GetHits());
+    auto fog = trainer->og_builder_.GenerateFeatureOccGrid(kcd.GetScan().GetHits(), kcd.GetScan().GetIntensities());
 
-    trainer->detector_.UpdateModel(s.classname, 0, *dog); // TODO
+    auto it = trainer->models_.find(s.classname);
+    BOOST_ASSERT(it != trainer->models_.end());
+
+    it->second.MarkObservations(fog);
     trainer->samples_per_class_[s.classname]++;
-
-    // Cleanup
-    dog->Cleanup();
   }
   printf("\tTook %9.3f ms to update models\n", t.GetMs());
 }
@@ -312,7 +311,7 @@ void Trainer::ProcessFrame(int frame) {
 
   // Run detector
   t.Start();
-  detector_.Run(kcd.GetScan().GetHits());
+  detector_.Run(kcd.GetScan().GetHits(), kcd.GetScan().GetIntensities());
   printf("\tTook %9.3f ms to run detector\n", t.GetMs());
 
   // Get training samples, find out where it's more wrong

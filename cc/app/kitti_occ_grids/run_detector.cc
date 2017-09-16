@@ -2,9 +2,12 @@
 
 #include <osg/ArgumentParser>
 
+#include "library/gpu_util/util.h"
+
 #include "app/kitti_occ_grids/detector_app.h"
 
 namespace kog = app::kitti_occ_grids;
+namespace gu = library::gpu_util;
 
 int main(int argc, char** argv) {
   osg::ArgumentParser args(&argc, argv);
@@ -23,6 +26,7 @@ int main(int argc, char** argv) {
   au->addCommandLineOption("--kitti-challenge-dir <dirname>", "KITTI challenge data directory", "~/data/kitti_challenge/");
   au->addCommandLineOption("--models <dir>", "Models to evaluate", "");
   au->addCommandLineOption("--num <num>", "KITTI scan number", "0");
+  au->addCommandLineOption("--alt", "Run on alt device", "");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -30,6 +34,11 @@ int main(int argc, char** argv) {
   if ((helpType = args.readHelpType())) {
     au->write(std::cout, helpType);
     return EXIT_SUCCESS;
+  }
+
+  if (args.read("--alt")) {
+    gu::SetDevice(1);
+    printf("Set to alternative device\n");
   }
 
   kog::DetectorApp app(&args);

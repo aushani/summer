@@ -16,10 +16,10 @@
 
 namespace fs = boost::filesystem;
 namespace kt = library::kitti;
+namespace ft = library::feature;
 namespace rt = library::ray_tracing;
 namespace dt = library::detector;
 namespace vw = library::viewer;
-namespace clt = library::chow_liu_tree;
 
 namespace app {
 namespace kitti_occ_grids {
@@ -64,8 +64,7 @@ class Trainer {
   dt::Detector detector_;
   rt::OccGridBuilder og_builder_;
 
-  //std::map<std::string, clt::JointModel> models_;
-  std::map<std::string, clt::MarginalModel> models_;
+  std::map<std::string, ft::FeatureModel> models_;
   std::map<std::string, int> samples_per_class_;
 
   std::vector<dt::ObjectState> states_;

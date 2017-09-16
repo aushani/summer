@@ -32,6 +32,10 @@ struct DeviceData {
     data.insert({key, d});
   }
 
+  void ReplaceModel(const ModelKey &key, const ft::FeatureModel &fm, const Dim &dim) {
+    GetModel(key).ReplaceModel(fm);
+  }
+
   const DeviceScores& GetScores(const ModelKey &key) const {
     auto it = data.find(key);
     BOOST_ASSERT(it != data.end());
@@ -39,8 +43,15 @@ struct DeviceData {
     return it->second.second;
   }
 
-  const DeviceModel& GetModel(const ModelKey &key) const {
+  DeviceModel& GetModel(const ModelKey &key) {
     auto it = data.find(key);
+    BOOST_ASSERT(it != data.end());
+
+    return it->second.first;
+  }
+
+  const DeviceModel& GetModel(const ModelKey &key) const {
+    const auto it = data.find(key);
     BOOST_ASSERT(it != data.end());
 
     return it->second.first;
@@ -50,7 +61,7 @@ struct DeviceData {
 Detector::Detector(const Dim &d) :
  dim_(d),
  device_data_(new DeviceData()),
- og_builder_(200000, dim_.res, 100.0) {
+ og_builder_(150000, dim_.res, 100.0) {
 
 }
 
@@ -62,6 +73,13 @@ void Detector::AddModel(const std::string &classname, int angle_bin, const ft::F
   ModelKey key(classname, angle_bin);
 
   device_data_->AddModel(key, fm, dim_, log_prior);
+  classnames_.push_back(classname);
+}
+
+void Detector::ReplaceModel(const std::string &classname, int angle_bin, const ft::FeatureModel &fm) {
+  ModelKey key(classname, angle_bin);
+
+  device_data_->ReplaceModel(key, fm, dim_);
   classnames_.push_back(classname);
 }
 

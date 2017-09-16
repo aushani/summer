@@ -172,8 +172,8 @@ kt::KittiChallengeData DetectorApp::Process() {
     xform_car->addChild(new osgn::Car());
     viewer_->AddChild(xform_car);
 
-    double min_thresh = 40;
-    double max_thresh = 100;
+    double min_thresh = 1;
+    double max_thresh = 20;
 
     for (const auto &d : detector_.GetDetections(min_thresh)) {
       // This is ugly, but check a few times to make sure we're not on the boundary

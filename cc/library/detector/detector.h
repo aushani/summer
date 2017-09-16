@@ -65,6 +65,7 @@ class Detector {
   ~Detector();
 
   void AddModel(const std::string &classname, int angle_bin, const ft::FeatureModel &fm, float log_prior=0.0);
+  void ReplaceModel(const std::string &classname, int angle_bin, const ft::FeatureModel &fm);
 
   void Run(const std::vector<Eigen::Vector3d> &hits, const std::vector<float> &intensities);
 
