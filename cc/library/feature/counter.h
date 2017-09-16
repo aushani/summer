@@ -42,7 +42,7 @@ struct Counter {
     if (!std::isfinite(theta) || !std::isfinite(phi)) {
       return;
     }
-    counts_features[GetIndex(theta, phi)];
+    counts_features[GetIndex(theta, phi)]++;
     total_feature_counts++;
   }
 
