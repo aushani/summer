@@ -12,12 +12,17 @@ struct Counter {
   int total_feature_counts = 0;
 
   float angle_res = 0;
-  int n_x = 0;
+
+  int n_phi = 0;
+  int n_theta = 0;
 
   Counter() : Counter(2*M_PI) {}
 
-  Counter(float ar) : angle_res(ar), n_x(std::ceil(2*M_PI / angle_res)) {
-    int n_angle_bins = n_x * n_x;
+  Counter(float ar) :
+   angle_res(ar),
+   n_phi((2*M_PI / angle_res) - 1),      // after we get too high, just call everything a vertical vector
+   n_theta( ceil(2*M_PI / angle_res)) {
+    int n_angle_bins = n_phi * n_theta + 1;
     counts_features.resize(n_angle_bins, 0);
   }
 
@@ -26,6 +31,7 @@ struct Counter {
   }
 
   void Count(float theta, float phi) {
+    // Make sure phi is always positive
     if (phi < 0) {
       phi *= -1;
       theta = theta + M_PI;
@@ -53,11 +59,7 @@ struct Counter {
       }
     }
 
-    int n_t = max_i / n_x;
-    int n_p = max_i % n_x;
-
-    (*theta) = n_t * angle_res;
-    (*phi) = n_p * angle_res;
+    GetAngles(max_i, theta, phi);
 
     return max_count;
   }
@@ -76,10 +78,29 @@ struct Counter {
     int n_t = theta / angle_res;
     int n_p = phi / angle_res;
 
-    int idx =  n_t * n_x + n_p;
-    BOOST_ASSERT(idx < n_x * n_x);
+    // Check for vertical
+    if (n_p >= n_phi) {
+      return n_phi * n_theta;
+    }
+
+    BOOST_ASSERT(n_t < n_theta);
+
+    int idx =  n_t * n_phi + n_p;
 
     return idx;
+  }
+
+  void GetAngles(int idx, float *theta, float *phi) const {
+    if (idx == n_theta * n_phi) {
+      (*theta) = 0;
+      (*phi) = M_PI/2;
+    } else {
+      int n_t = idx / n_phi;
+      int n_p = idx % n_phi;
+
+      (*theta) = n_t * angle_res;
+      (*phi) = n_p * angle_res;
+    }
   }
 
   int GetNumOccuObservations() const {
@@ -98,7 +119,8 @@ struct Counter {
     ar & total_feature_counts;
 
     ar & angle_res;
-    ar & n_x;
+    ar & n_theta;
+    ar & n_phi;
   }
 };
 

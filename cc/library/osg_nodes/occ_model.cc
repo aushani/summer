@@ -145,7 +145,14 @@ OccModel::OccModel(const ft::FeatureModel &fm) {
 
         ut::hsv color_hsv;
         color_hsv.h = ut::RadiansToDegrees(theta);
-        color_hsv.s = ut::MinimizeAngle(phi) / (2*M_PI) + 0.5;
+
+        float s = ut::MinimizeAngle(phi) / (M_PI/4);
+        if (s > 1) {
+          s = 1;
+        }
+        s = 1 - s;
+
+        color_hsv.s = s;
         color_hsv.v = 0.9;
 
         auto rgb = hsv2rgb(color_hsv);
