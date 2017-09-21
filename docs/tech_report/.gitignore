@@ -1,0 +1,15 @@
+*.synctex.gz
+.DS_Store
+*.bak
+*.backup
+*~
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.old
+*.dvi
+report.pdf
+paper-template-latex.tar.gz
+*.swp

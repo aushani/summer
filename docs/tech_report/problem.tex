@@ -1,0 +1,42 @@
+\section{Detection Likelihood Map}\label{sec:dlm}
+
+Our goal is to compute a detection map that captures how likely it is for an
+object to exist at a particular location in the world. As our work is targeted
+for applications with autonomous vehicles, for runtime performance, we make the
+assumption that the world is 2.5D. Namely, we assume that all objects exist on a
+horizontal plane and their pose can be fully described by their 2D location and
+rotation. However, we fully model the 3D nature of the sensor observations.
+
+We receive a set of \ac{LIDAR} observations, $\mathbf{Z} = \{z_{1:n_z}\}$. Given
+these, we evaluate:
+%
+\begin{align}
+  p(\mathrm{obj_{c, x}}| \mathbf{Z}) \text{,} \label{eq:detection_map}
+\end{align}
+%
+where $\mathrm{obj_{c, x}}$ denotes the presence of an object of class $c$ with
+pose $x$. As we focus on KITTI, the classes we are concerned with are Car,
+Pedestrian, and Cyclist. Additionally, we model a Background class as well. We
+refer to \eqref{eq:detection_map} as a probabilistic detection map. Our goal is
+to evaluate and generate this map.
+
+Applying Bayes' rule, we have:
+%
+\begin{align}
+  p(\mathrm{obj_{c, x}} | \mathbf{v}) &=
+    \frac
+      {p(\mathrm{obj_{c, x}}) p(\mathbf{Z} | \mathrm{obj_{c, x}})}
+      {p(\mathbf{Z})}
+  \text{,}
+  \label{eq:bayes}
+\end{align}
+%
+where $p(\mathrm{obj_{c, x}})$ is an object prior,
+$p(\mathbf{Z} | \mathrm{obj_{c, x}})$ is the observation model, and
+$p(\mathbf{Z})$ is a normalization factor.
+
+The most challenging part of \eqref{eq:bayes} is the observation model.
+We require an observation model that is expressive enough to detect objects and
+differentiate between different classes. At the same time, we must be able to
+evaluate this model quickly for different classes and poses so that it is
+tractable to evaluate \eqref{eq:bayes}.

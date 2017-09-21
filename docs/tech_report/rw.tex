@@ -1,0 +1,55 @@
+\section{Related Work}\label{sec:rw}
+
+There is a rich literature in both object-level detection and probabilistic
+mapping. In object detection, many methods can be regarded as simply taking some
+kind of object classifier and applying it to locations in the environment. These
+locations can either be searched exhaustively or by some guided method, such as
+segmentation or region proposal. \citet{wang2012could} segmented and clustered a
+laser scan before classifying each segment according to background or foreground
+object. \citet{wang2015RSS} implemented a sliding window SVM detector with a
+voting scheme that allowed for efficient processing of sparse \ac{LIDAR} data.
+Building upon this idea, \citet{Engelcke2017ICRA} showed that this same voting
+scheme could be adapted for use with a \ac{CNN}.
+
+Another approach is to process all of the sensor data together. In one of the
+earlier works, \citet{petrovskaya-2009} created virtual 2D scans from \ac{LIDAR}
+data and used a Bayes filter per object to estimate both the dynamics and simple
+geometries properties, such as width and length. This filter is then maintained
+over time as more observations are made. More recently, this type of approach has
+been popular in a deep learning approach using camera data
+\citep{yang2016exploit, deepmanta_cvpr17, Ren17CVPR}, but has also been applied
+to \ac{LIDAR} sensor data as well. \citet{Li2016RSS} process a range image from
+a \ac{LIDAR} sensor using a \ac{FCN} to generate bounding boxes for car
+detections. \citet{Chen2017CVPR} build a fusion network that takes as input both
+camera imagery and also multiple views of a \ac{LIDAR} point cloud, such as a
+bird's eye view or a front view. However, these approaches do not explicitly model
+the notion of free space and occluded regions.
+
+Occupancy mapping \cite{thrun2005probabilistic} and its derivatives (such as
+\cite{hornung13auro}) are commonly used to model the full
+information captured by a range sensor such as \ac{LIDAR}, properly modeling
+free and occluded space while also representing unknown areas at the level of discrete
+voxels. \citet{gpmaps_ijrr12} introduced Gaussian process occupancy maps, a
+technique that exploits the structure of environments (e.g., the occupancy of
+some position in the world is correlated with its neighborhood). More recently,
+\citet{Ramos-RSS-15} introduced Hilbert mapping, a somewhat related approach in
+which a kernelized logistic regression is trained to predict occupied or free
+space from online sensor measurements. Extensions of this framework explored how
+to leverage the choice of kernels used in the regression, essentially modeling
+features that capture structure primitives \citep{Guizilini-RSS-17,
+  guizilini2016large}. However, these approaches do not focus on capturing
+specific object classes.
+
+Recently, there has been some work in object detection and classification from
+occupancy grids or similar representations, typically using some kind of
+volumetric or multiview \ac{CNN} \cite{qi2016volumetric, maturana2015voxnet}.
+These methods tend to do well with occlusions, as evidenced by the
+performance of similar techniques in shape completion \cite{smith2017CORL,
+  dai2017complete}. However, these approaches focus on classify a single
+instances of an object from a single occupancy grid or similar representation.
+As such, it is intractable to scale them into an exhaustive search.
+
+Our work lies at the intersection of object detection and occupancy mapping. We
+propose a representation that provides the benefits of both approaches, namely,
+understanding at an object level and capturing both known and unknown areas.
+
