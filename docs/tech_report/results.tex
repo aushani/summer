@@ -1,5 +1,45 @@
 \section{Results}\label{sec:results}
 
+\subsection{Model Building}
+
+\begin{figure*}
+  \centering
+  \begin{subfigure}[]{0.3\linewidth}
+    \centering
+    \includegraphics[height=1.5in]{figures/car_marginal.jpg}
+    \caption{Na\"ive Bayes}
+    \label{fig:nb}
+  \end{subfigure}
+  \begin{subfigure}[]{0.3\linewidth}
+    \centering
+    \includegraphics[height=1.5in]{figures/car_tree.jpg}
+    %\caption{An example of a \ac{CLT} built for a car. For easier viewing, edges
+    %  in the tree that link to nodes that are usually unoccupied are not rendered,
+    %  and edges above the ground plane are rendered as thicker lines.}
+    \caption{\ac{CLT}}
+    \label{fig:clt}
+  \end{subfigure}
+  \begin{subfigure}[]{0.3\linewidth}
+    \centering
+    \includegraphics[height=1.5in]{figures/car_fm.jpg}
+    \caption{Surface Normals}
+    \label{fig:sn}
+    %\caption{An example of a model with surface normals. Each voxel is colored by
+    %  the most commonly observed surface normal orientation. The hue represents the
+    %  surface normal's rotation about the vertical axis, and the saturation
+    %  represents the surface normal's angle from the xy plane.}
+  \end{subfigure}
+  \caption{In \figref{fig:nb}, we see an example of a Na\"ive Bayes model for a
+    car. Voxels are colored by z-height, and only voxels that are likely to be
+    occupied are rendered. In \figref{fig:clt}, we see the \ac{CLT} as computed
+    over the model. Only edges between voxels that are usually occupied are
+    shown, with edges above the ground plane rendered as thicker lines. In
+    \figref{fig:sn}, we see the model augmented with surface normals. Each voxel
+    is colored by the most commonly observed surface normal orientation. The hue
+    represents the surface normal's rotation about the vertical axis, and the
+    saturation represents the surface normal's angle from the xy plane.}
+\end{figure*}
+
 We demonstrate the performance of our proposed method by performing evaluates on the
 publicly available KITTI dataset.
 
@@ -36,16 +76,14 @@ occlusion.
 On average, it too \aku{\unit{1 million}{\sec}} to process \aku{...}
 
 \begin{figure}[!t]
-  \includegraphics[draft, width=\columnwidth]{tree.png}
-  \caption{Placeholder figure for \ac{CLT}}
+  \includegraphics[width=\columnwidth]{figures/car_tree.jpg}
+  \caption{An example of a \ac{CLT} built for a car. For easier viewing, edges
+    in the tree that link to nodes that are usually unoccupied are not rendered,
+    and edges above the ground plane are rendered as thicker lines.}
 \end{figure}
 
 \begin{figure}[!t]
-  \includegraphics[draft, width=\columnwidth]{model.png}
-  \caption{Placeholder figure for models}
 \end{figure}
 
 \begin{figure}[!t]
-  \includegraphics[draft, width=\columnwidth]{jm.png}
-  \caption{Placeholder figure for joint model, show mutual information}
 \end{figure}
