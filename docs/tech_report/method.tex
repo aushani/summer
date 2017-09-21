@@ -106,7 +106,7 @@ $v_i$ that is occupied and thus contains some \ac{LIDAR} points $\{z_j\}$, we
 can approximate the surface captured by these points and compute a surface
 normal. We do this by computing the covariance $\mat{C}$ of all points within
 $v$ and finding the eigenvector of $\mat{C}$ corresponding to the smallest
-eigenvector. These surface normals can then be used to augment
+eigenvalue. These surface normals can then be used to augment
 any of the above approaches, although we specifically considered it with
 \secref{sec:naive_bayes}. For example, instead of evaluating just
 %
