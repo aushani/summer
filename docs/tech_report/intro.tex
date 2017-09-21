@@ -15,6 +15,15 @@ occluded region?" The answer to this question can be the difference between
 driving through an intersection unhindered or cautiously anticipating a
 pedestrian hidden behind a parked car.
 
+\begin{figure}[!t]
+  \includegraphics[width=\columnwidth]{figures/badge.jpg}
+  \caption{A bird's eye view of sample output from our proposed system run on
+    the KITTI dataset. Red colors indicate high probabilities for cars, blue
+    indicates high probabilities for background. (Best viewed in color.) }
+  \vspace{-7mm}
+  \label{fig:badge}
+\end{figure}
+
 \figref{fig:badge} shows an example of a situation that an autonomous car might
 encounter. In addition to detecting the cars present in the environment, we
 wish to capture areas we know are absent of cars (shown in blue) or areas where
@@ -51,14 +60,5 @@ The goals of this work include:
     location for the presence of a given object.
 \end{itemize}
 %
-Additionally, we evaluate this approach on the KITTI dataset
-\cite{Geiger2013IJRR}.
-%
-\begin{figure}[!t]
-  \includegraphics[width=\columnwidth]{figures/badge2.png}
-  \caption{\aku{Placeholder badge figure, make a better version}. A bird's eye
-    view of sample output from our proposed system run on the KITTI dataset. Red colors indicate high
-    probabilities for cars, blue indicates high probabilities for background.
-    (Best viewed in color.) }
-  \label{fig:badge}
-\end{figure}
+Additionally, we provide some preliminary results of this approach on the KITTI
+dataset \cite{Geiger2013IJRR}.

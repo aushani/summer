@@ -1,4 +1,4 @@
-\section{Results}\label{sec:results}
+\section{Preliminary Results}\label{sec:results}
 
 \subsection{Model Building}
 
@@ -44,16 +44,31 @@ types are shown in \figref{fig:models}.
   \label{fig:models}
 \end{figure*}
 
-\subsection{Detection Results on KITTI Object Challenge}
+\subsection{Detection Results}
 
-While demonstrating some promising results, \ldots
+While demonstrating some promising results (such as those shown in
+\figref{fig:badge}, the proposed method still reports a significant number
+of false positives. For example, in \figref{fig:ex2} the algorithm is able to
+detect the two cars. However, it also believes that the building wall is a car,
+due to the fact that it exhibits very similar structural appearance and surface
+normals as the side of a car would. In \figref{fig:ex3}, we can see many correct
+car detections on the road, but a similar problem occurs with the structure to
+either side of the road. These examples were run using the model described in
+\secref{sec:normals}, but similar behavior is exhibited with all models
+described above.
 
-\begin{itemize}
-  \item 1-gram (independence assumption)
-  \item Greedy Approximation
-  \item Full \ac{CLT}
-\end{itemize}
+\begin{figure}[!t]
+  \includegraphics[width=\columnwidth]{figures/ex2.jpg}
+  \caption{A very common fault case. Even with surface normals or a joint
+    dependency model, often background such as building walls are supported by
+    the car's  observation model. Car likelihoods are shown in red.}
+  \label{fig:ex2}
+\end{figure}
 
-\subsection{Runtime Performance}
-
-On average, it takes \aku{\unit{1 million}{\sec}} to process \aku{...}
+\begin{figure}[!t]
+  \includegraphics[width=\columnwidth]{figures/ex3.jpg}
+  \caption{An example with both good detections and false positives on the
+    background structure on either side of the road. Car likelihoods are shown
+    in red.}
+  \label{fig:ex3}
+\end{figure}

@@ -1,10 +1,26 @@
-\section{Discussion} \label{sec:discussion}
+\section{Discussion and Future Work} \label{sec:discussion}
 
-\begin{itemize}
-  \item Discuss comparison to vote3d, vote3deep, fcn. Stress that
-    \aku{hopefully} while we are still in the same ballpark as these types of
-    methods and don't blow anyone out of the water, the key contribution is a
-    representation that allows for additional functionality.
-  \item Discuss performance, potential to include more information, either from
-    other sensors or by propagating in time, or priors (e.g., cars are on the road)
-\end{itemize}
+While the generated detection maps show some promising results, they do exhibit
+many false positives. The models considered here are not able to differentiate
+between certain background structure (such as vertical walls) and objects such
+as cars.
+
+In the future, it will be interesting to more closely compare these approaches
+with that of \citep{wang2015RSS} or \citep{Engelcke2017ICRA}. Both of these
+methods are similar to ours in that they used gridded \ac{LIDAR} observations
+and shape features (although we additionally use free space). Perhaps
+investigating these methods more closely will shed light on how to eliminate the
+false positive detections on background structure. Perhaps this is due to their
+training scheme, in which they perform hard negative mining to actively harvest
+difficult background examples.
+
+Furthermore, there are different ways of evaluating the observation model. While
+we present a probabilistic method here, the literature provides many other
+techniques. In object recognition, deep learning is commonly used to classify an
+occupancy-grid-like representation of some object. While a large network might
+prove intractable to rely on for evaluate \eqref{eq:detection_map} exhaustively,
+investigating these methods more closely might provide value insight.
+Alternatively, perhaps we could find some structure to exploit in the evaluation
+of these models to improve runtime performance when they are repeatedly
+evaluated, much like the sparse voting scheme in \citet{wang2015RSS} or the
+implementation of separable kernels.
