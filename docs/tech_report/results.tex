@@ -2,6 +2,9 @@
 
 \subsection{Model Building}
 
+We build models as described in \secref{sec:training}. A few different model
+types are shown in \figref{fig:models}.
+
 \begin{figure*}
   \centering
   \begin{subfigure}[]{0.3\linewidth}
@@ -38,27 +41,12 @@
     is colored by the most commonly observed surface normal orientation. The hue
     represents the surface normal's rotation about the vertical axis, and the
     saturation represents the surface normal's angle from the xy plane.}
+  \label{fig:models}
 \end{figure*}
 
-We demonstrate the performance of our proposed method by performing evaluates on the
-publicly available KITTI dataset.
-
-\subsection{Setup}
-
-All experiments were run on the KITTI dataset \cite{Geiger2013IJRR}. We ran our
-implementation on a machine with an Intel Xeon CPU (running single threaded) and a
-NVIDIA TITAN X \ac{GPU}.
-
-\subsection{Parameter Selection}
-
-\aku{\ldots}
-
-\subsection{CLT vs Greedy Approximation}
-
-Show results regard the greedy approximate: how much of the pairwise mutual
-information is recovered?
-
 \subsection{Detection Results on KITTI Object Challenge}
+
+While demonstrating some promising results, \ldots
 
 \begin{itemize}
   \item 1-gram (independence assumption)
@@ -66,24 +54,6 @@ information is recovered?
   \item Full \ac{CLT}
 \end{itemize}
 
-\subsection{Detection Map}
-
-Qualitative results, showing probabilistic detections, reasoning about
-occlusion.
-
 \subsection{Runtime Performance}
 
-On average, it too \aku{\unit{1 million}{\sec}} to process \aku{...}
-
-\begin{figure}[!t]
-  \includegraphics[width=\columnwidth]{figures/car_tree.jpg}
-  \caption{An example of a \ac{CLT} built for a car. For easier viewing, edges
-    in the tree that link to nodes that are usually unoccupied are not rendered,
-    and edges above the ground plane are rendered as thicker lines.}
-\end{figure}
-
-\begin{figure}[!t]
-\end{figure}
-
-\begin{figure}[!t]
-\end{figure}
+On average, it takes \aku{\unit{1 million}{\sec}} to process \aku{...}

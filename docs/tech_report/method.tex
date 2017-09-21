@@ -50,8 +50,9 @@ roughly the same size as a car.
 
 \subsubsection{Chow-Liu Tree Model} \label{sec:clt}
 
-Similar to our work in \cite{ushani_raybased}, we propose approximating the full
-joint distribution $p(\mathbf{V} | \mathrm{obj_{c,x}})$ by approximating a
+Similar to our work in \cite{ushani_raybased}, we propose better approximating
+the full joint distribution $p(\mathbf{V} | \mathrm{obj_{c,x}})$ by modeling
+some of the conditional dependence between observations. To do so, we leverage a
 \ac{CLT} \citep{chow1968approximating}.
 
 For the observations $\mathbf{V} = \{v_1, \ldots, v_{n_z}\}$, a \ac{CLT} finds a
@@ -120,7 +121,7 @@ as we would in \secref{sec:naive_bayes}, we now evaluate
   | \mathrm{obj_{c, x}}) \text{.}
 \end{align}
 
-\subsection{Training}
+\subsection{Training} \label{sec:training}
 
 All of our models were trained using KITTI data. During the training phase, we
 sample observations (i.e., a local occupancy grid) for each class. Once all samples are
