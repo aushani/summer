@@ -35,8 +35,9 @@ where $p(\mathrm{obj_{c, x}})$ is an object prior,
 $p(\mathbf{Z} | \mathrm{obj_{c, x}})$ is the observation model, and
 $p(\mathbf{Z})$ is a normalization factor.
 
-The most challenging part of \eqref{eq:bayes} is the observation model.
-We require an observation model that is expressive enough to detect objects and
-differentiate between different classes. At the same time, we must be able to
-evaluate this model quickly for different classes and poses so that it is
-tractable to evaluate \eqref{eq:bayes}.
+The key part of \eqref{eq:bayes} is the observation model. We require an
+observation model that is expressive enough to detect objects and differentiate
+between different classes. At the same time, we must be able to evaluate this
+model quickly for different classes and poses so that it is tractable to
+evaluate \eqref{eq:bayes} for a large number of object poses and classes to
+fully build the detection map.

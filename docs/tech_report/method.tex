@@ -23,7 +23,8 @@ of a sparse set of voxels $\mathbf{V} = \{v_{1:n_v}\}$, where each voxel $v_i$
 is labeled as either free or occupied. Any voxels not contained in this sparse
 set is considered to be unknown. We compute $\mathbf{V}$ by performing
 ray-casting using Bresenham's ray tracing algorithm
-\cite{bresenham1965algorithm}. This can be efficiently implemented on a \ac{GPU}
+\cite{bresenham1965algorithm}. This can be efficiently implemented on a
+\ac{GPU}.
 
 Thus, for our observation model, we now wish to evaluate:
 %
@@ -38,6 +39,7 @@ One approach is to make the independence assumption:
 \begin{align}
   p(\mathbf{V} | \mathrm{obj_{c, x}}) &= \prod_i p(v_i | \mathrm{obj_{c, x}})
   \text{.}
+  \label{eq:naive}
 \end{align}
 %
 The key advantage of this approach is its simplicity and speed.
@@ -114,12 +116,17 @@ any of the above approaches, although we specifically considered it with
   p(v_i \text{ is occupied } | \mathrm{obj_{c,x}}) \text{,}
 \end{align}
 %
-as we would in \secref{sec:naive_bayes}, we now evaluate
+as we would in \eqref{eq:naive}, we now evaluate
 %
 \begin{align}
-  p(v_i \text{ is occupied } | \mathrm{obj_{c,x}}) p(v_i \text{ has normal } \vec{n}
+  p(v_i \text{ is occupied } | \mathrm{obj_{c,x}}) p(v_i \text{ has normal }
+  \vec{n_{v_i}}
   | \mathrm{obj_{c, x}}) \text{.}
 \end{align}
+%
+where $\vec{n_{v_i}}$ is the computed surface normal vector computed at $v_i$.
+We parameterize this vector by the heading angle $\theta$ about the z-axis and
+the vertical angle $\phi$ above the xy-plane.
 
 \subsection{Training} \label{sec:training}
 
@@ -128,8 +135,10 @@ sample observations (i.e., a local occupancy grid) for each class. Once all samp
 extracted, they are then accumulated together to estimate the observation model
 for each class. This includes marginal probabilities for
 \secref{sec:naive_bayes}, mutual information and conditional probabilities for
-\secref{sec:clt} and \secref{sec:greedy_clt}, and discretizied surface normals
-for \secref{sec:normals}.
+\secref{sec:clt} and \secref{sec:greedy_clt}, and surface normals discretized at
+\unit{45}{\deg} for \secref{sec:normals}.
+% note, we tried different discretizations, 45 degrees gave better results cause
+% the histograms could be filled in better
 
 In this work, the model for each object extends extends \unit{6}{\m} in each of $x$ and $y$
 and \unit{4}{\m} vertically. A unique model for each is learned for each of 8
