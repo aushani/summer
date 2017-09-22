@@ -1,1 +1,15 @@
 Arash's code repo for summer 2017 @ TRI
+
+Installed Dependencies:
+
+ bazel
+
+ OpenSceneGraph
+  git clone git@bitbucket.org:aushani/openscenegraph.git
+  Use cmake to make and install as you normally would
+
+ cuda 8.0
+  from nvidia
+
+ qt4
+  from apt-get
