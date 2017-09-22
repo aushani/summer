@@ -143,8 +143,14 @@ OccModel::OccModel(const ft::FeatureModel &fm) {
         float phi = 0;
         fm.GetMode(loc, &theta, &phi);
 
+        theta = ut::MinimizeAngle(theta);
+
+        if (theta < 0) {
+          theta += M_PI;
+        }
+
         ut::hsv color_hsv;
-        color_hsv.h = ut::RadiansToDegrees(theta);
+        color_hsv.h = ut::RadiansToDegrees(theta*2);
 
         float s = ut::MinimizeAngle(phi) / (M_PI/4);
         if (s > 1) {
