@@ -110,7 +110,7 @@ __global__ void ComputeFeatures(DeviceFeatureOccGrid dfog, const Location *d_loc
 void DeviceFeatureOccGrid::PopulateFeatures(const Location *d_stats_locs, const Stats *d_stats) {
   //library::timer::Timer t;
 
-  int threads = 1024;
+  int threads = 128;
   int blocks = std::ceil(sz_features / static_cast<double>(threads));
 
   //t.Start();
