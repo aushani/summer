@@ -85,11 +85,11 @@ double FeatureModel::GetResolution() const {
   return resolution_;
 }
 
-size_t FeatureModel::GetNXY() const {
+int FeatureModel::GetNXY() const {
   return n_xy_;
 }
 
-size_t FeatureModel::GetNZ() const {
+int FeatureModel::GetNZ() const {
   return n_z_;
 }
 

@@ -96,7 +96,9 @@ void WriteDetections(const std::vector<dt::Detection> &detections, const kt::Kit
     kt::ObjectLabel label;
 
     label.type = kt::ObjectLabel::GetType(d.classname.c_str());
-    label.alpha = ut::MinimizeAngle(1.57 + d.os.angle_bin * 2*M_PI/dt::Detector::kAngleBins);
+    //label.alpha = ut::MinimizeAngle(1.57 + d.os.angle_bin * 2*M_PI/dt::Detector::kAngleBins);
+    printf("NOT YET IMPLEMENTED\n");
+    BOOST_ASSERT(false);
 
     FillBoundingBox(d.os, kcd, &label);
 
@@ -109,7 +111,9 @@ void WriteDetections(const std::vector<dt::Detection> &detections, const kt::Kit
     label.location[2] = x_camera.z();
 
     //label.rotation_y = ut::MinimizeAngle(1.57);
-    label.rotation_y = ut::MinimizeAngle(1.57 + d.os.angle_bin * 2*M_PI/dt::Detector::kAngleBins);
+    //label.rotation_y = ut::MinimizeAngle(1.57 + d.os.angle_bin * 2*M_PI/dt::Detector::kAngleBins);
+    printf("NOT YET IMPLEMENTED\n");
+    BOOST_ASSERT(false);
 
     label.score = d.confidence;
 

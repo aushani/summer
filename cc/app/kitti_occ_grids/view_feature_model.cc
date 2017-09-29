@@ -3,6 +3,7 @@
 
 #include "library/osg_nodes/occ_model.h"
 #include "library/feature/feature_model.h"
+#include "library/feature/model_bank.h"
 #include "library/viewer/viewer.h"
 
 namespace ft = library::feature;
@@ -23,7 +24,9 @@ int main(int argc, char** argv) {
   au->setCommandLineUsage( args.getApplicationName() + " [options]");
   au->setDescription(args.getApplicationName() + " viewer");
 
-  au->addCommandLineOption("--fm <dirname>", "Model Filename", "");
+  au->addCommandLineOption("--mb <dirname>", "Model Bank Filename", "");
+  au->addCommandLineOption("--class <classname>", "Classname", "");
+  au->addCommandLineOption("--anglebin <dirname>", "Angle Bin", "");
 
   // handle help text
   // call AFTER init viewer so key bindings have been set
@@ -35,14 +38,22 @@ int main(int argc, char** argv) {
 
   // Load joint model
   std::string fn;
-  if (!args.read("--fm", fn)) {
-    printf("Error! Need file to render! (--fm) \n");
+  if (!args.read("--mb", fn)) {
+    printf("Error! Need file to render! (--mb) \n");
     return 1;
   }
 
-  ft::FeatureModel fm = ft::FeatureModel::Load(fn.c_str());
+  int angle_bin = 0;
+  args.read("--anglebin", angle_bin);
 
-  printf("%d x %d x %d\n", fm.GetNXY(), fm.GetNXY(), fm.GetNZ());
+  std::string classname;
+  if (!args.read("--class", classname)) {
+    printf("Error: Need class to render! (--class)\n");
+    return 1;
+  }
+
+  ft::ModelBank mb = ft::ModelBank::Load(fn.c_str());
+  ft::FeatureModel fm = mb.GetFeatureModel(classname, angle_bin);
 
   vw::Viewer v(&args);
 

@@ -20,7 +20,7 @@ static constexpr float kMinP = 0.0001;
 static constexpr float kMaxP = 0.9999;
 
 struct FeatureModelPoint {
-  static constexpr int kMaxFeaturePoints = 2000; // This is lazy and gross!
+  static constexpr int kMaxFeaturePoints = 1000; // This is lazy and gross!
 
   float log_ps_occu[2] = {0.0, 0.0};
   float log_ps_feature[kMaxFeaturePoints] = {0.0,};
@@ -110,9 +110,6 @@ struct DeviceModel {
 
   DeviceModel(const ft::FeatureModel &fm) {
     BuildModel(fm);
-
-    size_t sz = sizeof(FeatureModelPoint) * locs;
-    printf("Allocated %ld Mbytes on device for model\n", sz/(1024*1024));
   }
 
   void ReplaceModel(const ft::FeatureModel &fm) {
@@ -127,7 +124,11 @@ struct DeviceModel {
     locs = n_xy * n_xy * n_z;
 
     if (fmp == nullptr) {
-      cudaMalloc(&fmp, locs * sizeof(FeatureModelPoint));
+      size_t sz = sizeof(FeatureModelPoint) * locs;
+      printf("Allocating %ld Mbytes on device for model\n", sz/(1024*1024));
+
+      cudaError_t err = cudaMalloc(&fmp, sz);
+      BOOST_ASSERT(err == cudaSuccess);
     }
 
     std::vector<FeatureModelPoint> h_fmp(locs);

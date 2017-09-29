@@ -28,11 +28,14 @@ class Trainer {
  public:
   Trainer(const std::string &save_base_fn);
 
-  void LoadFrom(const std::string &load_base_dir);
+  void LoadFrom(const std::string &load_fn);
 
   void SetViewer(const std::shared_ptr<vw::Viewer> &viewer);
   void Run(int first_epoch = 0, int first_frame_num=0);
   void RunBackground(int first_epoch = 0, int first_frame_num=0);
+
+  const char* kKittiBaseFilename = "/home/aushani/data/kitti_challenge/";
+  const int kNumFrames = 7481;
 
  private:
   struct Sample {
@@ -40,9 +43,10 @@ class Trainer {
     double p_wrong = 0;
     dt::ObjectState os;
     std::string classname;
+    double theta = 0;
 
-    Sample(double pc, const dt::ObjectState s, const std::string &cn) :
-     p_correct(pc), p_wrong(1-pc), os(s), classname(cn) {
+    Sample(double pc, const dt::ObjectState s, const std::string &cn, double t) :
+     p_correct(pc), p_wrong(1-pc), os(s), classname(cn), theta(t) {
     };
 
     bool operator<(const Sample &s) const {
@@ -52,8 +56,6 @@ class Trainer {
     }
   };
 
-  const char* kKittiBaseFilename = "/home/aushani/data/kitti_challenge/";
-  const int kNumFrames = 7481;
   static constexpr double kRes_ = 0.20;                    // 20 cm
   static constexpr int kSamplesPerFrame_ = 10;
 
@@ -64,7 +66,7 @@ class Trainer {
   dt::Detector detector_;
   rt::OccGridBuilder og_builder_;
 
-  std::map<std::string, ft::FeatureModel> models_;
+  ft::ModelBank model_bank_;
   std::map<std::string, int> samples_per_class_;
 
   std::vector<dt::ObjectState> states_;
@@ -73,7 +75,7 @@ class Trainer {
 
   void ProcessFrame(int frame);
 
-  std::string GetTrueClass(const kt::KittiChallengeData &kcd, const dt::ObjectState &os) const;
+  std::string GetTrueClass(const kt::KittiChallengeData &kcd, const dt::ObjectState &os, double *theta) const;
   std::vector<Sample> GetTrainingSamples(const kt::KittiChallengeData &kcd) const;
   void GetTrainingSamplesWorker(const kt::KittiChallengeData &kcd, size_t idx0, size_t idx1,
     std::map<std::string, std::vector<Sample> > *samples, std::map<std::string, double> *total_weight, std::mutex *mutex) const;

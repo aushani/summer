@@ -25,35 +25,37 @@ DetectorApp::DetectorApp(osg::ArgumentParser *args, bool viewer) :
   // Load models
   printf("loading models from %s\n", model_dir.c_str());
 
-  fs::directory_iterator end_it;
-  for (fs::directory_iterator it(model_dir); it != end_it; it++) {
-    // Make sure it's a directory
-    if (fs::is_regular_file(it->path())) {
-      continue;
-    }
+  //fs::directory_iterator end_it;
+  //for (fs::directory_iterator it(model_dir); it != end_it; it++) {
+  //  // Make sure it's a directory
+  //  if (fs::is_regular_file(it->path())) {
+  //    continue;
+  //  }
 
-    // Is it a class we care about?
-    std::string classname = it->path().stem().string();
-    printf("classname: %s\n", classname.c_str());
+  //  // Is it a class we care about?
+  //  std::string classname = it->path().stem().string();
+  //  printf("classname: %s\n", classname.c_str());
 
-    //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
-    if (! (classname == "Car" || classname == "Background")) {
-      continue;
-    }
+  //  //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
+  //  if (! (classname == "Car" || classname == "Background")) {
+  //    continue;
+  //  }
 
-    // Enter directory and look for angle bins
-    for (int angle_bin = 0; angle_bin < dt::Detector::kAngleBins; angle_bin++) {
-      char fn[1000];
-      sprintf(fn, "angle_bin_%02d/fm.fm", angle_bin);
-      fs::path p_model = it->path() / fn;
+  //  // Enter directory and look for angle bins
+  //  for (int angle_bin = 0; angle_bin < dt::Detector::kAngleBins; angle_bin++) {
+  //    char fn[1000];
+  //    sprintf(fn, "angle_bin_%02d/fm.fm", angle_bin);
+  //    fs::path p_model = it->path() / fn;
 
-      if (fs::exists(p_model)) {
-        printf("Loading class %s angle bin %d\n", classname.c_str(), angle_bin);
-        auto model = ft::FeatureModel::Load(p_model.string().c_str());
-        detector_.AddModel(classname, angle_bin, model);
-      }
-    }
-  }
+  //    if (fs::exists(p_model)) {
+  //      printf("Loading class %s angle bin %d\n", classname.c_str(), angle_bin);
+  //      auto model = ft::FeatureModel::Load(p_model.string().c_str());
+  //      detector_.AddModel(classname, angle_bin, model);
+  //    }
+  //  }
+  //}
+  printf("NOT YET IMPLEMENTED\n");
+  BOOST_ASSERT(false);
   printf("Loaded all models\n");
 
   osg::ref_ptr<DetectorHandler> dh = new DetectorHandler(detector_);
@@ -172,35 +174,34 @@ kt::KittiChallengeData DetectorApp::Process() {
     xform_car->addChild(new osgn::Car());
     viewer_->AddChild(xform_car);
 
-    double min_thresh = 1;
-    double max_thresh = 20;
+    //double min_thresh = 1;
+    //double max_thresh = 20;
+    //for (const auto &d : detector_.GetDetections(min_thresh)) {
+    //  // This is ugly, but check a few times to make sure we're not on the boundary
+    //  if (!kcd.InCameraView(d.os.x - 1.0, d.os.y + 1.0, 0.0)) {
+    //    continue;
+    //  }
 
-    for (const auto &d : detector_.GetDetections(min_thresh)) {
-      // This is ugly, but check a few times to make sure we're not on the boundary
-      if (!kcd.InCameraView(d.os.x - 1.0, d.os.y + 1.0, 0.0)) {
-        continue;
-      }
+    //  if (!kcd.InCameraView(d.os.x - 1.0, d.os.y - 1.0, 0.0)) {
+    //    continue;
+    //  }
 
-      if (!kcd.InCameraView(d.os.x - 1.0, d.os.y - 1.0, 0.0)) {
-        continue;
-      }
+    //  if (!kcd.InCameraView(d.os.x + 1.0, d.os.y + 1.0, 0.0)) {
+    //    continue;
+    //  }
 
-      if (!kcd.InCameraView(d.os.x + 1.0, d.os.y + 1.0, 0.0)) {
-        continue;
-      }
+    //  if (!kcd.InCameraView(d.os.x + 1.0, d.os.y - 1.0, 0.0)) {
+    //    continue;
+    //  }
 
-      if (!kcd.InCameraView(d.os.x + 1.0, d.os.y - 1.0, 0.0)) {
-        continue;
-      }
+    //  double r = (d.confidence - min_thresh) / (max_thresh - min_thresh);
+    //  if (r>1) r = 1;
 
-      double r = (d.confidence - min_thresh) / (max_thresh - min_thresh);
-      if (r>1) r = 1;
-
-      viewer_->AddChild(new osgn::ColorfulBox(osg::Vec4(r, 0, 0, 1), osg::Vec3(d.os.x, d.os.y, 2.0), 1));
-    }
+    //  viewer_->AddChild(new osgn::ColorfulBox(osg::Vec4(r, 0, 0, 1), osg::Vec3(d.os.x, d.os.y, 2.0), 1));
+    //}
 
     //char fn[1000];
-    //sprintf(fn, "%s/%06d.txt", my_results_dir, frame_at_);
+    //sprintf(fn, "%s/%06d.txt", kResultsDir_, frame_at_);
     //fs::path p(fn);
 
     //if (fs::exists(p)) {

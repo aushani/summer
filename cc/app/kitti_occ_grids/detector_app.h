@@ -48,7 +48,7 @@ class DetectorApp : public osgGA::GUIEventHandler {
   const dt::Detector& GetDetector() const;
 
  private:
-  static constexpr char* my_results_dir = "/home/aushani/summer/cc/results/";
+  const char* kResultsDir_ = "/home/aushani/summer/cc/results/";
   static constexpr int kFirstFrame_ = 0;
   static constexpr int kLastFrame_ = 7481;
   static constexpr float kRes_ = 0.2;

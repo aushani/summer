@@ -3,7 +3,9 @@
 #include <memory>
 #include <Eigen/Core>
 
-#include "library/feature/feature_model.h"
+#include "library/feature/model_bank.h"
+#include "library/feature/model_key.h"
+
 #include "library/ray_tracing/device_occ_grid.h"
 #include "library/ray_tracing/occ_grid_builder.h"
 
@@ -20,30 +22,6 @@ namespace detector {
 
 // Forward declarations
 typedef struct DeviceData DeviceData;
-
-struct ModelKey {
-  std::string classname;
-  int angle_bin;
-
-  ModelKey(const std::string &cn, int b) :
-    classname(cn), angle_bin(b) {}
-
-  bool operator<(const ModelKey &k) const {
-    if (classname != k.classname) {
-      return classname < k.classname;
-    }
-
-    return angle_bin < k.angle_bin;
-  }
-
-  bool operator==(const ModelKey &k) const {
-    return classname == k.classname && angle_bin == k.angle_bin;
-  }
-
-  bool operator!=(const ModelKey &k) const {
-    return !( (*this)==k );
-  }
-};
 
 struct Detection {
   std::string classname;
@@ -64,8 +42,8 @@ class Detector {
   Detector(const Dim &d);
   ~Detector();
 
-  void AddModel(const std::string &classname, int angle_bin, const ft::FeatureModel &fm, float log_prior=0.0);
-  void ReplaceModel(const std::string &classname, int angle_bin, const ft::FeatureModel &fm);
+  void SetModelBank(const ft::ModelBank &mb);
+  void UpdateModelBank(const ft::ModelBank &mb);
 
   void Run(const std::vector<Eigen::Vector3d> &hits, const std::vector<float> &intensities);
 
@@ -84,7 +62,6 @@ class Detector {
 
   const std::vector<std::string>& GetClasses() const;
 
-  static constexpr int kAngleBins = 1;
   bool use_features = true;
  private:
   static constexpr int kThreadsPerBlock_ = 128;

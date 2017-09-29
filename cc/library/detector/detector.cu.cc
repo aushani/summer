@@ -11,10 +11,8 @@ namespace library {
 namespace detector {
 
 struct DeviceData {
-  //std::vector<DeviceModel> models;
-  //std::vector<DeviceScores> scores;
   typedef std::pair<DeviceModel, DeviceScores> Data;
-  std::map<ModelKey, Data> data;
+  std::map<ft::ModelKey, Data> data;
 
   DeviceData() {
   }
@@ -27,30 +25,45 @@ struct DeviceData {
     }
   }
 
-  void AddModel(const ModelKey &key, const ft::FeatureModel &fm, const Dim &dim, float lp) {
-    Data d(DeviceModel(fm), DeviceScores(dim, lp));
-    data.insert({key, d});
+  void SetModelBank(const ft::ModelBank &mb, const Dim &dim) {
+    float log_p_prior = 0.0;
+    const auto& models = mb.GetModels();
+
+    for (const auto &kv : models) {
+      const auto &key = kv.first;
+      const auto &fm = kv.second;
+
+      Data d(DeviceModel(fm), DeviceScores(dim, log_p_prior));
+      data.insert({key, d});
+    }
   }
 
-  void ReplaceModel(const ModelKey &key, const ft::FeatureModel &fm, const Dim &dim) {
-    GetModel(key).ReplaceModel(fm);
+  void UpdateModelBank(const ft::ModelBank &mb) {
+    const auto& models = mb.GetModels();
+
+    for (const auto &kv : models) {
+      const auto &key = kv.first;
+      const auto &fm = kv.second;
+
+      GetModel(key).ReplaceModel(fm);
+    }
   }
 
-  const DeviceScores& GetScores(const ModelKey &key) const {
+  const DeviceScores& GetScores(const ft::ModelKey &key) const {
     auto it = data.find(key);
     BOOST_ASSERT(it != data.end());
 
     return it->second.second;
   }
 
-  DeviceModel& GetModel(const ModelKey &key) {
+  DeviceModel& GetModel(const ft::ModelKey &key) {
     auto it = data.find(key);
     BOOST_ASSERT(it != data.end());
 
     return it->second.first;
   }
 
-  const DeviceModel& GetModel(const ModelKey &key) const {
+  const DeviceModel& GetModel(const ft::ModelKey &key) const {
     const auto it = data.find(key);
     BOOST_ASSERT(it != data.end());
 
@@ -69,18 +82,13 @@ Detector::~Detector() {
   device_data_->Cleanup();
 }
 
-void Detector::AddModel(const std::string &classname, int angle_bin, const ft::FeatureModel &fm, float log_prior) {
-  ModelKey key(classname, angle_bin);
-
-  device_data_->AddModel(key, fm, dim_, log_prior);
-  classnames_.push_back(classname);
+void Detector::SetModelBank(const ft::ModelBank &mb) {
+  device_data_->SetModelBank(mb, dim_);
+  classnames_ = mb.GetClasses();
 }
 
-void Detector::ReplaceModel(const std::string &classname, int angle_bin, const ft::FeatureModel &fm) {
-  ModelKey key(classname, angle_bin);
-
-  device_data_->ReplaceModel(key, fm, dim_);
-  classnames_.push_back(classname);
+void Detector::UpdateModelBank(const ft::ModelBank &mb) {
+  device_data_->UpdateModelBank(mb);
 }
 
 int Detector::GetModelIndex(const std::string &classname) const {
@@ -184,59 +192,15 @@ void Detector::Run(const std::vector<Eigen::Vector3d> &hits, const std::vector<f
 }
 
 std::vector<Detection> Detector::GetDetections(double thresh) const {
-  // This is something really stupid just to get started
+  printf("NOT YET IMPLEMENTED\n");
+  BOOST_ASSERT(false);
 
   std::vector<Detection> detections;
-
-  for (int i = 0; i < dim_.n_x; i++) {
-    for (int j = 0; j < dim_.n_y; j++) {
-      for (int angle_bin = 0; angle_bin < kAngleBins; angle_bin++) {
-        ObjectState os = dim_.GetState(i, j);
-        os.angle_bin = angle_bin;
-
-        float lo_car = GetLogOdds("Car", os);
-        float my_score = GetScore("Car", os);
-
-        if (lo_car > thresh) {
-          // Check for max
-          bool max = true;
-          for (int di = -2/dim_.res; di <= 2/dim_.res && max; di++) {
-            for (int dj = -2/dim_.res; dj <= 2/dim_.res && max; dj++) {
-              for (int b=0; b<kAngleBins && max; b++) {
-                if (di == 0 && dj == 0 && b == angle_bin) {
-                  continue;
-                }
-
-                ObjectState n_os = dim_.GetState(i + di, j + dj);
-                n_os.angle_bin = b;
-                float lo = GetLogOdds("Car", n_os);
-
-                if (lo > lo_car) {
-                  max = false;
-                } else if (lo == lo_car) {
-                  double score = GetScore("Car", n_os);
-                  if (score > my_score) {
-                    max = false;
-                  }
-                }
-              }
-            }
-          }
-
-          if (max) {
-            float confidence = lo_car;
-            detections.emplace_back("Car", os, confidence);
-          }
-        }
-      }
-    }
-  }
-
   return detections;
 }
 
 const DeviceScores& Detector::GetScores(const std::string &classname, int angle_bin) const {
-  ModelKey key(classname, angle_bin);
+  ft::ModelKey key(classname, angle_bin);
   return device_data_->GetScores(key);
 }
 
@@ -248,8 +212,14 @@ float Detector::GetScore(const std::string &classname, const ObjectState &os) co
 float Detector::GetProb(const std::string &classname, double x, double y) const {
   // TODO Hacky
   double p = 0;
-  for (int angle_bin = 0; angle_bin < kAngleBins; angle_bin++) {
-    ObjectState os(x, y, angle_bin);
+  for (const auto &model_data : device_data_->data) {
+    const ft::ModelKey &key = model_data.first;
+
+    if (key.classname != classname) {
+      continue;
+    }
+
+    ObjectState os(x, y, key.angle_bin);
     p += GetProb(classname, os);
   }
 
@@ -308,7 +278,7 @@ float Detector::GetLogOdds(const std::string &classname, const ObjectState &os) 
     return 0.0;
   }
 
-  ModelKey my_key(classname, os.angle_bin);
+  ft::ModelKey my_key(classname, os.angle_bin);
 
   float my_score = GetScore(classname, os);
   float max_score = my_score;

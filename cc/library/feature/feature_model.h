@@ -15,6 +15,7 @@ namespace feature {
 
 class FeatureModel {
  public:
+  FeatureModel(); // for boost serialization, TODO fix this
   FeatureModel(double range_xy, double range_z, double res);
 
   void MarkObservations(const rt::FeatureOccGrid &fog);
@@ -28,28 +29,25 @@ class FeatureModel {
   int GetMode(const rt::Location &loc, float *theta, float *phi) const;
 
   double GetResolution() const;
-  size_t GetNXY() const;
-  size_t GetNZ() const;
+  int GetNXY() const;
+  int GetNZ() const;
   bool InRange(const rt::Location &loc) const;
 
   void Save(const char *fn) const;
   static FeatureModel Load(const char *fn);
 
   float kAngleRes = 0.2; // About 10 degrees, ~1000 bins
- private:
 
+ private:
   float resolution_;
   float range_xy_;
   float range_z_;
 
-  size_t n_xy_;
-  size_t n_z_;
-  size_t n_loc_;
+  int n_xy_;
+  int n_z_;
+  int n_loc_;
 
   std::vector<Counter> counters_;
-
-  // for easier boost serialization
-  FeatureModel();
 
   void MarkOccuWorker(const rt::FeatureOccGrid &fog, size_t idx_start, size_t idx_end);
   void MarkFeaturesWorker(const rt::FeatureOccGrid &fog, size_t idx_start, size_t idx_end);
@@ -72,5 +70,5 @@ class FeatureModel {
   }
 };
 
-} // namespace chow_liu_tree
+} // namespace feature
 } // namespace library

@@ -1,5 +1,7 @@
 #include "app/kitti_occ_grids/trainer.h"
 
+#include <algorithm>
+
 #include <boost/format.hpp>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -9,10 +11,12 @@
 #include "library/osg_nodes/occ_grid.h"
 #include "library/osg_nodes/object_labels.h"
 #include "library/timer/timer.h"
+#include "library/util/angle.h"
 
 #include "app/kitti_occ_grids/map_node.h"
 
 namespace osgn = library::osg_nodes;
+namespace ut = library::util;
 
 namespace app {
 namespace kitti_occ_grids {
@@ -20,22 +24,19 @@ namespace kitti_occ_grids {
 Trainer::Trainer(const std::string &save_base_fn) :
  save_base_path_(save_base_fn),
  detector_(dt::Dim(0, 75, -50, 50, kRes_)),
- og_builder_(150000, kRes_, 75.0) {
+ og_builder_(150000, kRes_, 75.0),
+ model_bank_(3.0, 2.0, kRes_) {
 
   // Configure occ grid builder size
   og_builder_.ConfigureSize(3.0, 3.0, 2.0);
 
-  // TODO MULTIPLE ANGLE BINS
-  models_.insert({"Car", ft::FeatureModel(3.0, 2.0, kRes_)});
-  models_.insert({"Cyclist", ft::FeatureModel(3.0, 2.0, kRes_)});
-  models_.insert({"Pedestrian", ft::FeatureModel(3.0, 2.0, kRes_)});
-  models_.insert({"Background", ft::FeatureModel(3.0, 2.0, kRes_)});
+  model_bank_.AddClass("Car", 8);
+  model_bank_.AddClass("Cyclist", 8);
+  model_bank_.AddClass("Pedestrian", 1);
+  model_bank_.AddClass("Background", 1);
 
-  for (const auto &kv : models_) {
-    detector_.AddModel(kv.first, 0, kv.second);
-  }
-
-  printf("Initialized all models\n");
+  detector_.SetModelBank(model_bank_);
+  printf("Initialized model bank\n");
 
   const int width = detector_.GetDim().n_x;
   const int height = detector_.GetDim().n_y;
@@ -49,31 +50,9 @@ Trainer::Trainer(const std::string &save_base_fn) :
   printf("Have %ld states\n", states_.size());
 }
 
-void Trainer::LoadFrom(const std::string &load_base_dir) {
-  fs::directory_iterator end_it;
-  for (fs::directory_iterator it(load_base_dir); it != end_it; it++) {
-    // Make sure it's not a directory
-    if (!fs::is_regular_file(it->path())) {
-      continue;
-    }
-
-    // Make sure it's a feature model
-    if (fs::extension(it->path()) != ".fm") {
-      continue;
-    }
-
-    std::string classname = it->path().stem().string();
-
-    if (models_.count(classname) == 0) {
-      continue;
-    }
-
-    printf("Found %s\n", classname.c_str());
-    auto model = ft::FeatureModel::Load(it->path().string().c_str());
-
-    detector_.ReplaceModel(classname, 0, model); // TODO
-  }
-  printf("Loaded all models\n");
+void Trainer::LoadFrom(const std::string &load_fn) {
+  model_bank_ = ft::ModelBank::Load(load_fn.c_str());
+  detector_.UpdateModelBank(model_bank_);
 }
 
 void Trainer::SetViewer(const std::shared_ptr<vw::Viewer> &viewer) {
@@ -95,20 +74,11 @@ void Trainer::Run(int first_epoch, int first_frame) {
       if (frame % 100 == 0) {
         t.Start();
 
-        fs::path dir = save_base_path_ / (boost::format("%|04|_%|06|") % epoch % frame).str();
-        fs::create_directories(dir);
-        for (auto &kv : models_) {
-          fs::path fn = dir / (kv.first + ".fm");
+        fs::path path = save_base_path_ / (boost::format("%|04|_%|06|.mb") % epoch % frame).str();
+        fs::create_directories(save_base_path_);
 
-          // Now save
-          kv.second.Save(fn.string().c_str());
-          printf("\tSaved model to %s\n", fn.string().c_str());
-
-          // Update detector
-          detector_.ReplaceModel(kv.first, 0, kv.second); // TODO anglebin
-        }
-
-        printf("Took %9.3f ms to save models\n", t.GetMs());
+        model_bank_.Save(path.string().c_str());
+        printf("Took %9.3f ms to save model bank\n", t.GetMs());
       }
     }
 
@@ -121,7 +91,7 @@ void Trainer::RunBackground(int first_epoch, int first_frame_num) {
   run_thread_ = std::thread(&Trainer::Run, this, first_epoch, first_frame_num);
 }
 
-std::string Trainer::GetTrueClass(const kt::KittiChallengeData &kcd, const dt::ObjectState &os) const {
+std::string Trainer::GetTrueClass(const kt::KittiChallengeData &kcd, const dt::ObjectState &os, double *theta) const {
   Eigen::Vector3d x_vel(os.x, os.y, 0);
   Eigen::Vector4d x_camera = kcd.GetTcv() * x_vel.homogeneous();
 
@@ -142,6 +112,9 @@ std::string Trainer::GetTrueClass(const kt::KittiChallengeData &kcd, const dt::O
     double dl = std::fabs(x_object.x()); // Yes, z
     double dw = std::fabs(x_object.z());
     if (dl<kRes_/2 && dw<kRes_/2) {
+      if (theta) {
+        *theta = label.rotation_y;
+      }
       return kt::ObjectLabel::GetString(label.type);
     }
 
@@ -164,7 +137,7 @@ void Trainer::GetTrainingSamplesWorker(const kt::KittiChallengeData &kcd, size_t
   std::map<std::string, double > my_total_weight;
 
   for (size_t idx = idx0; idx < idx1; idx++) {
-    const auto &os = states_[idx];
+    auto os = states_[idx];
 
     // This is ugly, but check a few times to make sure we're not on the boundary
     if (!kcd.InCameraView(os.x - 1.0, os.y + 1.0, 0.0)) {
@@ -183,23 +156,19 @@ void Trainer::GetTrainingSamplesWorker(const kt::KittiChallengeData &kcd, size_t
       continue;
     }
 
-    std::string classname = GetTrueClass(kcd, os);
+    double theta = 0;
+    std::string classname = GetTrueClass(kcd, os, &theta);
 
     // Is this one of the classes we care about?
     // If not, ignore for now
-    if (models_.count(classname) == 0) {
-      //printf("No model for %s\n", classname.c_str());
+    const auto &classes = model_bank_.GetClasses();
+    if (std::find(classes.begin(), classes.end(), classname) == classes.end()) {
       continue;
     }
 
-    // Check score, if score = 0 no evidence, not worth pursing
-    //if (detector_.GetScore(classname, os) == 0) {
-    //  continue;
-    //}
-
     double p_class = detector_.GetProb(classname, os);
 
-    Sample s(p_class, os, classname);
+    Sample s(p_class, os, classname, theta);
     my_samples[classname].push_back(s);
     my_total_weight[classname] += s.p_wrong;
   }
@@ -223,7 +192,7 @@ std::vector<Trainer::Sample> Trainer::GetTrainingSamples(const kt::KittiChalleng
   std::mutex mutex;
 
   std::vector<std::thread> threads;
-  int n_threads = 32;
+  int n_threads = 6;
   for (int i=0; i<n_threads; i++) {
     size_t idx0 = i * states_.size() / n_threads;
     size_t idx1 = (i+1) * states_.size() / n_threads;
@@ -290,15 +259,19 @@ void Trainer::Train(Trainer *trainer, const kt::KittiChallengeData &kcd, const s
 
   // Update models in detector
   for (const Sample &s : samples) {
-    // Make occ grid
-    trainer->og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), 0); // TODO rotation
-    auto fog = trainer->og_builder_.GenerateFeatureOccGrid(kcd.GetScan().GetHits(), kcd.GetScan().GetIntensities());
+    int angle_bins = trainer->model_bank_.GetNumAngleBins(s.classname);
+    double angle_res = 2*M_PI / angle_bins;
 
-    auto it = trainer->models_.find(s.classname);
-    BOOST_ASSERT(it != trainer->models_.end());
+    for (int angle_bin = 0; angle_bin < angle_bins; angle_bin++) {
+      // Make occ grid
+      trainer->og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), s.theta - angle_bin * angle_res); // TODO jitter?
+      auto fog = trainer->og_builder_.GenerateFeatureOccGrid(kcd.GetScan().GetHits(), kcd.GetScan().GetIntensities());
 
-    it->second.MarkObservations(fog);
-    trainer->samples_per_class_[s.classname]++;
+      auto &model = trainer->model_bank_.GetFeatureModel(s.classname, angle_bin);
+
+      model.MarkObservations(fog);
+      trainer->samples_per_class_[s.classname]++;
+    }
   }
   printf("\tTook %9.3f ms to update models\n", t.GetMs());
 }
