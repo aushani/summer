@@ -8,7 +8,12 @@ namespace kitti_occ_grids {
 
 DetectorApp::DetectorApp(osg::ArgumentParser *args, bool viewer) :
  detector_(dt::Dim(0, 75, -50, 50, kRes_)),
- og_builder_(200000, kRes_, 100.0) {
+ og_builder_(150000, kRes_, 75.0) {
+  osg::ApplicationUsage* au = args->getApplicationUsage();
+
+  au->addCommandLineOption("--mb <dirname>", "Model Bank Filename", "");
+  au->addCommandLineOption("--num <num>", "KITTI scan number", "0");
+  au->addCommandLineOption("--kitti-challenge-dir <dirname>", "KITTI challenge data directory", "~/data/kitti_challenge/");
 
   // Get parameters
   args->read(std::string("--num"), frame_at_);
@@ -18,45 +23,14 @@ DetectorApp::DetectorApp(osg::ArgumentParser *args, bool viewer) :
     printf("Using default KITTI dir: %s\n", dirname_.c_str());
   }
 
-  std::string model_dir;
-  bool res = args->read("--models", model_dir);
+  std::string mb_fn;
+  bool res = args->read("--mb", mb_fn);
   BOOST_ASSERT(res);
 
   // Load models
-  printf("loading models from %s\n", model_dir.c_str());
-
-  //fs::directory_iterator end_it;
-  //for (fs::directory_iterator it(model_dir); it != end_it; it++) {
-  //  // Make sure it's a directory
-  //  if (fs::is_regular_file(it->path())) {
-  //    continue;
-  //  }
-
-  //  // Is it a class we care about?
-  //  std::string classname = it->path().stem().string();
-  //  printf("classname: %s\n", classname.c_str());
-
-  //  //if (! (classname == "Car" || classname == "Cyclist" || classname == "Pedestrian" || classname == "Background")) {
-  //  if (! (classname == "Car" || classname == "Background")) {
-  //    continue;
-  //  }
-
-  //  // Enter directory and look for angle bins
-  //  for (int angle_bin = 0; angle_bin < dt::Detector::kAngleBins; angle_bin++) {
-  //    char fn[1000];
-  //    sprintf(fn, "angle_bin_%02d/fm.fm", angle_bin);
-  //    fs::path p_model = it->path() / fn;
-
-  //    if (fs::exists(p_model)) {
-  //      printf("Loading class %s angle bin %d\n", classname.c_str(), angle_bin);
-  //      auto model = ft::FeatureModel::Load(p_model.string().c_str());
-  //      detector_.AddModel(classname, angle_bin, model);
-  //    }
-  //  }
-  //}
-  printf("NOT YET IMPLEMENTED\n");
-  BOOST_ASSERT(false);
-  printf("Loaded all models\n");
+  printf("Loading model bank from %s\n", mb_fn.c_str());
+  auto mb = ft::ModelBank::Load(mb_fn.c_str());
+  detector_.SetModelBank(mb);
 
   osg::ref_ptr<DetectorHandler> dh = new DetectorHandler(detector_);
   if (viewer) {

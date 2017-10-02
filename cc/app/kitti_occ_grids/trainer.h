@@ -5,6 +5,7 @@
 #include <set>
 #include <thread>
 #include <mutex>
+#include <random>
 
 #include <boost/filesystem.hpp>
 
@@ -58,6 +59,9 @@ class Trainer {
 
   static constexpr double kRes_ = 0.20;                    // 20 cm
   static constexpr int kSamplesPerFrame_ = 10;
+  static constexpr int kJittersPerObject_ = 10;
+
+  std::default_random_engine rand_engine_;
 
   fs::path save_base_path_;
 

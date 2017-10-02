@@ -1,6 +1,7 @@
 #include "app/kitti_occ_grids/trainer.h"
 
 #include <algorithm>
+#include <chrono>
 
 #include <boost/format.hpp>
 #include <Eigen/Core>
@@ -22,6 +23,7 @@ namespace app {
 namespace kitti_occ_grids {
 
 Trainer::Trainer(const std::string &save_base_fn) :
+ rand_engine_(std::chrono::system_clock::now().time_since_epoch().count()),
  save_base_path_(save_base_fn),
  detector_(dt::Dim(0, 75, -50, 50, kRes_)),
  og_builder_(150000, kRes_, 75.0),
@@ -262,15 +264,26 @@ void Trainer::Train(Trainer *trainer, const kt::KittiChallengeData &kcd, const s
     int angle_bins = trainer->model_bank_.GetNumAngleBins(s.classname);
     double angle_res = 2*M_PI / angle_bins;
 
-    for (int angle_bin = 0; angle_bin < angle_bins; angle_bin++) {
-      // Make occ grid
-      trainer->og_builder_.SetPose(Eigen::Vector3d(s.os.x, s.os.y, 0), s.theta - angle_bin * angle_res); // TODO jitter?
-      auto fog = trainer->og_builder_.GenerateFeatureOccGrid(kcd.GetScan().GetHits(), kcd.GetScan().GetIntensities());
+    // Setup jitter
+    std::uniform_real_distribution<double> xy_unif(-kRes_/2, kRes_/2);
+    std::uniform_real_distribution<double> theta_unif(-angle_res/2, angle_res/2);
 
-      auto &model = trainer->model_bank_.GetFeatureModel(s.classname, angle_bin);
+    for (int jitter=0; jitter < kJittersPerObject_; jitter++) {
+      // Get jitter
+      double dx = xy_unif(trainer->rand_engine_);
+      double dy = xy_unif(trainer->rand_engine_);
+      double dt = theta_unif(trainer->rand_engine_);
 
-      model.MarkObservations(fog);
-      trainer->samples_per_class_[s.classname]++;
+      for (int angle_bin = 0; angle_bin < angle_bins; angle_bin++) {
+        // Make occ grid
+        trainer->og_builder_.SetPose(Eigen::Vector3d(s.os.x + dx, s.os.y + dy, 0), s.theta - angle_bin * angle_res + dt);
+        auto fog = trainer->og_builder_.GenerateFeatureOccGrid(kcd.GetScan().GetHits(), kcd.GetScan().GetIntensities());
+
+        auto &model = trainer->model_bank_.GetFeatureModel(s.classname, angle_bin);
+
+        model.MarkObservations(fog);
+        trainer->samples_per_class_[s.classname]++;
+      }
     }
   }
   printf("\tTook %9.3f ms to update models\n", t.GetMs());

@@ -23,9 +23,6 @@ int main(int argc, char** argv) {
   au->setCommandLineUsage( args.getApplicationName() + " [options]");
   au->setDescription(args.getApplicationName() + " viewer");
 
-  au->addCommandLineOption("--kitti-challenge-dir <dirname>", "KITTI challenge data directory", "~/data/kitti_challenge/");
-  au->addCommandLineOption("--models <dir>", "Models to evaluate", "");
-  au->addCommandLineOption("--num <num>", "KITTI scan number", "0");
   au->addCommandLineOption("--alt", "Run on alt device", "");
 
   // handle help text
