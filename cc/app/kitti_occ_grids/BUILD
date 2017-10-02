@@ -98,11 +98,11 @@ cc_binary(
     name = "view_feature_model",
     srcs = [
             "view_feature_model.cc",
+            "feature_model_app.cc", "feature_model_app.h",
            ],
     deps = [
             "//library/osg_nodes",
             "//library/feature",
-            "//library/ray_tracing",
             "//library/viewer",
            ],
 )
