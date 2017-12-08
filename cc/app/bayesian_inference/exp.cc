@@ -6,10 +6,14 @@
 
 #include <Eigen/Core>
 
+#include "library/bayesian_inference/rvm.h"
+
+namespace bi = library::bayesian_inference;
+
 int main(int argc, char **argv) {
   printf("RVM Test\n");
 
-  int n_samples = 10;
+  int n_samples = 100;
   int dim = 2;
 
   Eigen::MatrixXd data(n_samples, dim);
@@ -33,6 +37,11 @@ int main(int argc, char **argv) {
     labels(i, 0) = y > val ? 1 : 0;
   }
 
+  // Generate model
+  bi::Rvm model = bi::Rvm(data, labels);
+
+
+  // Save to csv files
   std::ofstream data_file("data.csv");
   for (int i=0; i<n_samples; i++) {
     data_file << data(i, 0) << "," << data(i, 1) << std::endl;
