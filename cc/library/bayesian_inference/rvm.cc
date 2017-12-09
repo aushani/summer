@@ -47,6 +47,38 @@ Eigen::MatrixXd Rvm::ComputePhi(const Eigen::MatrixXd &data) const {
   return phi;
 }
 
+const Eigen::MatrixXd& Rvm::GetRelevanceVectors() const {
+  return x_m_;
+}
+
+Eigen::MatrixXd Rvm::PredictLabels(const Eigen::MatrixXd &samples) const {
+  Eigen::MatrixXd phi = ComputePhi(samples);
+
+  Eigen::MatrixXd exponent = -phi * w_;
+  auto exp = exponent.array().exp();
+  auto prob = (1 + exp).inverse();
+
+  return prob;
+}
+
+double Rvm::ComputeLogLikelihood(const Eigen::MatrixXd &w) const {
+  Eigen::MatrixXd exponent = -phi_samples_ * w_;
+  auto exp = exponent.array().exp();
+  Eigen::ArrayXXd y_n = (1 + exp).inverse();
+
+  Eigen::ArrayXXd t_n = training_labels_.array();
+
+  double c1 = (t_n * y_n.log()).sum();
+  double c2 = ((1 - t_n) * (1 - y_n).log()).sum();
+
+  Eigen::MatrixXd A = alpha_.asDiagonal();
+  auto prod = -0.5 * w_.transpose() * A * w_;
+  BOOST_ASSERT(prod.rows() == 0 && prod.cols() == 0);
+  double c3 = prod(0, 0);
+
+  return c1 + c2 + c3;
+}
+
 
 } // namespace bayesian_inference
 } // namespace library

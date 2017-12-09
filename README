@@ -13,3 +13,6 @@ Installed Dependencies:
 
  qt4
   from apt-get
+
+ ceres
+  https://github.com/ceres-solver/ceres-solver

@@ -13,6 +13,9 @@ class Rvm {
   // labels is n_samples X 1
   Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels);
 
+  const Eigen::MatrixXd& GetRelevanceVectors() const;
+  Eigen::MatrixXd PredictLabels(const Eigen::MatrixXd &samples) const;
+
  private:
   const double kBasisFunctionR_ = 0.5;
 
@@ -21,11 +24,14 @@ class Rvm {
 
   Eigen::MatrixXd x_m_;
   Eigen::MatrixXd w_;
+  Eigen::VectorXd alpha_;
 
   Eigen::MatrixXd phi_samples_;
 
   double ComputeBasisFunction(const Eigen::MatrixXd &sample, const Eigen::MatrixXd &x_m) const;
   Eigen::MatrixXd ComputePhi(const Eigen::MatrixXd &data) const;
+
+  double ComputeLogLikelihood(const Eigen::MatrixXd &w) const;
 
 };
 

@@ -46,3 +46,9 @@ new_http_archive(
 #    path = "/home/aushani/thirdparty/",
 #    build_file = "tools/eigen.BUILD"
 #)
+
+new_local_repository(
+    name = "ceres",
+    path = "/usr/local/",
+    build_file = "tools/ceres.BUILD",
+)

@@ -13,7 +13,7 @@ namespace bi = library::bayesian_inference;
 int main(int argc, char **argv) {
   printf("RVM Test\n");
 
-  int n_samples = 100;
+  int n_samples = 10;
   int dim = 2;
 
   Eigen::MatrixXd data(n_samples, dim);
@@ -40,6 +40,9 @@ int main(int argc, char **argv) {
   // Generate model
   bi::Rvm model = bi::Rvm(data, labels);
 
+  std::cout << labels << std::endl;
+  std::cout << labels.array().exp() << std::endl;
+
 
   // Save to csv files
   std::ofstream data_file("data.csv");
@@ -53,6 +56,13 @@ int main(int argc, char **argv) {
     label_file << labels(i) << std::endl;
   }
   label_file.close();
+
+  std::ofstream xm_file("xm.csv");
+  auto x_m = model.GetRelevanceVectors();
+  for (int i=0; i<x_m.rows(); i++) {
+    xm_file << x_m(i, 0) << "," << x_m(i, 1) << std::endl;
+  }
+  xm_file.close();
 
   return 0;
 }

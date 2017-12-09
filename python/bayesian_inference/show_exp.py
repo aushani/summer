@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 
 x_samples = np.loadtxt('/home/aushani/summer/cc/data.csv', delimiter=',')
 labels = np.loadtxt('/home/aushani/summer/cc/labels.csv', delimiter=',')
+x_m = np.loadtxt('/home/aushani/summer/cc/xm.csv', delimiter=',')
 
 pred_labels = labels
 
@@ -21,7 +22,7 @@ plt.title('True')
 
 plt.subplot(2, 1, 2)
 show_samples(x_samples, pred_labels)
-#plt.scatter(model.x_m[:, 0], model.x_m[:, 1], marker='o', facecolors='none', edgecolors='r', s=100)
+plt.scatter(x_m[:, 0], x_m[:, 1], marker='o', facecolors='none', edgecolors='r', s=100)
 plt.grid(True)
 plt.axis('equal')
 plt.title('Predicted')
