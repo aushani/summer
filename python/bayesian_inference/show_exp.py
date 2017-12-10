@@ -5,7 +5,8 @@ x_samples = np.loadtxt('/home/aushani/summer/cc/data.csv', delimiter=',')
 labels = np.loadtxt('/home/aushani/summer/cc/labels.csv', delimiter=',')
 x_m = np.loadtxt('/home/aushani/summer/cc/xm.csv', delimiter=',')
 
-pred_labels = labels
+true_labels = labels[:, 0]
+pred_labels = labels[:, 1]
 
 def show_samples(x_samples, labels):
     pos = x_samples[labels < 0.5, :]
@@ -15,7 +16,7 @@ def show_samples(x_samples, labels):
     plt.scatter(neg[:, 0], neg[:, 1], c='b', marker='o')
 
 plt.subplot(2, 1, 1)
-show_samples(x_samples, labels)
+show_samples(x_samples, true_labels)
 plt.grid(True)
 plt.axis('equal')
 plt.title('True')

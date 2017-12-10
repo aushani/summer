@@ -83,7 +83,7 @@ class RVM:
         self.w = w_mp
         self.b = b_mp
 
-        #print self.w
+        print 'w', self.w
         print res.message
         print 'Success', res.success
 

@@ -16,3 +16,5 @@ Installed Dependencies:
 
  ceres
   https://github.com/ceres-solver/ceres-solver
+
+ glog

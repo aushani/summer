@@ -4,6 +4,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
             "@eigen//:eigen",
+            "@ceres//:ceres",
             "@boost//:boost_headers",
            ]
 )

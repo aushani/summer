@@ -2,8 +2,18 @@
 
 cc_library(
     name = "ceres",
-    srcs = glob(["lib/libceres*.a"]),
+    linkstatic = 1,
+    srcs = glob(["lib/libceres.a"]),
     hdrs = glob(["include/ceres/**"]),
     visibility = ["//visibility:public"],
-    #deps = [],
+    linkopts = [
+                "-lpthread",
+                "-fopenmp",
+                "-llapack",
+                "-lblas"
+               ],
+    deps = [
+             "@glog//:glog",
+             "@suitesparse//:suitesparse",
+           ],
 )

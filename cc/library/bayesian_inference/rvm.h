@@ -14,7 +14,13 @@ class Rvm {
   Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels);
 
   const Eigen::MatrixXd& GetRelevanceVectors() const;
+  int NumRelevanceVectors() const;
+
   Eigen::MatrixXd PredictLabels(const Eigen::MatrixXd &samples) const;
+
+  double ComputeLogLikelihood(const Eigen::MatrixXd &w) const;
+
+  void Solve(int iterations);
 
  private:
   const double kBasisFunctionR_ = 0.5;
@@ -31,8 +37,8 @@ class Rvm {
   double ComputeBasisFunction(const Eigen::MatrixXd &sample, const Eigen::MatrixXd &x_m) const;
   Eigen::MatrixXd ComputePhi(const Eigen::MatrixXd &data) const;
 
-  double ComputeLogLikelihood(const Eigen::MatrixXd &w) const;
-
+  void UpdateW();
+  void UpdateAlpha();
 };
 
 } // namespace bayesian_inference

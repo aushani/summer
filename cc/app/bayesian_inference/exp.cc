@@ -13,7 +13,7 @@ namespace bi = library::bayesian_inference;
 int main(int argc, char **argv) {
   printf("RVM Test\n");
 
-  int n_samples = 10;
+  int n_samples = 50;
   int dim = 2;
 
   Eigen::MatrixXd data(n_samples, dim);
@@ -40,9 +40,14 @@ int main(int argc, char **argv) {
   // Generate model
   bi::Rvm model = bi::Rvm(data, labels);
 
-  std::cout << labels << std::endl;
-  std::cout << labels.array().exp() << std::endl;
+  Eigen::MatrixXd w(n_samples, 1);
+  w.setZero();
+  double ll = model.ComputeLogLikelihood(w);
+  printf("LL is %f\n", ll);
 
+  model.Solve(10);
+
+  Eigen::MatrixXd pred_labels = model.PredictLabels(data);
 
   // Save to csv files
   std::ofstream data_file("data.csv");
@@ -53,7 +58,7 @@ int main(int argc, char **argv) {
 
   std::ofstream label_file("labels.csv");
   for (int i=0; i<n_samples; i++) {
-    label_file << labels(i) << std::endl;
+    label_file << labels(i) << "," << pred_labels(i) << std::endl;
   }
   label_file.close();
 

@@ -52,3 +52,15 @@ new_local_repository(
     path = "/usr/local/",
     build_file = "tools/ceres.BUILD",
 )
+
+new_local_repository(
+    name = "glog",
+    path = "/usr/local/",
+    build_file = "tools/glog.BUILD",
+)
+
+new_local_repository(
+    name = "suitesparse",
+    path = "/usr/",
+    build_file = "tools/suitesparse.BUILD",
+)
