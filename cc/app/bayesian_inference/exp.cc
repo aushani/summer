@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
   double ll = model.ComputeLogLikelihood(w);
   printf("LL is %f\n", ll);
 
-  model.Solve(10);
+  model.Solve(100);
 
   Eigen::MatrixXd pred_labels = model.PredictLabels(data);
 

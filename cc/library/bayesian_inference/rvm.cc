@@ -51,15 +51,16 @@ Rvm::Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels) :
  training_labels_(labels),
  x_m_(training_data_),
  w_(Eigen::MatrixXd::Zero(data.rows(), 1)),
- alpha_(Eigen::VectorXd::Ones(data.rows())) {
+ alpha_(Eigen::MatrixXd::Ones(data.rows(), 1)) {
   BOOST_ASSERT(data.rows() == labels.rows());
+
+  phi_samples_ = ComputePhi(data);
 
   printf("Training data is %ld x %ld\n", training_data_.rows(), training_data_.cols());
   printf("Training labels is %ld x %ld\n", training_labels_.rows(), training_labels_.cols());
   printf("x_m is %ld x %ld\n", x_m_.rows(), x_m_.cols());
   printf("w is %ld x %ld\n", w_.rows(), w_.cols());
-
-  phi_samples_ = ComputePhi(data);
+  printf("phi is %ld x %ld\n", phi_samples_.rows(), phi_samples_.cols());
 }
 
 double Rvm::ComputeBasisFunction(const Eigen::MatrixXd &sample, const Eigen::MatrixXd &x_m) const {
@@ -117,7 +118,7 @@ double Rvm::ComputeLogLikelihood(const Eigen::MatrixXd &w) const {
   double c1 = (t_n * y_n.log()).sum();
   double c2 = ((1 - t_n) * (1 - y_n).log()).sum();
 
-  Eigen::MatrixXd A = alpha_.asDiagonal();
+  Eigen::MatrixXd A = alpha_.col(0).asDiagonal();
   auto prod = -0.5 * w.transpose() * A * w;
   BOOST_ASSERT(prod.rows() == 1 && prod.cols() == 1);
   double c3 = prod(0, 0);
@@ -127,11 +128,23 @@ double Rvm::ComputeLogLikelihood(const Eigen::MatrixXd &w) const {
 
 void Rvm::Solve(int iterations) {
   for (int i=0; i<iterations; i++) {
+    printf("Iteration %d / %d\n", i, iterations);
+
     UpdateW();
     printf("LL now %f\n", ComputeLogLikelihood(w_));
 
     UpdateAlpha();
-    //std::cout << alpha_ << std::endl;
+
+    // Prune parameters
+    printf("Pruning...\n");
+    PruneXm();
+    printf("Done pruning\n");
+
+    printf("\tTraining data is %ld x %ld\n", training_data_.rows(), training_data_.cols());
+    printf("\tTraining labels is %ld x %ld\n", training_labels_.rows(), training_labels_.cols());
+    printf("\tx_m is %ld x %ld\n", x_m_.rows(), x_m_.cols());
+    printf("\tw is %ld x %ld\n", w_.rows(), w_.cols());
+    printf("\tphi is %ld x %ld\n", phi_samples_.rows(), phi_samples_.cols());
   }
 }
 
@@ -140,6 +153,7 @@ void Rvm::UpdateW() {
   ceres::GradientProblemSolver::Options options;
   //options.minimizer_progress_to_stdout = true;
   options.minimizer_progress_to_stdout = false;
+  options.max_num_iterations = 100;
   ceres::GradientProblemSolver::Summary summary;
   ceres::Solve(options, problem, w_.data(), &summary);
 
@@ -156,7 +170,7 @@ void Rvm::UpdateAlpha() {
 
   Eigen::MatrixXd b_mat = b.matrix().col(0).asDiagonal();
 
-  Eigen::MatrixXd A = alpha_.asDiagonal();
+  Eigen::MatrixXd A = alpha_.col(0).asDiagonal();
 
   auto h = -(phi_samples_.transpose() * b_mat * phi_samples_ + A);
   auto cov = -h.inverse(); // faster because PSD?
@@ -164,7 +178,59 @@ void Rvm::UpdateAlpha() {
   int n_x_m = NumRelevanceVectors();
   for (int i=0; i<n_x_m; i++) {
     double w2 = w_(i, 0) * w_(i, 0);
-    alpha_(i) = (1 - alpha_(i) * cov(i, i)) / w2;
+    alpha_(i, 0) = (1 - alpha_(i, 0) * cov(i, i)) / w2;
+  }
+}
+
+// from https://stackoverflow.com/questions/13290395/how-to-remove-a-certain-row-or-column-while-using-eigen-library-c
+void Rvm::RemoveRow(Eigen::MatrixXd *matrix, unsigned int rowToRemove) {
+  unsigned int numRows = matrix->rows()-1;
+  unsigned int numCols = matrix->cols();
+
+  if (rowToRemove < numRows) {
+    matrix->block(rowToRemove,0,numRows-rowToRemove,numCols) =
+      matrix->block(rowToRemove+1,0,numRows-rowToRemove,numCols).eval();
+  }
+
+  matrix->conservativeResize(numRows,numCols);
+}
+
+void Rvm::RemoveColumn(Eigen::MatrixXd *matrix, unsigned int colToRemove) {
+  unsigned int numRows = matrix->rows();
+  unsigned int numCols = matrix->cols()-1;
+
+  if (colToRemove < numCols) {
+    matrix->block(0,colToRemove,numRows,numCols-colToRemove) =
+      matrix->block(0,colToRemove+1,numRows,numCols-colToRemove).eval();
+  }
+
+  matrix->conservativeResize(numRows,numCols);
+}
+
+void Rvm::PruneXm() {
+  const double cutoff = 1e3;
+
+  int n_x_m = NumRelevanceVectors();
+
+  // Walk backwards
+  int x_m_at = n_x_m - 1;
+
+  while (x_m_at >= 0) {
+    if (alpha_(x_m_at, 0) > cutoff) {
+      // Prune
+      printf("\t\tPrune %d\n", x_m_at);
+
+      printf("1\n");
+      RemoveColumn(&phi_samples_, x_m_at);
+      printf("2\n");
+      RemoveRow(&x_m_, x_m_at);
+      printf("3\n");
+      RemoveRow(&w_, x_m_at);
+      printf("4\n");
+      RemoveRow(&alpha_, x_m_at);
+    }
+
+    x_m_at--;
   }
 }
 

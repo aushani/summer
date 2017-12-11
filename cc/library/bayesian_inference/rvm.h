@@ -30,7 +30,7 @@ class Rvm {
 
   Eigen::MatrixXd x_m_;
   Eigen::MatrixXd w_;
-  Eigen::VectorXd alpha_;
+  Eigen::MatrixXd alpha_;
 
   Eigen::MatrixXd phi_samples_;
 
@@ -39,6 +39,10 @@ class Rvm {
 
   void UpdateW();
   void UpdateAlpha();
+  void PruneXm();
+
+  static void RemoveRow(Eigen::MatrixXd *matrix, unsigned int rowToRemove);
+  static void RemoveColumn(Eigen::MatrixXd *matrix, unsigned int rowToRemove);
 };
 
 } // namespace bayesian_inference
