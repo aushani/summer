@@ -6,59 +6,76 @@
 
 #include <Eigen/Core>
 
+#include "library/timer/timer.h"
+
 #include "library/bayesian_inference/rvm.h"
 
 namespace bi = library::bayesian_inference;
+namespace tr = library::timer;
 
 int main(int argc, char **argv) {
   printf("RVM Test\n");
 
-  int n_samples = 50;
+  int n_train_samples = 100;
+  int n_test_samples = 1000;
   int dim = 2;
 
-  Eigen::MatrixXd data(n_samples, dim);
-  Eigen::MatrixXd labels(n_samples, 1);
+  Eigen::MatrixXd train_data(n_train_samples, dim);
+  Eigen::MatrixXd train_labels(n_train_samples, 1);
+
+  Eigen::MatrixXd test_data(n_test_samples, dim);
+  Eigen::MatrixXd test_labels(n_test_samples, dim);
 
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine rand_engine(seed);
 
   // Generate samples
-  std::normal_distribution<double> distribution(0, 0.25);
+  //std::normal_distribution<double> distribution(0, 0.3);
+  std::uniform_real_distribution<> distribution(-0.75, 0.75);
 
-  for (int i=0; i<n_samples; i++) {
+  for (int i=0; i<n_train_samples; i++) {
     for (int j=0; j<dim; j++) {
-      data(i, j) = distribution(rand_engine);
+      train_data(i, j) = distribution(rand_engine);
     }
 
-    double x = data(i, 0);
-    double y = data(i, 1);
+    double x = train_data(i, 0);
+    double y = train_data(i, 1);
     double val = 0.2 * std::sin(2*M_PI*x);
 
-    labels(i, 0) = y > val ? 1 : 0;
+    train_labels(i, 0) = y > val ? 1 : 0;
+  }
+
+  for (int i=0; i<n_test_samples; i++) {
+    for (int j=0; j<dim; j++) {
+      test_data(i, j) = distribution(rand_engine);
+    }
+
+    double x = test_data(i, 0);
+    double y = test_data(i, 1);
+    double val = 0.2 * std::sin(2*M_PI*x);
+
+    test_labels(i, 0) = y > val ? 1 : 0;
   }
 
   // Generate model
-  bi::Rvm model = bi::Rvm(data, labels);
+  bi::Rvm model = bi::Rvm(train_data, train_labels);
 
-  Eigen::MatrixXd w(n_samples, 1);
-  w.setZero();
-  double ll = model.ComputeLogLikelihood(w);
-  printf("LL is %f\n", ll);
+  model.Solve(1000);
 
-  model.Solve(100);
-
-  Eigen::MatrixXd pred_labels = model.PredictLabels(data);
+  tr::Timer t;
+  Eigen::MatrixXd pred_labels = model.PredictLabels(test_data);
+  printf("Took %5.3f ms to predict %d labels\n", t.GetMs(), n_test_samples);
 
   // Save to csv files
   std::ofstream data_file("data.csv");
-  for (int i=0; i<n_samples; i++) {
-    data_file << data(i, 0) << "," << data(i, 1) << std::endl;
+  for (int i=0; i<n_test_samples; i++) {
+    data_file << test_data(i, 0) << "," << test_data(i, 1) << std::endl;
   }
   data_file.close();
 
   std::ofstream label_file("labels.csv");
-  for (int i=0; i<n_samples; i++) {
-    label_file << labels(i) << "," << pred_labels(i) << std::endl;
+  for (int i=0; i<n_test_samples; i++) {
+    label_file << test_labels(i) << "," << pred_labels(i) << std::endl;
   }
   label_file.close();
 

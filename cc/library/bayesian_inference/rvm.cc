@@ -2,6 +2,12 @@
 
 #include <ceres/ceres.h>
 #include <boost/assert.hpp>
+#include <Eigen/OrderingMethods>
+#include <Eigen/SparseCholesky>
+
+#include "library/timer/timer.h"
+
+namespace tr = library::timer;
 
 namespace library {
 namespace bayesian_inference {
@@ -54,7 +60,7 @@ Rvm::Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels) :
  alpha_(Eigen::MatrixXd::Ones(data.rows(), 1)) {
   BOOST_ASSERT(data.rows() == labels.rows());
 
-  phi_samples_ = ComputePhi(data);
+  phi_samples_ = ComputePhi(training_data_);
 
   printf("Training data is %ld x %ld\n", training_data_.rows(), training_data_.cols());
   printf("Training labels is %ld x %ld\n", training_labels_.rows(), training_labels_.cols());
@@ -74,16 +80,23 @@ double Rvm::ComputeBasisFunction(const Eigen::MatrixXd &sample, const Eigen::Mat
   return std::exp(-sq_n / r2);
 }
 
-Eigen::MatrixXd Rvm::ComputePhi(const Eigen::MatrixXd &data) const {
+Eigen::SparseMatrix<double> Rvm::ComputePhi(const Eigen::MatrixXd &data) const {
 
-  Eigen::MatrixXd phi(data.rows(), x_m_.rows());
+  //Eigen::MatrixXd phi(data.rows(), x_m_.rows());
+  Eigen::SparseMatrix<double> phi;
+  phi.conservativeResize(data.rows(), x_m_.rows());
 
   for (int i=0; i<data.rows(); i++) {
     auto sample = data.row(i);
     for (int j=0; j<x_m_.rows(); j++){
       auto x_m = x_m_.row(j);
 
-      phi(i, j) = ComputeBasisFunction(sample, x_m);
+      //phi(i, j) = ComputeBasisFunction(sample, x_m);
+
+      double val = ComputeBasisFunction(sample, x_m);
+      if (std::abs(val) > 1e-3) {
+        phi.insert(i, j) = val;
+      }
     }
   }
 
@@ -128,58 +141,98 @@ double Rvm::ComputeLogLikelihood(const Eigen::MatrixXd &w) const {
 
 void Rvm::Solve(int iterations) {
   for (int i=0; i<iterations; i++) {
+    tr::Timer t;
+    tr::Timer t_step;
+
     printf("Iteration %d / %d\n", i, iterations);
 
-    UpdateW();
-    printf("LL now %f\n", ComputeLogLikelihood(w_));
+    t_step.Start();
+    bool res = UpdateW();
+    printf("Update w took %5.3f ms, LL now %f\n", t_step.GetMs(), ComputeLogLikelihood(w_));
 
+    if (!res) {
+      printf("Update w not successful, aborting\n");
+      return;
+    }
+
+    t_step.Start();
     UpdateAlpha();
+    printf("Update alpha took %5.3f ms\n", t_step.GetMs());
 
     // Prune parameters
-    printf("Pruning...\n");
+    t_step.Start();
     PruneXm();
-    printf("Done pruning\n");
+    printf("Pruning took %5.3f ms\n", t_step.GetMs());
 
-    printf("\tTraining data is %ld x %ld\n", training_data_.rows(), training_data_.cols());
-    printf("\tTraining labels is %ld x %ld\n", training_labels_.rows(), training_labels_.cols());
     printf("\tx_m is %ld x %ld\n", x_m_.rows(), x_m_.cols());
     printf("\tw is %ld x %ld\n", w_.rows(), w_.cols());
     printf("\tphi is %ld x %ld\n", phi_samples_.rows(), phi_samples_.cols());
+
+    printf("\nIteration took %5.3f ms\n", t.GetMs());
   }
 }
 
-void Rvm::UpdateW() {
+bool Rvm::UpdateW() {
   ceres::GradientProblem problem(new RvmWeightFunction(*this));
   ceres::GradientProblemSolver::Options options;
   //options.minimizer_progress_to_stdout = true;
   options.minimizer_progress_to_stdout = false;
   options.max_num_iterations = 100;
+  options.max_num_line_search_step_size_iterations = 100;
   ceres::GradientProblemSolver::Summary summary;
   ceres::Solve(options, problem, w_.data(), &summary);
 
   //std::cout << summary.FullReport() << std::endl;
+  return summary.IsSolutionUsable();
 }
 
 void Rvm::UpdateAlpha() {
+  //tr::Timer t;
+
+  //t.Start();
   Eigen::MatrixXd exponent = -phi_samples_ * w_;
   auto exp = exponent.array().exp();
   Eigen::ArrayXXd y_n = (1 + exp).inverse();
 
   Eigen::ArrayXXd b = y_n * (1 - y_n);
   BOOST_ASSERT(b.cols() == 1);
+  //printf("Took %5.3f ms to compute\n", t.GetMs());
 
-  Eigen::MatrixXd b_mat = b.matrix().col(0).asDiagonal();
+  //t.Start();
+  //Eigen::MatrixXd b_mat = b.matrix().col(0).asDiagonal();
+  Eigen::SparseMatrix<double> b_mat;
+  b_mat.conservativeResize(b.rows(), b.rows());
+  for (int i=0; i<b.rows(); i++) {
+    b_mat.insert(i, i) = b(i, 0);
+  }
 
-  Eigen::MatrixXd A = alpha_.col(0).asDiagonal();
+  //Eigen::MatrixXd A = alpha_.col(0).asDiagonal();
+  Eigen::SparseMatrix<double> A;
+  A.conservativeResize(alpha_.rows(), alpha_.rows());
+  for (int i=0; i<alpha_.rows(); i++) {
+    A.insert(i, i) = alpha_(i);
+  }
 
-  auto h = -(phi_samples_.transpose() * b_mat * phi_samples_ + A);
-  auto cov = -h.inverse(); // faster because PSD?
+  //Eigen::SparseMatrix<double> h_neg = (phi_samples_.transpose() * b_mat * phi_samples_ + A).eval();
+  Eigen::SparseMatrix<double> h_neg = (phi_samples_.transpose() * b_mat * phi_samples_ + A);
+  Eigen::MatrixXd identity(h_neg.rows(), h_neg.cols());
+  identity.setIdentity();
+  //printf("Took %5.3f ms to build problem\n", t.GetMs());
 
+  //t.Start();
+  //Eigen::SimplicialLLT<Eigen::SparseMatrix<double>, NaturalOrdering<int> > llt(h_neg);
+  //Eigen::SimplicialLLT<Eigen::SparseMatrix<double>, Eigen::NaturalOrdering<int> > llt(h_neg);
+  Eigen::SimplicialLLT<Eigen::SparseMatrix<double> > llt(h_neg);
+  Eigen::MatrixXd cov = llt.solve(identity);
+  //printf("Took %5.3f ms to invert %ld x %ld\n", t.GetMs(), cov.rows(), cov.cols());
+
+  //t.Start();
   int n_x_m = NumRelevanceVectors();
   for (int i=0; i<n_x_m; i++) {
     double w2 = w_(i, 0) * w_(i, 0);
     alpha_(i, 0) = (1 - alpha_(i, 0) * cov(i, i)) / w2;
   }
+  //printf("Took %5.3f ms to update\n", t.GetMs());
 }
 
 // from https://stackoverflow.com/questions/13290395/how-to-remove-a-certain-row-or-column-while-using-eigen-library-c
@@ -218,20 +271,17 @@ void Rvm::PruneXm() {
   while (x_m_at >= 0) {
     if (alpha_(x_m_at, 0) > cutoff) {
       // Prune
-      printf("\t\tPrune %d\n", x_m_at);
-
-      printf("1\n");
-      RemoveColumn(&phi_samples_, x_m_at);
-      printf("2\n");
+      //RemoveColumn(&phi_samples_, x_m_at);
       RemoveRow(&x_m_, x_m_at);
-      printf("3\n");
       RemoveRow(&w_, x_m_at);
-      printf("4\n");
       RemoveRow(&alpha_, x_m_at);
     }
 
     x_m_at--;
   }
+
+  // Rebuild phi_samples_
+  phi_samples_ = ComputePhi(training_data_);
 }
 
 

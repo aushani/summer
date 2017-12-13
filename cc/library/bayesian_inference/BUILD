@@ -3,6 +3,7 @@ cc_library(
     srcs = glob(["*.cc", "*.h"]),
     visibility = ["//visibility:public"],
     deps = [
+            "//library/timer",
             "@eigen//:eigen",
             "@ceres//:ceres",
             "@boost//:boost_headers",

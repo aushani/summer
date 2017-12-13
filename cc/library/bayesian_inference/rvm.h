@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/Sparse>
 
 namespace library {
 namespace bayesian_inference {
@@ -32,12 +33,12 @@ class Rvm {
   Eigen::MatrixXd w_;
   Eigen::MatrixXd alpha_;
 
-  Eigen::MatrixXd phi_samples_;
+  Eigen::SparseMatrix<double> phi_samples_;
 
   double ComputeBasisFunction(const Eigen::MatrixXd &sample, const Eigen::MatrixXd &x_m) const;
-  Eigen::MatrixXd ComputePhi(const Eigen::MatrixXd &data) const;
+  Eigen::SparseMatrix<double> ComputePhi(const Eigen::MatrixXd &data) const;
 
-  void UpdateW();
+  bool UpdateW();
   void UpdateAlpha();
   void PruneXm();
 

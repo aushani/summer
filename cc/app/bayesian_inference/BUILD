@@ -5,5 +5,6 @@ cc_binary(
     deps = [
             "@eigen//:eigen",
             "//library/bayesian_inference",
+            "//library/timer",
            ],
 )
