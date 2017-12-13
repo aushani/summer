@@ -22,20 +22,21 @@ class RvmWeightFunction : public ceres::FirstOrderFunction {
       w(i, 0) = parameters[i];
     }
 
-    double ll = rvm_.ComputeLogLikelihood(w);
+    Eigen::MatrixXd gradient_analytical;
+
+    double ll = rvm_.ComputeLogLikelihood(w, &gradient_analytical);
     cost[0] = -ll;
 
-    //std::cout << "w: " << w << std::endl;
-
     if (gradient != nullptr) {
-      double step = 1e-6;
+      //double step = 1e-6;
       for (int i=0; i<w.rows(); i++) {
-        Eigen::MatrixXd w1 = w;
-        w1(i, 0) += step;
+        //Eigen::MatrixXd w1 = w;
+        //w1(i, 0) += step;
 
-        double ll1 = rvm_.ComputeLogLikelihood(w1);
-        gradient[i] = -(ll1 - ll) / (step);
-        //printf("grad %d = %f\n", i, gradient[i]);
+        //double ll1 = rvm_.ComputeLogLikelihood(w1);
+        //gradient[i] = -(ll1 - ll) / (step);
+        //printf("grad %d = %f vs %f\n", i, gradient[i], -gradient_analytical(i, 0));
+        gradient[i] = -gradient_analytical(i, 0);
       }
     }
 
@@ -91,8 +92,9 @@ Eigen::SparseMatrix<double> Rvm::ComputePhi(const Eigen::MatrixXd &data) const {
     for (int j=0; j<x_m_.rows(); j++){
       auto x_m = x_m_.row(j);
 
-      //phi(i, j) = ComputeBasisFunction(sample, x_m);
+      //phi.insert(i, j) = ComputeBasisFunction(sample, x_m);
 
+      // Sparsify
       double val = ComputeBasisFunction(sample, x_m);
       if (std::abs(val) > 1e-3) {
         phi.insert(i, j) = val;
@@ -121,7 +123,7 @@ Eigen::MatrixXd Rvm::PredictLabels(const Eigen::MatrixXd &samples) const {
   return prob;
 }
 
-double Rvm::ComputeLogLikelihood(const Eigen::MatrixXd &w) const {
+double Rvm::ComputeLogLikelihood(const Eigen::MatrixXd &w, Eigen::MatrixXd *gradient) const {
   Eigen::MatrixXd exponent = -phi_samples_ * w;
   auto exp = exponent.array().exp();
   Eigen::ArrayXXd y_n = (1 + exp).inverse();
@@ -136,6 +138,19 @@ double Rvm::ComputeLogLikelihood(const Eigen::MatrixXd &w) const {
   BOOST_ASSERT(prod.rows() == 1 && prod.cols() == 1);
   double c3 = prod(0, 0);
 
+  if (gradient != nullptr) {
+    //printf("getting grad...\n");
+    //printf("\tx_m is %ld x %ld\n", x_m_.rows(), x_m_.cols());
+    //printf("\tw is %ld x %ld\n", w.rows(), w.cols());
+    //printf("\tphi is %ld x %ld\n", phi_samples_.rows(), phi_samples_.cols());
+    //printf("\tt_n is %ld x %ld\n", t_n.rows(), t_n.cols());
+    //printf("\ty_n is %ld x %ld\n", y_n.rows(), y_n.cols());
+
+    //tr::Timer t;
+    (*gradient) = phi_samples_.transpose() * (t_n - y_n).matrix() - A*w;
+    //printf("got grad in %5.3f ms\n", t.GetMs());
+  }
+
   return c1 + c2 + c3;
 }
 
@@ -148,27 +163,27 @@ void Rvm::Solve(int iterations) {
 
     t_step.Start();
     bool res = UpdateW();
-    printf("Update w took %5.3f ms, LL now %f\n", t_step.GetMs(), ComputeLogLikelihood(w_));
+    printf("\tUpdate w took %5.3f ms, LL now %f\n", t_step.GetMs(), ComputeLogLikelihood(w_));
 
     if (!res) {
-      printf("Update w not successful, aborting\n");
+      printf("\tUpdate w not successful, aborting\n");
       return;
     }
 
     t_step.Start();
     UpdateAlpha();
-    printf("Update alpha took %5.3f ms\n", t_step.GetMs());
+    printf("\tUpdate alpha took %5.3f ms\n", t_step.GetMs());
 
     // Prune parameters
     t_step.Start();
     PruneXm();
-    printf("Pruning took %5.3f ms\n", t_step.GetMs());
+    printf("\tPruning took %5.3f ms, have %d relevant vectors\n", t_step.GetMs(), NumRelevanceVectors());
 
-    printf("\tx_m is %ld x %ld\n", x_m_.rows(), x_m_.cols());
-    printf("\tw is %ld x %ld\n", w_.rows(), w_.cols());
-    printf("\tphi is %ld x %ld\n", phi_samples_.rows(), phi_samples_.cols());
+    //printf("\tx_m is %ld x %ld\n", x_m_.rows(), x_m_.cols());
+    //printf("\tw is %ld x %ld\n", w_.rows(), w_.cols());
+    //printf("\tphi is %ld x %ld\n", phi_samples_.rows(), phi_samples_.cols());
 
-    printf("\nIteration took %5.3f ms\n", t.GetMs());
+    //printf("\nIteration took %5.3f ms\n", t.GetMs());
   }
 }
 

@@ -15,10 +15,33 @@ namespace tr = library::timer;
 
 int main(int argc, char **argv) {
   printf("RVM Test\n");
+  printf("./bin [training samples] [test samples] [dimension] [iterations]\n");
 
-  int n_train_samples = 100;
+  int n_train_samples = 250;
   int n_test_samples = 1000;
   int dim = 2;
+  int iterations = 100;
+
+  if (argc > 1) {
+    n_train_samples = atoi(argv[1]);
+  }
+
+  if (argc > 2) {
+    n_test_samples = atoi(argv[2]);
+  }
+
+  if (argc > 3) {
+    dim = atoi(argv[3]);
+  }
+
+  if (argc > 4) {
+    iterations = atoi(argv[4]);
+  }
+
+  tr::Timer t;
+
+  printf("%d training samples, %d test samples, dimensionality %d, %d iterations\n",
+      n_train_samples, n_test_samples, dim, iterations);
 
   Eigen::MatrixXd train_data(n_train_samples, dim);
   Eigen::MatrixXd train_labels(n_train_samples, 1);
@@ -60,9 +83,11 @@ int main(int argc, char **argv) {
   // Generate model
   bi::Rvm model = bi::Rvm(train_data, train_labels);
 
-  model.Solve(1000);
+  t.Start();
+  model.Solve(iterations);
+  printf("Took %5.3f sec to train RVM\n", t.GetSeconds());
 
-  tr::Timer t;
+  t.Start();
   Eigen::MatrixXd pred_labels = model.PredictLabels(test_data);
   printf("Took %5.3f ms to predict %d labels\n", t.GetMs(), n_test_samples);
 

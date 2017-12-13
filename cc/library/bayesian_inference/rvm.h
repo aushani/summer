@@ -19,7 +19,7 @@ class Rvm {
 
   Eigen::MatrixXd PredictLabels(const Eigen::MatrixXd &samples) const;
 
-  double ComputeLogLikelihood(const Eigen::MatrixXd &w) const;
+  double ComputeLogLikelihood(const Eigen::MatrixXd &w, Eigen::MatrixXd *gradient = nullptr) const;
 
   void Solve(int iterations);
 
