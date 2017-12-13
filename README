@@ -18,3 +18,4 @@ Installed Dependencies:
   https://github.com/ceres-solver/ceres-solver
 
  glog
+  https://github.com/google/glog.git
