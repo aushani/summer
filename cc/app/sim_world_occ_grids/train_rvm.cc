@@ -22,7 +22,15 @@ Eigen::VectorXd OccGridToEigen(const rt::OccGrid &og) {
       int i_at = i - 8;
       int j_at = j - 8;
 
-      res(idx_at) = og.GetLogOdds(rt::Location(i_at, j_at, 0)) > 0 ? 1:-1;
+      float lo = og.GetLogOdds(rt::Location(i_at, j_at, 0));
+
+      if (lo > 0) {
+        res(idx_at) = 1;
+      } else if (lo < 0) {
+        res(idx_at) = -1;
+      } else {
+        res(idx_at) = 0.0;
+      }
     }
   }
 
@@ -85,7 +93,8 @@ int main(int argc, char** argv) {
     labels(i, 0) = (i < n_samples_per_class) ? 1:0;
   }
 
-  bi::Rvm model = bi::Rvm(samples, labels, 100);
+  bi::GaussianKernel kernel(10.0);
+  bi::Rvm model = bi::Rvm(samples, labels, &kernel);
   model.Solve(1000);
 
   // Save

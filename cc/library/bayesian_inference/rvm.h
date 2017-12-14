@@ -5,6 +5,8 @@
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 
+#include "library/bayesian_inference/kernel.h"
+
 namespace library {
 namespace bayesian_inference {
 
@@ -12,7 +14,7 @@ class Rvm {
  public:
   // data is n_samples X dimension
   // labels is n_samples X 1
-  Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels, double basis_function_r = 0.5);
+  Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels, const IKernel *kernel);
 
   const Eigen::MatrixXd& GetRelevanceVectors() const;
   int NumRelevanceVectors() const;
@@ -24,7 +26,7 @@ class Rvm {
   void Solve(int iterations);
 
  private:
-  double basis_function_radius_;
+  const IKernel *kernel_;
 
   Eigen::MatrixXd training_data_;
   Eigen::MatrixXd training_labels_;
@@ -35,7 +37,6 @@ class Rvm {
 
   Eigen::SparseMatrix<double> phi_samples_;
 
-  double ComputeBasisFunction(const Eigen::MatrixXd &sample, const Eigen::MatrixXd &x_m) const;
   Eigen::SparseMatrix<double> ComputePhi(const Eigen::MatrixXd &data) const;
 
   bool UpdateW();

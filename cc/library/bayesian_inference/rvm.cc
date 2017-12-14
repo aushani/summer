@@ -53,8 +53,8 @@ class RvmWeightFunction : public ceres::FirstOrderFunction {
 };
 
 
-Rvm::Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels, double basis_function_r) :
- basis_function_radius_(basis_function_r),
+Rvm::Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels, const IKernel *kernel) :
+ kernel_(kernel),
  training_data_(data),
  training_labels_(labels),
  x_m_(training_data_),
@@ -71,19 +71,7 @@ Rvm::Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels, double basi
   printf("phi is %ld x %ld\n", phi_samples_.rows(), phi_samples_.cols());
 }
 
-double Rvm::ComputeBasisFunction(const Eigen::MatrixXd &sample, const Eigen::MatrixXd &x_m) const {
-  BOOST_ASSERT(sample.cols() == x_m.cols());
-  BOOST_ASSERT(sample.rows() == 1);
-  BOOST_ASSERT(x_m.rows() == 1);
-
-  double sq_n = (x_m - sample).squaredNorm();
-  double r2 = basis_function_radius_*basis_function_radius_;
-
-  return std::exp(-sq_n / r2);
-}
-
 Eigen::SparseMatrix<double> Rvm::ComputePhi(const Eigen::MatrixXd &data) const {
-
   //Eigen::MatrixXd phi(data.rows(), x_m_.rows());
   Eigen::SparseMatrix<double> phi;
   phi.conservativeResize(data.rows(), x_m_.rows());
@@ -93,10 +81,8 @@ Eigen::SparseMatrix<double> Rvm::ComputePhi(const Eigen::MatrixXd &data) const {
     for (int j=0; j<x_m_.rows(); j++){
       auto x_m = x_m_.row(j);
 
-      //phi.insert(i, j) = ComputeBasisFunction(sample, x_m);
-
       // Sparsify
-      double val = ComputeBasisFunction(sample, x_m);
+      double val = kernel_->Compute(sample, x_m);
       if (std::abs(val) > 1e-3) {
         phi.insert(i, j) = val;
       }

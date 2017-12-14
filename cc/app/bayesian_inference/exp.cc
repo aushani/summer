@@ -9,6 +9,7 @@
 #include "library/timer/timer.h"
 
 #include "library/bayesian_inference/rvm.h"
+#include "library/bayesian_inference/kernel.h"
 
 namespace bi = library::bayesian_inference;
 namespace tr = library::timer;
@@ -81,7 +82,8 @@ int main(int argc, char **argv) {
   }
 
   // Generate model
-  bi::Rvm model = bi::Rvm(train_data, train_labels);
+  bi::GaussianKernel kernel(0.5);
+  bi::Rvm model = bi::Rvm(train_data, train_labels, &kernel);
 
   t.Start();
   model.Solve(iterations);
