@@ -53,7 +53,8 @@ class RvmWeightFunction : public ceres::FirstOrderFunction {
 };
 
 
-Rvm::Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels) :
+Rvm::Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels, double basis_function_r) :
+ basis_function_radius_(basis_function_r),
  training_data_(data),
  training_labels_(labels),
  x_m_(training_data_),
@@ -76,7 +77,7 @@ double Rvm::ComputeBasisFunction(const Eigen::MatrixXd &sample, const Eigen::Mat
   BOOST_ASSERT(x_m.rows() == 1);
 
   double sq_n = (x_m - sample).squaredNorm();
-  double r2 = kBasisFunctionR_ * kBasisFunctionR_;
+  double r2 = basis_function_radius_*basis_function_radius_;
 
   return std::exp(-sq_n / r2);
 }
@@ -250,6 +251,22 @@ void Rvm::UpdateAlpha() {
   //printf("Took %5.3f ms to update\n", t.GetMs());
 }
 
+void Rvm::RemoveColumn(Eigen::SparseMatrix<double> *sp, unsigned int colToRemove) {
+  Eigen::SparseMatrix<double> x;
+  x.conservativeResize(sp->cols(), sp->cols()-1);
+  for (unsigned int i=0; i<sp->cols()-1; i++) {
+    int j = 0;
+    if (i < colToRemove) {
+      j = i;
+    } else {
+      j = i + 1;
+    }
+    x.insert(j, i) = 1;
+  }
+
+  (*sp) = (*sp) * x;
+}
+
 // from https://stackoverflow.com/questions/13290395/how-to-remove-a-certain-row-or-column-while-using-eigen-library-c
 void Rvm::RemoveRow(Eigen::MatrixXd *matrix, unsigned int rowToRemove) {
   unsigned int numRows = matrix->rows()-1;
@@ -286,7 +303,7 @@ void Rvm::PruneXm() {
   while (x_m_at >= 0) {
     if (alpha_(x_m_at, 0) > cutoff) {
       // Prune
-      //RemoveColumn(&phi_samples_, x_m_at);
+      RemoveColumn(&phi_samples_, x_m_at);
       RemoveRow(&x_m_, x_m_at);
       RemoveRow(&w_, x_m_at);
       RemoveRow(&alpha_, x_m_at);
@@ -296,7 +313,7 @@ void Rvm::PruneXm() {
   }
 
   // Rebuild phi_samples_
-  phi_samples_ = ComputePhi(training_data_);
+  //phi_samples_ = ComputePhi(training_data_);
 }
 
 

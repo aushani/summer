@@ -26,6 +26,18 @@ cc_binary(
 )
 
 cc_binary(
+    name = "train_rvm",
+    srcs = [
+            "train_rvm.cc",
+           ],
+    deps = [
+            "//library/bayesian_inference",
+            "//library/ray_tracing",
+            "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
     name = "view_joint_model",
     srcs = [
             "view_joint_model.cc",

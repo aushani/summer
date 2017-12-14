@@ -12,7 +12,7 @@ class Rvm {
  public:
   // data is n_samples X dimension
   // labels is n_samples X 1
-  Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels);
+  Rvm(const Eigen::MatrixXd &data, const Eigen::MatrixXd &labels, double basis_function_r = 0.5);
 
   const Eigen::MatrixXd& GetRelevanceVectors() const;
   int NumRelevanceVectors() const;
@@ -24,7 +24,7 @@ class Rvm {
   void Solve(int iterations);
 
  private:
-  const double kBasisFunctionR_ = 0.5;
+  double basis_function_radius_;
 
   Eigen::MatrixXd training_data_;
   Eigen::MatrixXd training_labels_;
@@ -44,6 +44,7 @@ class Rvm {
 
   static void RemoveRow(Eigen::MatrixXd *matrix, unsigned int rowToRemove);
   static void RemoveColumn(Eigen::MatrixXd *matrix, unsigned int rowToRemove);
+  static void RemoveColumn(Eigen::SparseMatrix<double> *sp, unsigned int rowToRemove);
 };
 
 } // namespace bayesian_inference
