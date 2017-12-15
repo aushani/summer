@@ -50,8 +50,8 @@ class OccGridKernel : public bi::IKernel<rt::OccGrid> {
     std::map<bool, float> xm_histogram;
 
     int count = 0;
-    for (int i=-8; i<8; i++) {
-      for (int j=-8; j<8; j++) {
+    for (int i=-8; i<8; i+=2) {
+      for (int j=-8; j<8; j+=2) {
         rt::Location loc(i, j, 0);
         count++;
 
