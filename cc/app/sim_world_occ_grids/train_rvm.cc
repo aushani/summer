@@ -43,15 +43,15 @@ std::vector<rt::OccGrid> LoadDirectory(char *dir, int samples) {
   return res;
 }
 
-class OccGridKernel : public bi::IKernel<rt::OccGrid> {
+class OccGridKernelMi : public bi::IKernel<rt::OccGrid> {
   virtual double Compute(const rt::OccGrid &sample, const rt::OccGrid &x_m) const {
     std::map<std::pair<bool, bool>, float> joint_histogram;
     std::map<bool, float> sample_histogram;
     std::map<bool, float> xm_histogram;
 
     int count = 0;
-    for (int i=-8; i<8; i+=2) {
-      for (int j=-8; j<8; j+=2) {
+    for (int i=-8; i<8; i++) {
+      for (int j=-8; j<8; j++) {
         rt::Location loc(i, j, 0);
         count++;
 
@@ -96,6 +96,34 @@ class OccGridKernel : public bi::IKernel<rt::OccGrid> {
   }
 };
 
+class OccGridKernelCorr : public bi::IKernel<rt::OccGrid> {
+  virtual double Compute(const rt::OccGrid &sample, const rt::OccGrid &x_m) const {
+    int count = 0;
+    double corr = 0.0;
+
+    for (int i=-8; i<8; i++) {
+      for (int j=-8; j<8; j++) {
+        rt::Location loc(i, j, 0);
+        count++;
+
+        float p_occ_sample = sample.GetProbability(loc);
+        float p_occ_xm = x_m.GetProbability(loc);
+
+        float p_free_sample = 1 - p_occ_sample;
+        float p_free_xm = 1 - p_occ_xm;
+
+        corr += p_occ_sample*p_occ_xm + p_free_sample*p_free_xm;
+      }
+    }
+
+    corr /= count;
+
+    //printf("cor is %5.3f\n", corr);
+
+    return corr - 0.5;
+  }
+};
+
 int main(int argc, char** argv) {
   printf("Make RVM model\n");
 
@@ -114,18 +142,19 @@ int main(int argc, char** argv) {
 
   auto samples_neg = LoadDirectory(argv[2], n_samples_per_class);
   printf("Loaded neg\n");
-  printf("Took %5.3f ms to load data\n", t.GetMs());
 
   std::vector<rt::OccGrid> samples;
   samples.insert(samples.end(), samples_pos.begin(), samples_pos.end());
   samples.insert(samples.end(), samples_neg.begin(), samples_neg.end());
+
+  printf("Took %5.3f ms to load %ld samples\n", t.GetMs(), samples.size());
 
   std::vector<int> labels;
   for (int i=0; i<2*n_samples_per_class; i++) {
     labels.push_back(i < n_samples_per_class ? 1:0);
   }
 
-  OccGridKernel kernel;
+  OccGridKernelCorr kernel;
 
   printf("Making model...\n");
   t.Start();
