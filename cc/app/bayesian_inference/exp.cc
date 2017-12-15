@@ -44,11 +44,11 @@ int main(int argc, char **argv) {
   printf("%d training samples, %d test samples, dimensionality %d, %d iterations\n",
       n_train_samples, n_test_samples, dim, iterations);
 
-  Eigen::MatrixXd train_data(n_train_samples, dim);
-  Eigen::MatrixXd train_labels(n_train_samples, 1);
+  std::vector<Eigen::VectorXd> train_data;
+  std::vector<int> train_labels;
 
-  Eigen::MatrixXd test_data(n_test_samples, dim);
-  Eigen::MatrixXd test_labels(n_test_samples, dim);
+  std::vector<Eigen::VectorXd> test_data;
+  std::vector<int> test_labels;
 
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine rand_engine(seed);
@@ -58,58 +58,64 @@ int main(int argc, char **argv) {
   std::uniform_real_distribution<> distribution(-0.75, 0.75);
 
   for (int i=0; i<n_train_samples; i++) {
-    for (int j=0; j<dim; j++) {
-      train_data(i, j) = distribution(rand_engine);
-    }
+    Eigen::VectorXd sample(dim);
 
-    double x = train_data(i, 0);
-    double y = train_data(i, 1);
+    for (int j=0; j<dim; j++) {
+      sample(j) = distribution(rand_engine);
+    }
+    train_data.push_back(sample);
+
+    double x = sample(0);
+    double y = sample(1);
     double val = 0.2 * std::sin(2*M_PI*x);
 
-    train_labels(i, 0) = y > val ? 1 : 0;
+    train_labels.push_back(y > val ? 1 : 0);
   }
 
   for (int i=0; i<n_test_samples; i++) {
-    for (int j=0; j<dim; j++) {
-      test_data(i, j) = distribution(rand_engine);
-    }
+    Eigen::VectorXd sample(dim);
 
-    double x = test_data(i, 0);
-    double y = test_data(i, 1);
+    for (int j=0; j<dim; j++) {
+      sample(j) = distribution(rand_engine);
+    }
+    test_data.push_back(sample);
+
+    double x = sample(0);
+    double y = sample(1);
     double val = 0.2 * std::sin(2*M_PI*x);
 
-    test_labels(i, 0) = y > val ? 1 : 0;
+    test_labels.push_back(y > val ? 1 : 0);
   }
 
   // Generate model
   bi::GaussianKernel kernel(0.5);
-  bi::Rvm model = bi::Rvm(train_data, train_labels, &kernel);
+  bi::Rvm<Eigen::VectorXd> model = bi::Rvm<Eigen::VectorXd>(train_data, train_labels, &kernel);
 
   t.Start();
   model.Solve(iterations);
   printf("Took %5.3f sec to train RVM\n", t.GetSeconds());
 
   t.Start();
-  Eigen::MatrixXd pred_labels = model.PredictLabels(test_data);
+  std::vector<double> pred_labels = model.PredictLabels(test_data);
   printf("Took %5.3f ms to predict %d labels\n", t.GetMs(), n_test_samples);
 
   // Save to csv files
   std::ofstream data_file("data.csv");
-  for (int i=0; i<n_test_samples; i++) {
-    data_file << test_data(i, 0) << "," << test_data(i, 1) << std::endl;
+  for (const auto &test_sample : test_data) {
+    data_file << test_sample(0) << "," << test_sample(1) << std::endl;
   }
   data_file.close();
 
   std::ofstream label_file("labels.csv");
   for (int i=0; i<n_test_samples; i++) {
-    label_file << test_labels(i) << "," << pred_labels(i) << std::endl;
+    label_file << test_labels[i] << "," << pred_labels[i] << std::endl;
   }
   label_file.close();
 
   std::ofstream xm_file("xm.csv");
-  auto x_m = model.GetRelevanceVectors();
-  for (int i=0; i<x_m.rows(); i++) {
-    xm_file << x_m(i, 0) << "," << x_m(i, 1) << std::endl;
+  std::vector<Eigen::VectorXd> x_ms = model.GetRelevanceVectors();
+  for (const auto &x_m : x_ms) {
+    xm_file << x_m(0) << "," << x_m(1) << std::endl;
   }
   xm_file.close();
 
