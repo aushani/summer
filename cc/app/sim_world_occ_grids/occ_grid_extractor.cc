@@ -10,7 +10,7 @@ namespace app {
 namespace sim_world_occ_grids {
 
 OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
- og_builder_(10000, 0.3, 100.0),
+ og_builder_(10000, 0.3, 400.0),
  data_manager_(4, false, false),
  rand_engine_(std::chrono::system_clock::now().time_since_epoch().count()),
  save_base_path_(save_base_fn) {
@@ -64,14 +64,15 @@ void OccGridExtractor::Run() {
         rt::OccGrid og = og_builder_.GenerateOccGrid(scan);
 
         // Save Occ Grid
-        fs::path dir = save_base_path_ / fs::path(shape.GetName());
+        //fs::path dir = save_base_path_ / fs::path(shape.GetName());
+        fs::path dir = save_base_path_;
         if (!fs::exists(dir)) {
           printf("Making path: %s\n", dir.string().c_str());
           fs::create_directories(dir);
         }
 
         char fn[1000];
-        sprintf(fn, "%06d.og", class_counts_[shape.GetName()]++);
+        sprintf(fn, "%s_%06d.og", shape.GetName().c_str(), class_counts_[shape.GetName()]++);
         fs::path path = dir / fs::path(fn);
 
         //og.Save(fn);
@@ -106,14 +107,15 @@ void OccGridExtractor::Run() {
         rt::OccGrid og = og_builder_.GenerateOccGrid(scan);
 
         // Save Occ Grid
-        fs::path dir = save_base_path_ / fs::path("BACKGROUND");
+        //fs::path dir = save_base_path_ / fs::path("BACKGROUND");
+        fs::path dir = save_base_path_;
         if (!fs::exists(dir)) {
           printf("Making path: %s\n", dir.string().c_str());
           fs::create_directories(dir);
         }
 
         char fn[1000];
-        sprintf(fn, "%06d.og", class_counts_["BACKGROUND"]++);
+        sprintf(fn, "BACKGROUND_%06d.og", class_counts_["BACKGROUND"]++);
         fs::path path = dir / fs::path(fn);
 
         //og.Save(fn);
