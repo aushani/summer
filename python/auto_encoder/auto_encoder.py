@@ -3,53 +3,52 @@ from tensorflow.examples.tutorials.mnist import input_data
 import matplotlib.pyplot as plt
 import numpy as np
 
-def weight_variable(shape):
-    # From the mnist tutorial
-    initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial)
-
-
-def bias_variable(shape):
-    initial = tf.truncated_normal(shape=shape, stddev = 0.1)
-    return tf.Variable(initial)
-
-def fc_layer(previous, output_size):
-    input_size = previous.get_shape().as_list()[1]
-
-    W = weight_variable([input_size, output_size])
-    b = bias_variable([output_size])
-    return tf.matmul(previous, W) + b
-
 class AutoEncoder:
 
     def __init__(self, use_classification_loss = False):
         dim_data = 784
         n_classes = 10
 
+        reg_scale = 1e-7
+        regularizer = tf.contrib.layers.l2_regularizer(reg_scale)
+
         self.input = tf.placeholder(tf.float32, shape=[None, dim_data])
         self.label = tf.placeholder(tf.float32, shape=[None, n_classes])
 
         # Encoder
-        l1 = tf.nn.tanh(fc_layer(self.input, 50))
-        l2 = tf.nn.tanh(fc_layer(l1, 50))
-        self.latent = fc_layer(l2, 2)
+        l1 = tf.contrib.layers.fully_connected(self.input, 50,
+                activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
+
+        l2 = tf.contrib.layers.fully_connected(l1, 50,
+                activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
+
+        self.latent = tf.contrib.layers.fully_connected(l2, 2,
+                activation_fn=None, weights_regularizer=regularizer)
 
         # Decoder
-        l3 = tf.nn.tanh(fc_layer(self.latent, 50))
-        l4 = tf.nn.tanh(fc_layer(l3, 50))
-        self.reconstruction = tf.nn.sigmoid(fc_layer(l4, dim_data))
+        l3 = tf.contrib.layers.fully_connected(self.latent, 50,
+                activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
+
+        l4 = tf.contrib.layers.fully_connected(l3, 50,
+                activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
+
+        self.reconstruction = tf.contrib.layers.fully_connected(l4, dim_data,
+                activation_fn=tf.nn.sigmoid, weights_regularizer=regularizer)
 
         # Classifier
-        self.pred_label = fc_layer(self.latent, n_classes)
-        #self.pred_label = fc_layer(self.input, n_classes)
+        self.pred_label = tf.contrib.layers.fully_connected(self.latent, n_classes,
+                activation_fn=None, weights_regularizer=regularizer)
 
-        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.label, logits=self.pred_label))
+        classification_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.label, logits=self.pred_label))
         reconstruction_loss = tf.reduce_mean(tf.squared_difference(self.reconstruction, self.input))
 
         if use_classification_loss:
-            self.loss = cross_entropy + reconstruction_loss
+            self.loss = classification_loss + reconstruction_loss
         else:
             self.loss = reconstruction_loss
+
+        reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+        self.loss += reg_losses
 
         #train_step = tf.train.GradientDescentOptimizer(0.01).minimize(self.loss)
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.loss)
@@ -64,6 +63,10 @@ class AutoEncoder:
         for iteration in range(n_iterations):
             if iteration % iter_step == 0:
                 print 'Iteration %d / %d = %5.3f %%' % (iteration, n_iterations, 100.0 * iteration/n_iterations)
+
+                correct_prediction = tf.equal(tf.argmax(self.label, 1), tf.argmax(self.pred_label, 1))
+                accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+                print '\tOverall accuracy', accuracy.eval(feed_dict = {self.input: mnist.test.images, self.label: mnist.test.labels}, session=self.sess)
 
             batch = mnist.train.next_batch(100)
             fd = {self.input:batch[0], self.label:batch[1]}
