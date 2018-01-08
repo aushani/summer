@@ -13,8 +13,8 @@ OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
  og_builder_(10000, 0.3, 100.0),
  data_manager_(4, false, false),
  rand_engine_(std::chrono::system_clock::now().time_since_epoch().count()),
- save_base_fn_(save_base_fn) {
-  og_builder_.ConfigureSizeInPixels(16, 16, 1);
+ save_base_path_(save_base_fn) {
+  og_builder_.ConfigureSizeInPixels(kPixelSize_, kPixelSize_, 1);
 
   classes_.push_back("BOX");
   classes_.push_back("STAR");
@@ -64,9 +64,18 @@ void OccGridExtractor::Run() {
         rt::OccGrid og = og_builder_.GenerateOccGrid(scan);
 
         // Save Occ Grid
+        fs::path dir = save_base_path_ / fs::path(shape.GetName());
+        if (!fs::exists(dir)) {
+          printf("Making path: %s\n", dir.string().c_str());
+          fs::create_directories(dir);
+        }
+
         char fn[1000];
-        sprintf(fn, "%s/%s/%06d.og", save_base_fn_.c_str(), shape.GetName().c_str(), class_counts_[shape.GetName()]++);
-        og.Save(fn);
+        sprintf(fn, "%06d.og", class_counts_[shape.GetName()]++);
+        fs::path path = dir / fs::path(fn);
+
+        //og.Save(fn);
+        Dump(og, path);
       }
     }
 
@@ -97,9 +106,18 @@ void OccGridExtractor::Run() {
         rt::OccGrid og = og_builder_.GenerateOccGrid(scan);
 
         // Save Occ Grid
+        fs::path dir = save_base_path_ / fs::path("BACKGROUND");
+        if (!fs::exists(dir)) {
+          printf("Making path: %s\n", dir.string().c_str());
+          fs::create_directories(dir);
+        }
+
         char fn[1000];
-        sprintf(fn, "%s/BACKGROUND/%06d.og", save_base_fn_.c_str(), class_counts_["BACKGROUND"]++);
-        og.Save(fn);
+        sprintf(fn, "%06d.og", class_counts_["BACKGROUND"]++);
+        fs::path path = dir / fs::path(fn);
+
+        //og.Save(fn);
+        Dump(og, path);
       }
     }
 
@@ -119,6 +137,30 @@ void OccGridExtractor::Run() {
       break;
     }
   }
+}
+
+void OccGridExtractor::Dump(const rt::OccGrid &og, const fs::path &path) const {
+  std::ofstream file(path.string());
+
+  for (int i=-kPixelSize_+1; i<kPixelSize_; i++) {
+    bool first = true;
+
+    for (int j=-kPixelSize_+1; j<kPixelSize_; j++) {
+      double p = og.GetProbability(rt::Location(i, j, 0));
+
+      if (!first) {
+        file << ",";
+      }
+
+      file << p;
+
+      first = false;
+    }
+
+    file << std::endl;
+  }
+
+  file.close();
 }
 
 

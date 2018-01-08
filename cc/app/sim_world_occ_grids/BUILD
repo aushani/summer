@@ -10,6 +10,7 @@ cc_binary(
             "//library/sim_world",
             "//library/timer",
             "//library/util",
+            "@boost//:boost_filesystem",
            ],
 )
 

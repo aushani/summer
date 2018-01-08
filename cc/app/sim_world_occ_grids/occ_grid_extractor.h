@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <vector>
 
+#include <boost/filesystem.hpp>
 #include <sys/stat.h>
 
 #include "library/ray_tracing/occ_grid_builder.h"
@@ -16,6 +17,7 @@
 
 namespace rt = library::ray_tracing;
 namespace sw = library::sim_world;
+namespace fs = boost::filesystem;
 
 namespace app {
 namespace sim_world_occ_grids {
@@ -30,6 +32,7 @@ class OccGridExtractor {
   static constexpr double kPosRes_ = 0.30;                 // 30 cm
   static constexpr double kAngleRes_ = 15.0 * M_PI / 360.0; // 15 degrees
   static constexpr int kEntriesPerObj_ = 10;
+  static constexpr int kPixelSize_ = 16;
 
   std::vector<std::string> classes_;
   std::map<std::string, int> class_counts_;
@@ -39,7 +42,10 @@ class OccGridExtractor {
 
   std::default_random_engine rand_engine_;
 
-  std::string save_base_fn_;
+  //std::string save_base_fn_;
+  fs::path save_base_path_;
+
+  void Dump(const rt::OccGrid &og, const fs::path &path) const;
 };
 
 } // namespace kitti
