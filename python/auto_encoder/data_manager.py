@@ -13,7 +13,7 @@ import Queue
 
 class DataManager:
 
-    def __init__(self, dirname):
+    def __init__(self, dirname, n_test_samples=0):
         self.dirname = dirname
 
         self.dim_data = 31
@@ -21,14 +21,16 @@ class DataManager:
 
         files = [f for f in listdir(dirname) if isfile(join(dirname, f))]
 
-        #self.files = [f for f in files if 'og' in f]
-        self.files = [f for f in files if not 'BACKGROUND' in f]
+        files = [f for f in files if not 'BACKGROUND' in f]
+
+        self.test_files = files[0:n_test_samples]
+        self.train_files = files[n_test_samples:]
 
         self.labels = {}
         self.labels['BOX'] = 0
         self.labels['STA'] = 1
 
-        random.shuffle(self.files)
+        random.shuffle(self.train_files)
 
         self.idx_at = 0
 
@@ -45,22 +47,35 @@ class DataManager:
 
             self.load_threads.append(t)
 
+        # Load test
+        self.test_samples = np.zeros((n_test_samples, self.dim_data, self.dim_data))
+        self.test_labels_oh = np.zeros((n_test_samples, self.n_classes))
+        self.test_labels = np.zeros((n_test_samples))
+        for i in range(n_test_samples):
+            path = self.dirname + self.test_files[i]
+            sample, label = self.load_path(path)
+            self.test_samples[i, :, :] = sample
+            self.test_labels_oh[i, label] = 1 #one hot
+            self.test_labels[i] = label
+
+
     def load_next(self):
-        res = self.load(self.idx_at)
-        self.idx_at = (self.idx_at + 1) % len(self.files)
+        res = self.load_idx(self.idx_at)
+        self.idx_at = (self.idx_at + 1) % len(self.train_files)
 
         #res[res<0.5] = 0
         #res[res>0.5] = 1
 
         return res
 
-    def load(self, idx):
-        path = self.dirname + self.files[self.idx_at]
+    def load_path(self, path):
         df = pd.read_csv(path, sep=',', header=None)
-
-        classname = self.files[self.idx_at][0:3]
-
+        classname = self.train_files[self.idx_at][0:3]
         return df.values, self.labels[classname]
+
+    def load_idx(self, idx):
+        path = self.dirname + self.train_files[self.idx_at]
+        return self.load_path(path)
 
     def load_files(self):
         while self.keep_running:

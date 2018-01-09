@@ -58,7 +58,8 @@ void OccGridExtractor::Run() {
         double z = 0;
         double t = -shape.GetAngle();
 
-        og_builder_.SetPose(Eigen::Vector3d(x + dx, y + dy, z), t + dt);
+        //og_builder_.SetPose(Eigen::Vector3d(x + dx, y + dy, z), t + dt);
+        og_builder_.SetPose(Eigen::Vector3d(x + dx, y + dy, z), 0);
 
         // Make occ grid
         rt::OccGrid og = og_builder_.GenerateOccGrid(scan);
