@@ -77,7 +77,7 @@ void OccGridExtractor::Run() {
         fs::path path = dir / fs::path(fn);
 
         //og.Save(fn);
-        Dump(og, path);
+        DumpBin(og, path);
       }
     }
 
@@ -120,7 +120,7 @@ void OccGridExtractor::Run() {
         fs::path path = dir / fs::path(fn);
 
         //og.Save(fn);
-        Dump(og, path);
+        DumpBin(og, path);
       }
     }
 
@@ -142,7 +142,7 @@ void OccGridExtractor::Run() {
   }
 }
 
-void OccGridExtractor::Dump(const rt::OccGrid &og, const fs::path &path) const {
+void OccGridExtractor::DumpCsv(const rt::OccGrid &og, const fs::path &path) const {
   std::ofstream file(path.string());
 
   for (int i=-kPixelSize_+1; i<kPixelSize_; i++) {
@@ -161,6 +161,23 @@ void OccGridExtractor::Dump(const rt::OccGrid &og, const fs::path &path) const {
     }
 
     file << std::endl;
+  }
+
+  file.close();
+}
+
+void OccGridExtractor::DumpBin(const rt::OccGrid &og, const fs::path &path) const {
+  std::ofstream file(path.string(), std::ios::out | std::ios::binary);
+
+  for (int i=-kPixelSize_+1; i<kPixelSize_; i++) {
+    bool first = true;
+
+    for (int j=-kPixelSize_+1; j<kPixelSize_; j++) {
+      float p = og.GetProbability(rt::Location(i, j, 0));
+
+      // gross
+      file.write((const char*)(&p), sizeof(float));
+    }
   }
 
   file.close();

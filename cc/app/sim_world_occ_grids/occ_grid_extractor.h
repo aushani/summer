@@ -46,7 +46,8 @@ class OccGridExtractor {
   //std::string save_base_fn_;
   fs::path save_base_path_;
 
-  void Dump(const rt::OccGrid &og, const fs::path &path) const;
+  void DumpCsv(const rt::OccGrid &og, const fs::path &path) const;
+  void DumpBin(const rt::OccGrid &og, const fs::path &path) const;
 };
 
 } // namespace kitti
