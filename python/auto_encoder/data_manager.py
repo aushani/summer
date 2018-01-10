@@ -40,8 +40,8 @@ class DataManager:
         self.test_labels_oh = np.zeros((n_test_samples, self.n_classes))
         self.test_labels = np.zeros((n_test_samples))
         for i in range(n_test_samples):
-            path = self.dirname + self.test_files[i]
-            sample, label = self.load_path(path)
+            filename = self.test_files[i]
+            sample, label = self.load_filename(filename)
             self.test_samples[i, :, :] = sample
             self.test_labels_oh[i, label] = 1 #one hot
             self.test_labels[i] = label
@@ -70,8 +70,10 @@ class DataManager:
 
         return res
 
-    def load_path(self, path):
+    def load_filename(self, filename):
         #df = pd.read_csv(path, sep=',', header=None)
+        path = self.dirname + filename
+
         fp = open(path, 'r')
 
         # We have a dense array of voxels
@@ -84,12 +86,12 @@ class DataManager:
         grid = np.asarray(grid_bin)
         grid = np.reshape(grid, [self.dim_data, self.dim_data])
 
-        classname = self.train_files[self.idx_at][0:3]
+        classname = filename[0:3]
         return grid, self.labels[classname]
 
     def load_idx(self, idx):
-        path = self.dirname + self.train_files[self.idx_at]
-        return self.load_path(path)
+        filename = self.train_files[self.idx_at]
+        return self.load_filename(filename)
 
     def load_train_data(self):
         while self.keep_running:
@@ -124,7 +126,7 @@ class DataManager:
         self.keep_running = False
 
 if __name__ == '__main__':
-    dm = DataManager('/home/aushani/data/auto_encoder_data_bin/', batch_size=100)
+    dm = DataManager('/home/aushani/data/auto_encoder_data_bin/', batch_size=100, n_test_samples=100)
 
     nrows = 4
     ncols = 3
@@ -136,7 +138,7 @@ if __name__ == '__main__':
         print '%f msec to load' % ((end-start) * 1000)
 
         grid = grids[0]
-        cn = cns[0]
+        cn = np.argmax(cns[0])
         #print grid.shape
 
         plt.subplot(nrows, ncols, sp+1)

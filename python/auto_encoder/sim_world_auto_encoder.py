@@ -49,7 +49,14 @@ class AutoEncoder:
 
         classification_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.label, logits=self.pred_label))
 
+        # simple reconstruction loss
         reconstruction_loss = tf.reduce_mean(tf.squared_difference(self.reconstruction, flattened))
+
+        # Compute difference, but weight unknown less
+        #diff = tf.squared_difference(self.reconstruction, flattened)
+        #cost = diff * (tf.abs(flattened - 0.5) * 2)
+        #reconstruction_loss = tf.reduce_mean(cost)
+
         # Loss according to gen. and dis. vox modeling by brock, lim, ritchie, weston
         #target = flattened * 3 - 1
         #output = self.reconstruction * 0.9 + 0.1
@@ -133,7 +140,7 @@ class AutoEncoder:
             iteration = iteration + 1
 
     def render_examples(self, data_manager, n_samples=20, fn='examples.png'):
-        test_samples, test_labels = data_manager.test_samples, data_manager.test_labels_oh
+        test_samples, test_labels = data_manager.test_samples, data_manager.test_labels
 
         reconstructed_samples = self.reconstruction.eval(feed_dict = {self.input:test_samples}, session=self.sess)
         pred_labels = self.pred_label.eval(feed_dict = {self.input:test_samples}, session=self.sess)
@@ -142,7 +149,7 @@ class AutoEncoder:
         for i in range(n_samples):
             im1 = test_samples[i, :, :]
             im2 = reconstructed_samples[i]
-            true_label = np.argmax(test_labels[i, :])
+            true_label = test_labels[i]
             pred_label = np.argmax(pred_labels[i])
 
             #print np.min(im1), np.max(im1)
