@@ -9,7 +9,7 @@ class AutoEncoder:
         self.sess = tf.Session()
 
         self.dim_data = 31
-        self.n_classes = 2
+        self.n_classes = 3
 
         self.dim_latent = 10
 
@@ -55,18 +55,20 @@ class AutoEncoder:
         diff = tf.squared_difference(self.reconstruction, flattened)
         weight = tf.abs(flattened - 0.5) * 2
         cost = weight * diff
-        self.reconstruction_loss = tf.reduce_mean(cost)
+
+        self.sample_reconstruction_loss = tf.reduce_mean(cost, axis=1)
+        reconstruction_loss = tf.reduce_mean(self.sample_reconstruction_loss)
 
         # Loss according to gen. and dis. vox modeling by brock, lim, ritchie, weston
         #target = flattened * 3 - 1
-        #output = self.reconstruction * 0.9 + 0.1
+        #output = reconstruction * 0.9 + 0.1
         #gamma = 0.97
-        #self.reconstruction_loss = tf.reduce_mean(-gamma * target*tf.log(output) - (1-gamma) * (1-target)*tf.log(1-output))
+        #reconstruction_loss = tf.reduce_mean(-gamma * target*tf.log(output) - (1-gamma) * (1-target)*tf.log(1-output))
 
         if use_classification_loss:
-            self.loss = classification_loss + 1e3 * self.reconstruction_loss
+            self.loss = classification_loss + 1e3 * reconstruction_loss
         else:
-            self.loss = self.reconstruction_loss
+            self.loss = reconstruction_loss
 
         reg_losses = sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
         self.loss += reg_losses
@@ -79,7 +81,7 @@ class AutoEncoder:
 
         # Summaries
         self.classification_loss_summary = tf.summary.scalar('classification_loss_summary', classification_loss)
-        self.reconstruction_loss_summary = tf.summary.scalar('reconstruction_loss_summary', self.reconstruction_loss)
+        self.reconstruction_loss_summary = tf.summary.scalar('reconstruction_loss_summary', reconstruction_loss)
         self.loss_summary = tf.summary.scalar('loss_summary', self.loss)
         self.accuracy_summary = tf.summary.scalar('accuracy_summary', self.accuracy)
 
@@ -127,8 +129,8 @@ class AutoEncoder:
 
             if iteration % iter_plots == 0:
                 tic_plots = time.time()
-                self.render_examples(dm, fn='autoencoder_examples_%08d.png' % iteration)
-                self.render_latent(dm, fn='autoencoder_latent_%08d.png' % iteration)
+                self.render_examples(data_manager, fn='autoencoder_examples_%08d.png' % iteration)
+                self.render_latent(data_manager, fn='autoencoder_latent_%08d.png' % iteration)
                 toc_plots = time.time()
                 print '\tPlots in %f sec' % (toc_plots - tic_plots)
 
@@ -144,7 +146,7 @@ class AutoEncoder:
         saver.restore(self.sess, filename)
         print 'Restored model'
 
-    def render_examples(self, data_manager, n_samples=20, fn='examples.png'):
+    def render_examples(self, data_manager, n_samples=30, fn='examples.png'):
         test_samples, test_labels = data_manager.test_samples, data_manager.test_labels
 
         reconstructed_samples = self.reconstruction.eval(feed_dict = {self.input:test_samples}, session=self.sess)
@@ -163,13 +165,13 @@ class AutoEncoder:
             im1 = np.reshape(im1, [self.dim_data, self.dim_data])
             im2 = np.reshape(im2, [self.dim_data, self.dim_data])
 
-            plt.subplot(n_samples/4, 8, 2*i + 1)
+            plt.subplot(n_samples/5, 10, 2*i + 1)
             plt.imshow(im1)
             plt.clim(0, 1)
             plt.axis('off')
             plt.title('%d' % true_label)
 
-            plt.subplot(n_samples/4, 8, 2*i + 2)
+            plt.subplot(n_samples/5, 10, 2*i + 2)
             plt.imshow(im2)
             plt.clim(0, 1)
             plt.axis('off')
@@ -185,7 +187,7 @@ class AutoEncoder:
 
         reconstructed = self.reconstruction.eval(feed_dict = fd, session=self.sess)
         pred_label = self.pred_label.eval(feed_dict = fd, session=self.sess)
-        loss = self.reconstruction_loss.eval(feed_dict = fd, session=self.sess)
+        loss = self.sample_reconstruction_loss.eval(feed_dict = fd, session=self.sess)
 
         return reconstructed, pred_label, loss
 

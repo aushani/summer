@@ -19,14 +19,15 @@ class DataManager:
         self.batch_size = batch_size
 
         self.dim_data = 31
-        self.n_classes = 2
+        self.n_classes = 3
 
         self.labels = {}
-        self.labels['BOX'] = 0
-        self.labels['STA'] = 1
+        self.labels['BAC'] = 0
+        self.labels['BOX'] = 1
+        self.labels['STA'] = 2
 
         files = [f for f in listdir(dirname) if isfile(join(dirname, f))]
-        files = [f for f in files if not 'BACKGROUND' in f]
+        #files = [f for f in files if not 'BACKGROUND' in f]
         random.shuffle(files)
 
         self.test_files = files[0:n_test_samples]
