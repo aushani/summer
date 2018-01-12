@@ -4,6 +4,8 @@ import numpy as np
 from data_manager import *
 import time
 
+plt.switch_backend('agg')
+
 class AutoEncoder:
 
     def __init__(self, use_classification_loss = False):
@@ -50,12 +52,13 @@ class AutoEncoder:
         classification_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.label, logits=self.pred_label))
 
         # simple reconstruction loss
-        reconstruction_loss = tf.reduce_mean(tf.squared_difference(self.reconstruction, flattened))
+        #reconstruction_loss = tf.reduce_mean(tf.squared_difference(self.reconstruction, flattened))
 
         # Compute difference, but weight unknown less
-        #diff = tf.squared_difference(self.reconstruction, flattened)
-        #cost = diff * (tf.abs(flattened - 0.5) * 2)
-        #reconstruction_loss = tf.reduce_mean(cost)
+        diff = tf.squared_difference(self.reconstruction, flattened)
+        weight = tf.abs(flattened - 0.5) * 2
+        cost = weight * diff
+        reconstruction_loss = tf.reduce_mean(cost)
 
         # Loss according to gen. and dis. vox modeling by brock, lim, ritchie, weston
         #target = flattened * 3 - 1
