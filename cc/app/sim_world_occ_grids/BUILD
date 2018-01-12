@@ -1,4 +1,20 @@
 cc_binary(
+    name = "generate_environments",
+    srcs = [
+            "generate_environments.cc",
+            "environment_generator.cc",
+            "environment_generator.h",
+           ],
+    deps = [
+            "//library/ray_tracing",
+            "//library/sim_world",
+            "//library/timer",
+            "//library/util",
+            "@boost//:boost_filesystem",
+           ],
+)
+
+cc_binary(
     name = "run_extractor",
     srcs = [
             "run_occ_grid_extractor.cc",
