@@ -170,8 +170,6 @@ void OccGridExtractor::DumpBin(const rt::OccGrid &og, const fs::path &path) cons
   std::ofstream file(path.string(), std::ios::out | std::ios::binary);
 
   for (int i=-kPixelSize_+1; i<kPixelSize_; i++) {
-    bool first = true;
-
     for (int j=-kPixelSize_+1; j<kPixelSize_; j++) {
       float p = og.GetProbability(rt::Location(i, j, 0));
 

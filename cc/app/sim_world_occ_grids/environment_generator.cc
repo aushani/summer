@@ -42,6 +42,8 @@ void EnvironmentGenerator::Run() {
     DumpBin(og, path);
 
     i++;
+
+    delete data;
   }
 }
 
