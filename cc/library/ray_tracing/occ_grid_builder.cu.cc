@@ -38,6 +38,9 @@ void OccGridBuilder::ConfigureSizeInPixels(size_t max_i, size_t max_j, size_t ma
   if (max_ijk < max_j ) max_ijk = max_j;
   if (max_ijk < max_k ) max_ijk = max_k;
 
+  // From -max to +max
+  max_ijk *= 2;
+
   device_data_->steps_per_ray = max_ijk;
   if (max_ijk > device_data_->max_voxel_visits_per_ray) {
     device_data_->steps_per_ray = device_data_->max_voxel_visits_per_ray;
