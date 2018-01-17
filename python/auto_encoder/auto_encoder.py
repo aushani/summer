@@ -8,6 +8,7 @@ class AutoEncoder:
     def __init__(self, use_classification_loss = False):
         self.sess = tf.Session()
 
+        self.dim_buffer = 16
         self.dim_data = 31
         self.n_classes = 3
 
@@ -39,8 +40,10 @@ class AutoEncoder:
         l4 = tf.contrib.layers.fully_connected(l3, 50,
                 activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
 
-        self.reconstruction = tf.contrib.layers.fully_connected(l4, self.dim_data * self.dim_data,
+        output = tf.contrib.layers.fully_connected(l4, self.dim_data * self.dim_data,
                 activation_fn=tf.nn.sigmoid, weights_regularizer=regularizer)
+
+        self.reconstruction = tf.reshape(output, [-1, self.dim_data, self.dim_data])
 
         # Classifier
         self.pred_label = tf.contrib.layers.fully_connected(self.latent, self.n_classes,
@@ -52,8 +55,8 @@ class AutoEncoder:
         #self.reconstruction_loss = tf.reduce_mean(tf.squared_difference(self.reconstruction, flattened))
 
         # Compute difference, but weight unknown less
-        diff = tf.squared_difference(self.reconstruction, flattened)
-        weight = tf.abs(flattened - 0.5) * 2
+        diff = tf.squared_difference(self.reconstruction, self.input)
+        weight = tf.abs(self.input - 0.5) * 2
         cost = weight * diff
 
         self.sample_reconstruction_loss = tf.reduce_mean(cost, axis=1)
