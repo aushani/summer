@@ -18,7 +18,7 @@ class DataManager:
         self.dirname = dirname
         self.batch_size = batch_size
 
-        self.dim_data = 31
+        self.dim_data = 16*3*2 - 1
         self.n_classes = 3
 
         self.labels = {}
@@ -127,9 +127,9 @@ class DataManager:
         self.keep_running = False
 
 if __name__ == '__main__':
-    dm = DataManager('/home/aushani/data/auto_encoder_data_bin/', batch_size=100, n_test_samples=100)
+    dm = DataManager('/home/aushani/data/auto_encoder_data_bin_buffer/', batch_size=100, n_test_samples=100)
 
-    nrows = 4
+    nrows = 3
     ncols = 3
 
     for sp in range(nrows*ncols):
@@ -143,6 +143,7 @@ if __name__ == '__main__':
         #print grid.shape
 
         plt.subplot(nrows, ncols, sp+1)
+        plt.axis('off')
         plt.imshow(grid)
         plt.title(cn)
         plt.clim(0, 1)

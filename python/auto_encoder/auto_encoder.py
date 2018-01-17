@@ -8,8 +8,13 @@ class AutoEncoder:
     def __init__(self, use_classification_loss = False):
         self.sess = tf.Session()
 
-        self.dim_buffer = 16
-        self.dim_data = 31
+        # Size of data we're given
+        self.dim_data = 16*3*2 - 1
+
+        # Size of data we care about reconstructing
+        self.dim_window = 31
+
+        # Classes (BOX, STAR, BACKGROUND)
         self.n_classes = 3
 
         self.dim_latent = 10
@@ -22,6 +27,11 @@ class AutoEncoder:
         self.label = tf.placeholder(tf.float32, shape=[None, self.n_classes])
 
         flattened = tf.reshape(self.input, [-1, self.dim_data * self.dim_data])
+
+        # Get the window we're interested in
+        x0 = self.dim_data/2 - self.dim_window/2
+        x1 = x0 + self.dim_window
+        window = self.input[:, x0:x1, x0:x1]
 
         # Encoder
         l1 = tf.contrib.layers.fully_connected(flattened, 50,
@@ -40,10 +50,10 @@ class AutoEncoder:
         l4 = tf.contrib.layers.fully_connected(l3, 50,
                 activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
 
-        output = tf.contrib.layers.fully_connected(l4, self.dim_data * self.dim_data,
+        output = tf.contrib.layers.fully_connected(l4, self.dim_window * self.dim_window,
                 activation_fn=tf.nn.sigmoid, weights_regularizer=regularizer)
 
-        self.reconstruction = tf.reshape(output, [-1, self.dim_data, self.dim_data])
+        self.reconstruction = tf.reshape(output, [-1, self.dim_window, self.dim_window])
 
         # Classifier
         self.pred_label = tf.contrib.layers.fully_connected(self.latent, self.n_classes,
@@ -55,8 +65,8 @@ class AutoEncoder:
         #self.reconstruction_loss = tf.reduce_mean(tf.squared_difference(self.reconstruction, flattened))
 
         # Compute difference, but weight unknown less
-        diff = tf.squared_difference(self.reconstruction, self.input)
-        weight = tf.abs(self.input - 0.5) * 2
+        diff = tf.squared_difference(self.reconstruction, window)
+        weight = tf.abs(window - 0.5) * 2
         cost = weight * diff
 
         self.sample_reconstruction_loss = tf.reduce_mean(cost, axis=1)
@@ -166,7 +176,7 @@ class AutoEncoder:
             #print np.min(im2), np.max(im2)
 
             im1 = np.reshape(im1, [self.dim_data, self.dim_data])
-            im2 = np.reshape(im2, [self.dim_data, self.dim_data])
+            im2 = np.reshape(im2, [self.dim_window, self.dim_window])
 
             plt.subplot(n_samples/5, 10, 2*i + 1)
             plt.imshow(im1)
@@ -184,7 +194,7 @@ class AutoEncoder:
 
     def reconstruct_and_classify(self, sample):
         if len(sample.shape) == 2:
-            sample = np.reshape(sample, [1, self.dim_data, self.dim_data])
+            sample = np.reshape(sample, [1, self.dim_window, self.dim_window])
 
         fd = {self.input:sample}
 
@@ -196,7 +206,7 @@ class AutoEncoder:
 
     def reconstruct_and_classify_2(self, samples):
         n = samples.shape[0]
-        reconstructions = np.zeros((n, self.dim_data*self.dim_data))
+        reconstructions = np.zeros((n, self.dim_window*self.dim_window))
         pred_labels = np.zeros((n, self.n_classes))
         losses = np.zeros((n))
 
