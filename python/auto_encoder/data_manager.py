@@ -79,13 +79,16 @@ class DataManager:
 
         # We have a dense array of voxels
         num_voxels = self.dim_data*self.dim_data
-        grid_bin = struct.unpack('f'*num_voxels, fp.read(4*num_voxels))
+        grid_bin = struct.unpack('B'*num_voxels, fp.read(num_voxels))
 
         # Done with file
         fp.close()
 
         grid = np.asarray(grid_bin)
         grid = np.reshape(grid, [self.dim_data, self.dim_data])
+
+        # Scale
+        grid = grid / 255.0
 
         classname = filename[0:3]
         return grid, self.labels[classname]
