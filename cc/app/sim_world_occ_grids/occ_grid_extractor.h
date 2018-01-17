@@ -32,7 +32,7 @@ class OccGridExtractor {
   static constexpr double kPosRes_ = 0.30;                 // 30 cm
   static constexpr double kAngleRes_ = 15.0 * M_PI / 360.0; // 15 degrees
   static constexpr int kEntriesPerObj_ = 10;
-  static constexpr int kPixelSize_ = 16;
+  static constexpr int kPixelSize_ = 16*3;
 
   std::vector<std::string> classes_;
   std::map<std::string, int> class_counts_;

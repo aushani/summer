@@ -73,7 +73,7 @@ void OccGridExtractor::Run() {
         }
 
         char fn[1000];
-        sprintf(fn, "%s_%06d.og", shape.GetName().c_str(), class_counts_[shape.GetName()]++);
+        sprintf(fn, "%s_%08d.og", shape.GetName().c_str(), class_counts_[shape.GetName()]++);
         fs::path path = dir / fs::path(fn);
 
         //og.Save(fn);
