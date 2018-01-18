@@ -51,7 +51,7 @@ class DataManager:
 
         # Start load threads
         self.keep_running = True
-        self.data_queue = Queue.Queue(maxsize=1024)
+        self.data_queue = Queue.Queue(maxsize=16)
 
         self.load_threads = []
 
@@ -72,23 +72,11 @@ class DataManager:
         return res
 
     def load_filename(self, filename):
-        #df = pd.read_csv(path, sep=',', header=None)
         path = self.dirname + filename
-
-        fp = open(path, 'r')
-
-        # We have a dense array of voxels
         num_voxels = self.dim_data*self.dim_data
-        grid_bin = struct.unpack('B'*num_voxels, fp.read(num_voxels))
 
-        # Done with file
-        fp.close()
-
-        grid = np.asarray(grid_bin)
+        grid = np.fromfile(path, dtype=np.float32, count=num_voxels)
         grid = np.reshape(grid, [self.dim_data, self.dim_data])
-
-        # Scale
-        grid = grid / 255.0
 
         classname = filename[0:3]
         return grid, self.labels[classname]

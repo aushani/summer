@@ -173,11 +173,8 @@ void OccGridExtractor::DumpBin(const rt::OccGrid &og, const fs::path &path) cons
     for (int j=-kPixelSize_+1; j<kPixelSize_; j++) {
       float p = og.GetProbability(rt::Location(i, j, 0));
 
-      unsigned char byte = p * 255;
-
       // gross
-      //file.write((const char*)(&p), sizeof(float));
-      file.write((const char*)(&byte), sizeof(unsigned char));
+      file.write((const char*)(&p), sizeof(float));
     }
   }
 
