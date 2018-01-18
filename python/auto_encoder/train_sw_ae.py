@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 
 batch_size = 100
-dm = DataManager('/home/aushani/data/auto_encoder_data_bin_buffer/', batch_size = batch_size, n_test_samples = 1000)
+dm = DataManager('/home/aushani/data/batches/')
 
 ae = AutoEncoder(use_classification_loss=True)
 ae.train(dm)

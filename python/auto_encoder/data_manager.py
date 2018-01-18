@@ -1,5 +1,4 @@
-from os import listdir
-from os.path import isfile, join
+import os
 
 import matplotlib.pyplot as plt
 import random
@@ -12,9 +11,9 @@ import time
 import Queue
 import struct
 
-class DataManager:
+class BatchMaker:
 
-    def __init__(self, dirname, batch_size, n_test_samples=0):
+    def __init__(self, dirname, batch_size, n_test_samples=1000):
         self.dirname = dirname
         self.batch_size = batch_size
 
@@ -26,17 +25,32 @@ class DataManager:
         self.labels['BOX'] = 1
         self.labels['STA'] = 2
 
-        files = [f for f in listdir(dirname) if isfile(join(dirname, f))]
+        files = [f for f in os.listdir(dirname) if os.path.isfile(os.path.join(dirname, f))]
         #files = [f for f in files if not 'BACKGROUND' in f]
         random.shuffle(files)
 
         self.test_files = files[0:n_test_samples]
         self.train_files = files[n_test_samples:]
 
-        self.idx_at = 0
+        # Compute number of batches we'll have
+        self.n_batches = len(self.train_files)/self.batch_size
+        print 'Have %d batches of data' % (self.n_batches)
 
-        # Load test
+    def generate_data_files(self, batch_dir):
+        self.batch_dir = batch_dir
+        if not os.path.exists(batch_dir):
+            os.makedirs(batch_dir)
+
+        print 'Generating Test Data'
+        self.generate_test_data()
+
+        print 'Generating Batch Files'
+        self.make_batches()
+
+    def generate_test_data(self):
         print 'Loading test data...'
+        n_test_samples = len(self.test_files)
+
         self.test_samples = np.zeros((n_test_samples, self.dim_data, self.dim_data))
         self.test_labels_oh = np.zeros((n_test_samples, self.n_classes))
         self.test_labels = np.zeros((n_test_samples))
@@ -49,27 +63,15 @@ class DataManager:
         print 'Loaded test data'
         print 'Class statistics = ', np.sum(self.test_labels_oh, axis=0)
 
-        # Start load threads
-        self.keep_running = True
-        self.data_queue = Queue.Queue(maxsize=16)
+        print 'Saving test data'
+        test_filename = '%s/test_samples.npy' % (self.batch_dir)
+        test_labels_oh_filename = '%s/test_labels_oh.npy' % (self.batch_dir)
+        test_labels_filename = '%s/test_labels.npy' % (self.batch_dir)
 
-        self.load_threads = []
-
-        for i in range(1):
-            t = threading.Thread(target=self.load_train_data)
-            t.daemon = True
-            t.start()
-
-            self.load_threads.append(t)
-
-    def load_next(self):
-        res = self.load_idx(self.idx_at)
-        self.idx_at = (self.idx_at + 1) % len(self.train_files)
-
-        #res[res<0.5] = 0
-        #res[res>0.5] = 1
-
-        return res
+        np.save(test_filename, self.test_samples)
+        np.save(test_labels_oh_filename, self.test_labels_oh)
+        np.save(test_labels_filename, self.test_labels)
+        print 'Saved test data'
 
     def load_filename(self, filename):
         path = self.dirname + filename
@@ -85,31 +87,90 @@ class DataManager:
         filename = self.train_files[self.idx_at]
         return self.load_filename(filename)
 
-    def load_train_data(self):
+    def load_next(self):
+        res = self.load_idx(self.idx_at)
+        self.idx_at = (self.idx_at + 1) % len(self.train_files)
+
+        return res
+
+    def make_next_batch(self):
+        samples = np.zeros((self.batch_size, self.dim_data, self.dim_data))
+        labels = np.zeros((self.batch_size, self.n_classes))
+
+        for i in range(self.batch_size):
+            sample, label = self.load_next()
+
+            samples[i, :, :] = sample
+            labels[i, label] = 1
+
+        return samples, labels
+
+    def make_batches(self):
+        self.idx_at = 0
+        self.last_batch_loaded = -1
+
+        for batch_idx in range(0, self.n_batches):
+            samples, labels = self.make_next_batch()
+
+            samples_filename = '%s/batch_samples_%08d.npy' % (self.batch_dir, batch_idx)
+            labels_filename = '%s/batch_labels_%08d.npy' % (self.batch_dir, batch_idx)
+
+            np.save(samples_filename, samples)
+            np.save(labels_filename, labels)
+
+            self.last_batch_loaded = batch_idx
+
+
+class DataManager:
+    def __init__(self, batch_dir):
+        self.batch_dir = batch_dir
+
+        files = [f for f in os.listdir(self.batch_dir) if os.path.isfile(os.path.join(self.batch_dir, f))]
+        batch_samples = [f for f in files if 'batch_samples_' in f]
+
+        # Compute number of batches we'll have
+        self.n_batches = len(batch_samples)
+        print 'Have %d batches of data' % (self.n_batches)
+
+        # Load test data
+        self.load_test_data()
+
+        # Start load threads
+        self.keep_running = True
+        self.data_queue = Queue.Queue(maxsize=16)
+
+        self.load_thread = threading.Thread(target=self.load_training_data)
+        self.load_thread.daemon = True
+        self.load_thread.start()
+
+    def load_test_data(self):
+        test_filename = '%s/test_samples.npy' % (self.batch_dir)
+        test_labels_oh_filename = '%s/test_labels_oh.npy' % (self.batch_dir)
+        test_labels_filename = '%s/test_labels.npy' % (self.batch_dir)
+
+        self.test_samples = np.load(test_filename)
+        self.test_labels_oh = np.load(test_labels_oh_filename)
+        self.test_labels = np.load(test_labels_filename)
+
+    def load_training_data(self):
+        batch_at = 0
         while self.keep_running:
-            #tic = time.time()
-            samples = np.zeros((self.batch_size, self.dim_data, self.dim_data))
-            labels = np.zeros((self.batch_size, self.n_classes))
+            samples_filename = '%s/batch_samples_%08d.npy' % (self.batch_dir, batch_at)
+            labels_filename = '%s/batch_labels_%08d.npy' % (self.batch_dir, batch_at)
 
-            for i in range(self.batch_size):
-                sample, label = self.load_next()
-
-                samples[i, :, :] = sample
-                labels[i, label] = 1
+            samples = np.load(samples_filename)
+            labels = np.load(labels_filename)
 
             batch = (samples, labels)
-            #toc = time.time()
-            #print 'took %f ms to load batch' % ((toc-tic)*1000)
             self.data_queue.put(batch)
 
-    def get_next(self):
+            batch_at = (batch_at + 1) % (self.n_batches)
+
+    def get_next_batch(self):
         item = self.data_queue.get()
         self.data_queue.task_done()
 
         return item
-
-    def get_next_batch(self):
-        return self.get_next()
 
     def queue_size(self):
         return self.data_queue.qsize()
@@ -118,7 +179,7 @@ class DataManager:
         self.keep_running = False
 
 if __name__ == '__main__':
-    dm = DataManager('/home/aushani/data/auto_encoder_data_bin_buffer/', batch_size=100, n_test_samples=100)
+    dm = DataManager('/home/aushani/data/batches/')
 
     nrows = 3
     ncols = 3

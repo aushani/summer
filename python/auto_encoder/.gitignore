@@ -2,3 +2,5 @@ MNIST_data
 *.png
 *.pyc
 logs
+checkpoint
+model.ckpt.*
