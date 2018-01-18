@@ -9,11 +9,16 @@ namespace library {
 namespace osg_nodes {
 
 PointCloud::PointCloud(const kt::VelodyneScan &scan) :
+ PointCloud(scan.GetHits()) {
+
+}
+
+PointCloud::PointCloud(const std::vector<Eigen::Vector3d> &hits) :
  osg::Geometry(),
  vertices_(new osg::Vec3Array),
  colors_(new osg::Vec4Array) {
 
-  for (const auto &hit : scan.GetHits()) {
+  for (const auto &hit : hits) {
     vertices_->push_back(osg::Vec3(hit.x(), hit.y(), hit.z()));
     double z = hit.z();
     double c = 0;
@@ -39,7 +44,7 @@ PointCloud::PointCloud(const kt::VelodyneScan &scan) :
   osg::ref_ptr<osg::StateSet> state = getOrCreateStateSet();
   state->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
   state->setAttribute(new osg::Point(3), osg::StateAttribute::ON);
-}
+ }
 
 } // osg_nodes
 } // library

@@ -80,9 +80,11 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
   lod->getUsage(*au);
   view->addEventHandler(lod);
 
+  bool zup = args->read("--zup");
+
   // rotate by x until z down
   // car RH coordinate frame has x forward, z down
-  osg::Matrixd H(osg::Quat(ut::DegreesToRadians(180), osg::Vec3d(1, 0, 0)));
+  osg::Matrixd H(osg::Quat(ut::DegreesToRadians(zup ? 0:180), osg::Vec3d(1, 0, 0)));
   // osg::Matrixd H(osg::Quat(0, osg::Vec3d(1, 0, 0)));
   osg::ref_ptr<osg::MatrixTransform> xform = new osg::MatrixTransform(H);
 
