@@ -70,15 +70,13 @@ class AutoEncoder:
         #tf.initialize_variables(opt_vars)
 
         uninit_vars = self.sess.run(tf.report_uninitialized_variables())
-        print uninit_vars
 
         # init
         for gb in tf.global_variables():
             for ui in uninit_vars:
                 if ui in gb.name:
-                    print ui, gb
+                    #print ui, gb
                     self.sess.run(gb.initializer)
-
 
         iter_step = n_iterations / 1000
         for iteration in range(n_iterations):
@@ -137,12 +135,9 @@ class AutoEncoder:
 
     def render_latent(self, fn='latent.png'):
         test_images = mnist.test.images
-        test_labels = mnist.test.labels
+        test_labels = np.argmax(mnist.test.labels, axis=1)
 
         latent = self.latent.eval(feed_dict = {self.input:test_images}, session=self.sess)
-
-        print test_labels.shape
-        print latent.shape
 
         plt.figure()
         plt.scatter(latent[:, 0], latent[:, 1], c=test_labels, s=2)
