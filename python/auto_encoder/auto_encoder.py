@@ -202,6 +202,9 @@ class AutoEncoder:
         pred_label = self.pred_label.eval(feed_dict = fd, session=self.sess)
         loss = self.sample_reconstruction_loss.eval(feed_dict = fd, session=self.sess)
 
+        # Fix later
+        loss = np.sum(loss, axis=1)
+
         return reconstructed, pred_label, loss
 
     def reconstruct_and_classify_2(self, samples):
