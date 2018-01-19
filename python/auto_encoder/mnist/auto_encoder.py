@@ -52,7 +52,7 @@ class AutoEncoder:
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
-    def train(self, n_iterations=10000, autoencoder=False, classifier=False, exp_name='exp'):
+    def train(self, n_iterations=10000, autoencoder=False, classifier=False, exp_name='exp', iteration0=0):
         loss = 0
         var_list = []
         if autoencoder:
@@ -79,7 +79,7 @@ class AutoEncoder:
                     self.sess.run(gb.initializer)
 
         iter_step = n_iterations / 1000
-        for iteration in range(n_iterations):
+        for iteration in range(iteration0, iteration0+n_iterations):
             if iteration % iter_step == 0:
                 print 'Iteration %d / %d = %5.3f %%' % (iteration, n_iterations, 100.0 * iteration/n_iterations)
 
