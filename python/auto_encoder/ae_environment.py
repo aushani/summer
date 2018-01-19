@@ -42,7 +42,8 @@ for x_at in range(0, dim_data - dim_window):
         i = i + 1
 
 ae = AutoEncoder(use_classification_loss=True)
-ae.restore("koopa_trained/model.ckpt")
+#ae.restore("koopa_trained/model.ckpt")
+ae.restore("model_02520000.ckpt")
 
 print 'Sample shape', samples.shape
 
