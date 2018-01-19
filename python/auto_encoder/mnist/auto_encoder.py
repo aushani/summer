@@ -63,7 +63,7 @@ class AutoEncoder:
             loss += self.classification_loss
             var_list += tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='classifier')
 
-        opt = tf.train.AdamOptimizer(1e-4)
+        opt = tf.train.AdamOptimizer(1e-3)
         train_step = opt.minimize(loss, var_list = var_list)
 
         #opt_vars = [v for v in tf.global_variables() if 'beta' in v.name]
@@ -78,7 +78,7 @@ class AutoEncoder:
                     #print ui, gb
                     self.sess.run(gb.initializer)
 
-        iter_step = n_iterations / 1000
+        iter_step = n_iterations / 100
         for iteration in range(iteration0, iteration0+n_iterations):
             if iteration % iter_step == 0:
                 print 'Iteration %d / %d = %5.3f %%' % (iteration, n_iterations, 100.0 * iteration/n_iterations)
@@ -89,6 +89,8 @@ class AutoEncoder:
 
                 self.render_examples(fn='ae_ex_%s_%08d.png' % (exp_name, iteration))
                 self.render_latent(fn='ae_latent_%s_%08d.png' % (exp_name, iteration))
+
+                print '\tRendered plots'
 
             batch = mnist.train.next_batch(100)
             fd = {self.input:batch[0], self.label:batch[1]}
@@ -108,7 +110,8 @@ class AutoEncoder:
         reconstructed_images = self.reconstruction.eval(feed_dict = {self.input:test_images}, session=self.sess)
         pred_labels = self.pred_label.eval(feed_dict = {self.input:test_images}, session=self.sess)
 
-        plt.figure()
+        plt.figure(1)
+        plt.clf()
         for i in range(n_images):
             im1 = test_images[i]
             im2 = reconstructed_images[i]
@@ -139,7 +142,8 @@ class AutoEncoder:
 
         latent = self.latent.eval(feed_dict = {self.input:test_images}, session=self.sess)
 
-        plt.figure()
+        plt.figure(2)
+        plt.clf()
         plt.scatter(latent[:, 0], latent[:, 1], c=test_labels, s=2)
         plt.title('Latent Representation')
         plt.grid(True)
