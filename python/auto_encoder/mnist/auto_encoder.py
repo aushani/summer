@@ -3,6 +3,9 @@ from tensorflow.examples.tutorials.mnist import input_data
 import matplotlib.pyplot as plt
 import numpy as np
 
+plt.switch_backend('agg')
+mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+
 class AutoEncoder:
 
     def __init__(self):
@@ -50,8 +53,6 @@ class AutoEncoder:
         self.sess.run(tf.global_variables_initializer())
 
     def train(self, n_iterations=10000, autoencoder=False, classifier=False, exp_name='exp'):
-        mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-
         loss = 0
         var_list = []
         if autoencoder:
@@ -79,7 +80,7 @@ class AutoEncoder:
                     self.sess.run(gb.initializer)
 
 
-        iter_step = n_iterations / 100
+        iter_step = n_iterations / 1000
         for iteration in range(n_iterations):
             if iteration % iter_step == 0:
                 print 'Iteration %d / %d = %5.3f %%' % (iteration, n_iterations, 100.0 * iteration/n_iterations)
@@ -89,7 +90,7 @@ class AutoEncoder:
                 print '\tOverall accuracy', accuracy.eval(feed_dict = {self.input: mnist.test.images, self.label: mnist.test.labels}, session=self.sess)
 
                 self.render_examples(fn='ae_ex_%s_%08d.png' % (exp_name, iteration))
-                self.render_latent(fn='ae_latent_%s_%08d.png' % exp_name, iteration))
+                self.render_latent(fn='ae_latent_%s_%08d.png' % (exp_name, iteration))
 
             batch = mnist.train.next_batch(100)
             fd = {self.input:batch[0], self.label:batch[1]}
@@ -100,8 +101,6 @@ class AutoEncoder:
         print 'Overall accuracy', accuracy.eval(feed_dict = {self.input: mnist.test.images, self.label: mnist.test.labels}, session=self.sess)
 
     def render_examples(self, n_images=20, fn='examples.png'):
-        mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-
         test_images = mnist.test.images
         test_labels = mnist.test.labels
 
@@ -137,8 +136,6 @@ class AutoEncoder:
         plt.savefig(fn)
 
     def render_latent(self, fn='latent.png'):
-        mnist = input_data.read_data_sets('MNIST_data', one_hot=False)
-
         test_images = mnist.test.images
         test_labels = mnist.test.labels
 
