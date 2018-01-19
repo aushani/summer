@@ -122,7 +122,7 @@ class BatchMaker:
 
 
 class DataManager:
-    def __init__(self, batch_dir):
+    def __init__(self, batch_dir, start_at=0):
         self.batch_dir = batch_dir
 
         files = [f for f in os.listdir(self.batch_dir) if os.path.isfile(os.path.join(self.batch_dir, f))]
@@ -139,6 +139,7 @@ class DataManager:
         self.keep_running = True
         self.data_queue = Queue.Queue(maxsize=16)
 
+        self.batch_at = start_at % self.n_batches
         self.load_thread = threading.Thread(target=self.load_training_data)
         self.load_thread.daemon = True
         self.load_thread.start()
@@ -153,10 +154,9 @@ class DataManager:
         self.test_labels = np.load(test_labels_filename)
 
     def load_training_data(self):
-        batch_at = 0
         while self.keep_running:
-            samples_filename = '%s/batch_samples_%08d.npy' % (self.batch_dir, batch_at)
-            labels_filename = '%s/batch_labels_%08d.npy' % (self.batch_dir, batch_at)
+            samples_filename = '%s/batch_samples_%08d.npy' % (self.batch_dir, self.batch_at)
+            labels_filename = '%s/batch_labels_%08d.npy' % (self.batch_dir, self.batch_at)
 
             samples = np.load(samples_filename)
             labels = np.load(labels_filename)
@@ -164,7 +164,7 @@ class DataManager:
             batch = (samples, labels)
             self.data_queue.put(batch)
 
-            batch_at = (batch_at + 1) % (self.n_batches)
+            self.batch_at = (self.batch_at + 1) % (self.n_batches)
 
     def get_next_batch(self):
         item = self.data_queue.get()

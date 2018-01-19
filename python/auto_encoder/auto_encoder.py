@@ -100,23 +100,24 @@ class AutoEncoder:
 
         self.summaries = tf.summary.merge_all()
 
-    def train(self, data_manager):
+    def train(self, data_manager, iteration=0):
         # Set up writer
         self.writer = tf.summary.FileWriter('./logs', self.sess.graph)
 
         # Save checkpoints
         saver = tf.train.Saver()
 
-        self.sess.run(tf.global_variables_initializer())
+        if iteration==0:
+            self.sess.run(tf.global_variables_initializer())
+
         #iter_step = n_iterations / 100
-        iter_summaries = 100
+        iter_summaries = 1000
         iter_plots = 10000
 
         test_samples, test_labels = data_manager.test_samples, data_manager.test_labels_oh
         fd_test = {self.input:test_samples, self.label:test_labels}
 
         tic_step = time.time()
-        iteration = 0
         while True:
             sample, cn = data_manager.get_next_batch()
             fd = {self.input:sample, self.label:cn}
@@ -147,7 +148,7 @@ class AutoEncoder:
                 toc_plots = time.time()
                 print '\tPlots in %f sec' % (toc_plots - tic_plots)
 
-                save_path = saver.save(self.sess, "./model.ckpt")
+                save_path = saver.save(self.sess, "./model_%08d.ckpt" % (iteration))
 
                 tic_step = time.time()
 
@@ -157,7 +158,7 @@ class AutoEncoder:
     def restore(self, filename):
         saver = tf.train.Saver()
         saver.restore(self.sess, filename)
-        print 'Restored model'
+        print 'Restored model from', filename
 
     def render_examples(self, data_manager, n_samples=30, fn='examples.png'):
         test_samples, test_labels = data_manager.test_samples, data_manager.test_labels
