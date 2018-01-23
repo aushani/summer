@@ -47,19 +47,22 @@ void OccGridExtractor::Run() {
 
     // Process classes in sim
     for (const auto &shape : shapes) {
+      // Set up random center point in object
+      std::uniform_real_distribution<double> x_coord(shape.GetMinX(), shape.GetMaxX());
+      std::uniform_real_distribution<double> y_coord(shape.GetMinY(), shape.GetMaxY());
+
       for (int ex=0; ex<kEntriesPerObj_; ex++) {
-        // Jitter
-        double dx = jitter_pos(rand_engine_);
-        double dy = jitter_pos(rand_engine_);
-        double dt = jitter_angle(rand_engine_);
-
-        double x = shape.GetCenter()(0);
-        double y = shape.GetCenter()(1);
+        double x = x_coord(rand_engine_);
+        double y = y_coord(rand_engine_);
         double z = 0;
-        double t = -shape.GetAngle();
+        double theta = 0;
 
-        //og_builder_.SetPose(Eigen::Vector3d(x + dx, y + dy, z), t + dt);
-        og_builder_.SetPose(Eigen::Vector3d(x + dx, y + dy, z), 0);
+        while (!shape.IsInside(x, y)) {
+          x = x_coord(rand_engine_);
+          y = y_coord(rand_engine_);
+        }
+
+        og_builder_.SetPose(Eigen::Vector3d(x, y, z), theta);
 
         // Make occ grid
         rt::OccGrid og = og_builder_.GenerateOccGrid(scan);
