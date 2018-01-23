@@ -3,4 +3,4 @@ MNIST_data
 *.pyc
 logs
 checkpoint
-model.ckpt.*
+model*.ckpt.*
