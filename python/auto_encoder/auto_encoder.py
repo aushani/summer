@@ -64,12 +64,9 @@ class AutoEncoder:
         # simple reconstruction loss
         #self.reconstruction_loss = tf.reduce_mean(tf.squared_difference(self.reconstruction, flattened))
 
-        # Compute difference, but weight unknown less
-        diff = tf.squared_difference(self.reconstruction, window)
-        weight = tf.abs(window - 0.5) * 2
-        cost = weight * diff
-
-        self.sample_reconstruction_loss = tf.reduce_mean(cost, axis=1)
+        # Compute p(diff) = p1 ( 1 - p2) + (1 - p1) p2
+        diff = self.reconstruction * (1 - window) + (1 - self.reconstruction) * window
+        self.sample_reconstruction_loss = tf.reduce_mean(tf.reduce_mean(diff, axis=1), axis=1)
         reconstruction_loss = tf.reduce_mean(self.sample_reconstruction_loss)
 
         # Loss according to gen. and dis. vox modeling by brock, lim, ritchie, weston
@@ -143,8 +140,8 @@ class AutoEncoder:
 
             if iteration % iter_plots == 0:
                 tic_plots = time.time()
-                self.render_examples(data_manager, fn='autoencoder_examples_%08d.png' % iteration)
-                self.render_latent(data_manager, fn='autoencoder_latent_%08d.png' % iteration)
+                self.render_examples(data_manager, fn='autoencoder_examples_%08d.svg' % iteration)
+                self.render_latent(data_manager, fn='autoencoder_latent_%08d.svg' % iteration)
                 toc_plots = time.time()
                 print '\tPlots in %f sec' % (toc_plots - tic_plots)
 
@@ -166,7 +163,7 @@ class AutoEncoder:
         reconstructed_samples = self.reconstruction.eval(feed_dict = {self.input:test_samples}, session=self.sess)
         pred_labels = self.pred_label.eval(feed_dict = {self.input:test_samples}, session=self.sess)
 
-        plt.figure()
+        plt.clf()
         for i in range(n_samples):
             im1 = test_samples[i, :, :]
             im2 = reconstructed_samples[i]
@@ -234,7 +231,7 @@ class AutoEncoder:
 
         latent = self.latent.eval(feed_dict = {self.input:test_samples}, session=self.sess)
 
-        plt.figure()
+        plt.clf()
         plt.scatter(latent[:, 0], latent[:, 1], c=test_labels)
         plt.title('Latent Representation')
         plt.grid(True)
