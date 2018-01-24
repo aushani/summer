@@ -22,7 +22,7 @@ class EnvironmentGenerator {
 
  private:
   static constexpr double kRes = 0.30;         // 30 cm
-  static constexpr int kPixelSize_ = 100;      // 30 m
+  static constexpr int kPixelSize_ = 200;      // 60 m
 
   rt::OccGridBuilder og_builder_;
   sw::DataManager data_manager_;
