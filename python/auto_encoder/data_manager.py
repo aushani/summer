@@ -78,6 +78,9 @@ class BatchMaker:
         num_voxels = self.dim_data*self.dim_data
 
         grid = np.fromfile(path, dtype=np.float32, count=num_voxels)
+        grid[grid<0.5] = 0.0
+        grid[grid>0.5] = 1.0
+
         grid = np.reshape(grid, [self.dim_data, self.dim_data])
 
         classname = filename[0:3]
