@@ -61,19 +61,27 @@ class AutoEncoder:
 
         classification_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.label, logits=self.pred_label))
 
-        # simple reconstruction loss
-        #self.reconstruction_loss = tf.reduce_mean(tf.squared_difference(self.reconstruction, flattened))
+        # Compute cost
+        # Weight evenly between known and unknown space
+        zero_cost = tf.zeros_like(self.reconstruction)
 
-        # Compute p(diff) = p1 ( 1 - p2) + (1 - p1) p2
-        diff = self.reconstruction * (1 - window) + (1 - self.reconstruction) * window
-        self.sample_reconstruction_loss = tf.reduce_mean(tf.reduce_mean(diff, axis=1), axis=1)
+        free_mask = tf.less(window, 0.5)
+        occu_mask = tf.greater(window, 0.5)
+
+        n_free = tf.reduce_sum(tf.reduce_sum(tf.cast(free_mask, tf.float32), axis=1), axis=1)
+        n_occu = tf.reduce_sum(tf.reduce_sum(tf.cast(occu_mask, tf.float32), axis=1), axis=1)
+
+        self.cost_free = tf.where(free_mask, self.reconstruction, zero_cost)
+        self.cost_occu = tf.where(occu_mask, 1-self.reconstruction, zero_cost)
+
+        # add a tiny something to denominator in case it's 0
+        self.cost_free = tf.reduce_sum(tf.reduce_sum(self.cost_free, axis=1), axis=1) / (n_free + 1e-20)
+        self.cost_occu = tf.reduce_sum(tf.reduce_sum(self.cost_occu, axis=1), axis=1) / (n_occu + 1e-20)
+
+        self.sample_reconstruction_loss = (self.cost_free + self.cost_occu) / 2
+
+        # Mean over batch
         reconstruction_loss = tf.reduce_mean(self.sample_reconstruction_loss)
-
-        # Loss according to gen. and dis. vox modeling by brock, lim, ritchie, weston
-        #target = flattened * 3 - 1
-        #output = reconstruction * 0.9 + 0.1
-        #gamma = 0.97
-        #reconstruction_loss = tf.reduce_mean(-gamma * target*tf.log(output) - (1-gamma) * (1-target)*tf.log(1-output))
 
         if use_classification_loss:
             self.loss = classification_loss + 1e3 * reconstruction_loss
@@ -140,8 +148,8 @@ class AutoEncoder:
 
             if iteration % iter_plots == 0:
                 tic_plots = time.time()
-                self.render_examples(data_manager, fn='autoencoder_examples_%08d.svg' % iteration)
-                self.render_latent(data_manager, fn='autoencoder_latent_%08d.svg' % iteration)
+                self.render_examples(data_manager, fn='autoencoder_examples_%08d.png' % iteration)
+                self.render_latent(data_manager, fn='autoencoder_latent_%08d.png' % iteration)
                 toc_plots = time.time()
                 print '\tPlots in %f sec' % (toc_plots - tic_plots)
 
