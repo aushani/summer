@@ -5,7 +5,7 @@ from data_manager import *
 import time
 
 class AutoEncoder:
-    def __init__(self, use_classification_loss = False):
+    def __init__(self):
         self.sess = tf.Session()
 
         # Size of data we're given
@@ -26,7 +26,7 @@ class AutoEncoder:
         self.input = tf.placeholder(tf.float32, shape=[None, self.dim_data, self.dim_data])
         self.label = tf.placeholder(tf.float32, shape=[None, self.n_classes])
 
-        flattened = tf.reshape(self.input, [-1, self.dim_data * self.dim_data])
+        single_channel = tf.expand_dims(self.input, -1)
 
         # Get the window we're interested in
         x0 = self.dim_data/2 - self.dim_window/2
@@ -34,26 +34,38 @@ class AutoEncoder:
         window = self.input[:, x0:x1, x0:x1]
 
         # Encoder
-        l1 = tf.contrib.layers.fully_connected(flattened, 50,
+        l1 = tf.contrib.layers.conv2d(single_channel, num_outputs=50, kernel_size=self.dim_window, stride=2,
                 activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
 
-        l2 = tf.contrib.layers.fully_connected(l1, 150,
+        l2 = tf.contrib.layers.conv2d(l1, num_outputs=150, kernel_size=2, stride=2,
                 activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
 
-        self.latent = tf.contrib.layers.fully_connected(l2, self.dim_latent,
+        self.latent = tf.contrib.layers.fully_connected(tf.contrib.layers.flatten(l2), self.dim_latent,
                 activation_fn=None, weights_regularizer=regularizer)
 
         # Decoder
-        l3 = tf.contrib.layers.fully_connected(self.latent, 150,
+        l3 = tf.contrib.layers.fully_connected(self.latent, 150*8*8,
                 activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
 
-        l4 = tf.contrib.layers.fully_connected(l3, 50,
+        l3 = tf.reshape(l3, [-1, 8, 8, 150])
+
+        l4 = tf.contrib.layers.conv2d_transpose(l3, num_outputs=50, kernel_size=2, stride=2,
                 activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
 
-        output = tf.contrib.layers.fully_connected(l4, self.dim_window * self.dim_window,
+        output = tf.contrib.layers.conv2d_transpose(l4, num_outputs=1, kernel_size=self.dim_window, stride=2,
                 activation_fn=tf.nn.sigmoid, weights_regularizer=regularizer)
 
-        self.reconstruction = tf.reshape(output, [-1, self.dim_window, self.dim_window])
+        self.reconstruction = tf.squeeze(output[:, 0:31, 0:31, :], axis=3)
+
+        print 'Input', self.input.shape
+        print 'L1   ', l1.shape
+        print 'L2   ', l2.shape
+        print 'Latnt', self.latent.shape
+        print 'L3   ', l3.shape
+        print 'L4   ', l4.shape
+        print 'Outpt', output.shape
+        print 'Recst', self.reconstruction.shape
+        print 'Windw', window.shape
 
         # Classifier
         self.pred_label = tf.contrib.layers.fully_connected(self.latent, self.n_classes,
@@ -83,11 +95,11 @@ class AutoEncoder:
         # Mean over batch
         reconstruction_loss = tf.reduce_mean(self.sample_reconstruction_loss)
 
-        if use_classification_loss:
-            self.loss = classification_loss + 1e3 * reconstruction_loss
-        else:
-            self.loss = reconstruction_loss
+        # Some cost for confidence
+        conf_cost = 1e-3 * tf.reduce_sum(tf.abs(self.reconstruction - 0.5))
 
+        # Loss
+        self.loss = classification_loss + 1e3 * reconstruction_loss + conf_cost
         reg_losses = sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
         self.loss += reg_losses
 
@@ -210,20 +222,26 @@ class AutoEncoder:
 
         return reconstructed, pred_label, loss
 
-    def reconstruct_and_classify_2(self, samples):
+    def reconstruct_and_classify_2(self, samples, chunk=1):
         n = samples.shape[0]
-        reconstructions = np.zeros((n, self.dim_window*self.dim_window))
+        reconstructions = np.zeros((n, self.dim_window, self.dim_window))
         pred_labels = np.zeros((n, self.n_classes))
         losses = np.zeros((n))
 
-        for i, sample in enumerate(samples):
-            reconstructed, pred_label, loss =  self.reconstruct_and_classify(sample)
+        for i in range(0, n, chunk):
+            i0 = i
+            i1 = i + chunk
+            if i1 > n:
+                i1 = n
 
-            reconstructions[i, :] = reconstructed
-            pred_labels[i, :] = pred_label
-            losses[i] = loss
+            print '%d - %d / %d' % (i0, i1, n)
+            sample_chunk = samples[i0:i1, :, :]
 
-            print i, n
+            reconstructed, pred_label, loss =  self.reconstruct_and_classify(sample_chunk)
+
+            reconstructions[i0:i1, :, :] = reconstructed
+            pred_labels[i0:i1, :] = pred_label
+            losses[i0:i1] = loss
 
         return reconstructions, pred_labels, losses
 
