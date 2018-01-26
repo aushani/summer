@@ -14,6 +14,9 @@ class Grid:
         fp.close()
 
         grid = np.asarray(grid_bin)
+        grid[grid<0.5] = 0.0
+        grid[grid>0.5] = 1.0
+
         self.grid = np.reshape(grid, [dim_grid, dim_grid])
 
     def get_sample(self, xc, yc, dim_input=16*3*2-1):
