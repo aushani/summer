@@ -9,8 +9,8 @@ def check(i, pred_label, maglist, samples):
     if np.argmax(pred_label[i, :]) == 0:
         return False
 
-    if maglist[i] < 0.95:
-        return False
+    #if maglist[i] < 0.95:
+    #    return False
 
     #sample = samples[i, :, :]
     #dim_data = 16*3*2 - 1
@@ -41,13 +41,14 @@ samples, coords = grid.get_samples(x0, x1, y0, y1)
 
 dim_window = 31
 
-ae = AutoEncoder(use_classification_loss=True)
-ae.restore("jan25/model_00550000.ckpt")
+ae = AutoEncoder()
+#ae.restore("jan25/model_00550000.ckpt")
+ae.restore("model_00160000.ckpt")
 
 print 'Sample shape', samples.shape
 
 tic = time.time()
-sample_reconstructions, pred_label, losses = ae.reconstruct_and_classify(samples)
+sample_reconstructions, pred_label, losses = ae.reconstruct_and_classify_2(samples, chunk=2500)
 toc = time.time()
 print 'Took %5.3f ms' % ((toc - tic)*1e3)
 
@@ -83,8 +84,8 @@ loss_map[x0:x1, y0:y1] = np.reshape(losses, (x1-x0, y1-y0))
 
 n_samples = samples.shape[0]
 for i in range(n_samples):
-    if i % 1000 == 0:
-        print i, n_samples
+    if i % 10000 == 0:
+        print '%d / %d' % (i, n_samples)
 
     if not check(i, pred_label, maglist, samples):
         continue
@@ -183,8 +184,8 @@ plt.title('Reconstruction')
 plt.subplot(2, 2, 3, sharex=ax1, sharey=ax1)
 #plt.subplot(2, 2, 3)
 plt.scatter(used_coords[:, 1], used_coords[:, 0], s=used_counts/10, marker='x', c='k')
-#plt.imshow(p0_map)
-plt.imshow(loss_map)
+plt.imshow(p0_map)
+#plt.imshow(loss_map)
 #plt.axis('off')
 plt.title('Classification')
 plt.colorbar()
@@ -196,7 +197,7 @@ plt.imshow(confidence_map)
 #plt.axis('off')
 plt.colorbar()
 plt.title('Confidence')
-plt.clim(0.8, 1.0)
+plt.clim(0.0, 1.0)
 
 #plt.imshow(np.log10(losses_map))
 #plt.axis('off')

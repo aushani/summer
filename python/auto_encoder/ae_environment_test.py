@@ -13,8 +13,8 @@ grid = Grid(path, dim_grid)
 
 dim_window = 31
 
-nrows = 24
-ncols = 24
+nrows = 32
+ncols = 32
 
 xc = 180
 yc = 160
@@ -27,9 +27,10 @@ y1 = y0 + ncols
 
 samples, coords = grid.get_samples(x0, x1, y0, y1)
 
-ae = AutoEncoder(use_classification_loss=True)
+ae = AutoEncoder()
 #ae.restore("koopa_trained/model_01070000.ckpt")
-ae.restore("jan25/model_00550000.ckpt")
+#ae.restore("jan25/model_00550000.ckpt")
+ae.restore("model_00160000.ckpt")
 
 print 'Sample shape', samples.shape
 
