@@ -20,13 +20,11 @@ class AutoEncoder:
         self.dim_latent = 10
 
         reg_scale = 1e-7
-        regularizer = tf.contrib.layers.l2_regularizer(reg_scale)
+        self.regularizer = tf.contrib.layers.l2_regularizer(reg_scale)
 
         #self.input = tf.placeholder(tf.float32, shape=[None, dim_data])
         self.input = tf.placeholder(tf.float32, shape=[None, self.dim_data, self.dim_data])
         self.label = tf.placeholder(tf.float32, shape=[None, self.n_classes])
-
-        single_channel = tf.expand_dims(self.input, -1)
 
         # Get the window we're interested in
         x0 = self.dim_data/2 - self.dim_window/2
@@ -34,42 +32,14 @@ class AutoEncoder:
         window = self.input[:, x0:x1, x0:x1]
 
         # Encoder
-        l1 = tf.contrib.layers.conv2d(single_channel, num_outputs=50, kernel_size=self.dim_window, stride=2,
-                activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
-
-        l2 = tf.contrib.layers.conv2d(l1, num_outputs=150, kernel_size=2, stride=2,
-                activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
-
-        self.latent = tf.contrib.layers.fully_connected(tf.contrib.layers.flatten(l2), self.dim_latent,
-                activation_fn=None, weights_regularizer=regularizer)
+        self.make_encoder()
 
         # Decoder
-        l3 = tf.contrib.layers.fully_connected(self.latent, 150*8*8,
-                activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
-
-        l3 = tf.reshape(l3, [-1, 8, 8, 150])
-
-        l4 = tf.contrib.layers.conv2d_transpose(l3, num_outputs=50, kernel_size=2, stride=2,
-                activation_fn=tf.nn.tanh, weights_regularizer=regularizer)
-
-        output = tf.contrib.layers.conv2d_transpose(l4, num_outputs=1, kernel_size=self.dim_window, stride=2,
-                activation_fn=tf.nn.sigmoid, weights_regularizer=regularizer)
-
-        self.reconstruction = tf.squeeze(output[:, 0:31, 0:31, :], axis=3)
-
-        print 'Input', self.input.shape
-        print 'L1   ', l1.shape
-        print 'L2   ', l2.shape
-        print 'Latnt', self.latent.shape
-        print 'L3   ', l3.shape
-        print 'L4   ', l4.shape
-        print 'Outpt', output.shape
-        print 'Recst', self.reconstruction.shape
-        print 'Windw', window.shape
+        self.make_decoder()
 
         # Classifier
         self.pred_label = tf.contrib.layers.fully_connected(self.latent, self.n_classes,
-                activation_fn=None, weights_regularizer=regularizer)
+                activation_fn=None, weights_regularizer=self.regularizer)
 
         classification_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.label, logits=self.pred_label))
 
@@ -117,6 +87,75 @@ class AutoEncoder:
 
         self.summaries = tf.summary.merge_all()
 
+    def make_encoder(self):
+        single_channel = tf.expand_dims(self.input, -1)
+
+        l1 = tf.contrib.layers.conv2d(single_channel, num_outputs=50, kernel_size=self.dim_window, stride=1,
+                padding='VALID', activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+
+        l2 = tf.contrib.layers.conv2d(l1, num_outputs=150, kernel_size=1, stride=1,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+
+        l3 = tf.contrib.layers.conv2d(l2, num_outputs=self.dim_latent, kernel_size=1, stride=1,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+
+        l4 = tf.contrib.layers.conv2d(l3, num_outputs=self.dim_latent, kernel_size=2, stride=1,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+        l4 = tf.contrib.layers.max_pool2d(l4, kernel_size=2, stride=2)
+
+        l5 = tf.contrib.layers.conv2d(l4, num_outputs=self.dim_latent, kernel_size=2, stride=1,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+        l5 = tf.contrib.layers.max_pool2d(l5, kernel_size=2, stride=2)
+
+        l6 = tf.contrib.layers.conv2d(l5, num_outputs=self.dim_latent, kernel_size=2, stride=1,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+        l6 = tf.contrib.layers.max_pool2d(l6, kernel_size=2, stride=2)
+
+        self.latent = tf.contrib.layers.fully_connected(tf.contrib.layers.flatten(l6), self.dim_latent,
+                activation_fn=None, weights_regularizer=self.regularizer)
+
+        print 'Encoder'
+        print 'Input  ', self.input.shape
+        print 'L1     ', l1.shape
+        print 'L2     ', l2.shape
+        print 'L3     ', l3.shape
+        print 'L4     ', l4.shape
+        print 'L5     ', l5.shape
+        print 'L6     ', l6.shape
+        print 'Latent ', self.latent.shape
+
+    def make_decoder(self):
+        l1 = tf.contrib.layers.fully_connected(self.latent, self.dim_latent*8*8,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+
+        l1 = tf.reshape(l1, [-1, 8, 8, self.dim_latent])
+
+        l2 = tf.contrib.layers.conv2d_transpose(l1, num_outputs=self.dim_latent, kernel_size=1, stride=2,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+
+        l3 = tf.contrib.layers.conv2d_transpose(l2, num_outputs=self.dim_latent, kernel_size=1, stride=2,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+
+        l4 = tf.contrib.layers.conv2d_transpose(l3, num_outputs=150, kernel_size=1, stride=1,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+
+        l5 = tf.contrib.layers.conv2d_transpose(l4, num_outputs=50, kernel_size=1, stride=1,
+                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+
+        output = tf.contrib.layers.conv2d_transpose(l5, num_outputs=1, kernel_size=self.dim_window, stride=1,
+                activation_fn=tf.nn.sigmoid, weights_regularizer=self.regularizer)
+
+        self.reconstruction = tf.squeeze(output[:, 0:31, 0:31, :], axis=3)
+
+        print 'Decoder'
+        print 'L1     ', l1.shape
+        print 'L2     ', l2.shape
+        print 'L3     ', l3.shape
+        print 'L4     ', l4.shape
+        print 'L5     ', l5.shape
+        print 'Output ', output.shape
+        print 'Res    ', self.reconstruction.shape
+
     def train(self, data_manager, iteration=0):
         # Set up writer
         self.writer = tf.summary.FileWriter('./logs', self.sess.graph)
@@ -128,8 +167,8 @@ class AutoEncoder:
             self.sess.run(tf.global_variables_initializer())
 
         #iter_step = n_iterations / 100
-        iter_summaries = 1000
-        iter_plots = 10000
+        iter_summaries = 100
+        iter_plots = 1000
 
         test_samples, test_labels = data_manager.test_samples, data_manager.test_labels_oh
         fd_test = {self.input:test_samples, self.label:test_labels}
