@@ -10,7 +10,7 @@ namespace app {
 namespace sim_world_occ_grids {
 
 OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
- og_builder_(10000, 0.3, 400.0),
+ og_builder_(10000, kPosRes_, 100.0),
  data_manager_(4, false, false),
  rand_engine_(std::chrono::system_clock::now().time_since_epoch().count()),
  save_base_path_(save_base_fn) {
@@ -48,19 +48,17 @@ void OccGridExtractor::Run() {
     // Process classes in sim
     for (const auto &shape : shapes) {
       // Set up random center point in object
-      std::uniform_real_distribution<double> x_coord(shape.GetMinX(), shape.GetMaxX());
-      std::uniform_real_distribution<double> y_coord(shape.GetMinY(), shape.GetMaxY());
+      double range = kPosRes_*kPixelSize_/6;
+      std::uniform_real_distribution<double> dx(-range, range);
+      std::uniform_real_distribution<double> dy(-range, range);
 
       for (int ex=0; ex<kEntriesPerObj_; ex++) {
-        double x = x_coord(rand_engine_);
-        double y = y_coord(rand_engine_);
+        double x = shape.GetCenter().x() + dx(rand_engine_);
+        double y = shape.GetCenter().y() + dy(rand_engine_);
         double z = 0;
         double theta = 0;
 
-        while (!shape.IsInside(x, y)) {
-          x = x_coord(rand_engine_);
-          y = y_coord(rand_engine_);
-        }
+        bool is_background = !shape.IsInside(x, y);
 
         og_builder_.SetPose(Eigen::Vector3d(x, y, z), theta);
 
@@ -75,8 +73,10 @@ void OccGridExtractor::Run() {
           fs::create_directories(dir);
         }
 
+        std::string label = is_background ? "BACKGROUND":shape.GetName();
+
         char fn[1000];
-        sprintf(fn, "%s_%08d.og", shape.GetName().c_str(), class_counts_[shape.GetName()]++);
+        sprintf(fn, "%s_%08d.og", label.c_str(), class_counts_[label]++);
         fs::path path = dir / fs::path(fn);
 
         //og.Save(fn);
@@ -85,7 +85,13 @@ void OccGridExtractor::Run() {
     }
 
     // Save background examples
-    for (int neg=0; neg<kEntriesPerObj_; neg++) {
+    int n_ex = kEntriesPerObj_;
+    if (class_counts_["BACKGROUND"] > class_counts_["STAR"] &&
+        class_counts_["BACKGROUND"] > class_counts_["BOX"]) {
+      n_ex = 1;
+    }
+
+    for (int neg=0; neg<n_ex; neg++) {
       double x = unif(rand_engine_);
       double y = unif(rand_engine_);
       double z = 0;
@@ -119,7 +125,7 @@ void OccGridExtractor::Run() {
         }
 
         char fn[1000];
-        sprintf(fn, "BACKGROUND_%06d.og", class_counts_["BACKGROUND"]++);
+        sprintf(fn, "BACKGROUND_%08d.og", class_counts_["BACKGROUND"]++);
         fs::path path = dir / fs::path(fn);
 
         //og.Save(fn);

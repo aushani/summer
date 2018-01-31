@@ -153,7 +153,7 @@ bool Shape::Intersects(const Shape &shape) const {
   return false;
 }
 
-Eigen::Vector2d Shape::GetCenter() const {
+const Eigen::Vector2d& Shape::GetCenter() const {
   return center_;
 }
 

@@ -17,7 +17,7 @@ class Shape {
   bool IsInside(double x, double y) const;
   bool Intersects(const Shape &shape) const;
 
-  Eigen::Vector2d GetCenter() const;
+  const Eigen::Vector2d& GetCenter() const;
   double GetAngle() const;
 
   double GetMinX() const;
