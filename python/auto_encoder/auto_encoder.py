@@ -6,7 +6,10 @@ import time
 
 class AutoEncoder:
     def __init__(self):
-        self.sess = tf.Session()
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+
+        self.sess = tf.Session(config=config)
 
         # Size of data we're given
         self.dim_data = 16*3*2 - 1
@@ -38,8 +41,7 @@ class AutoEncoder:
         self.make_decoder()
 
         # Classifier
-        self.pred_label = tf.contrib.layers.fully_connected(self.latent, self.n_classes,
-                activation_fn=None, weights_regularizer=self.regularizer)
+        self.make_classifier()
 
         classification_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.label, logits=self.pred_label))
 
@@ -65,15 +67,17 @@ class AutoEncoder:
         # Mean over batch
         reconstruction_loss = tf.reduce_mean(self.sample_reconstruction_loss)
 
-        # Some cost for confidence
-        conf_cost = 1e-3 * tf.reduce_sum(tf.abs(self.reconstruction - 0.5))
+        # Some cost for confidence (ie, try to say unknown if truly unknown)
+        sample_conf_cost = tf.reduce_sum(tf.reduce_sum(tf.abs(self.reconstruction - 0.5), axis=1), axis=1)
+        conf_cost = tf.reduce_mean(sample_conf_cost)
 
         # Loss
-        self.loss = classification_loss + 1e3 * reconstruction_loss + conf_cost
+        self.loss = classification_loss + reconstruction_loss + 1e-4 * conf_cost
         reg_losses = sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
-        self.loss += reg_losses
+        #self.loss += reg_losses
 
-        self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.loss)
+        #self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.loss)
+        self.train_step = tf.train.AdagradOptimizer(1e-1).minimize(self.loss)
 
         # Accuracy
         correct_prediction = tf.equal(tf.argmax(self.label, 1), tf.argmax(self.pred_label, 1))
@@ -82,79 +86,87 @@ class AutoEncoder:
         # Summaries
         self.classification_loss_summary = tf.summary.scalar('classification_loss_summary', classification_loss)
         self.reconstruction_loss_summary = tf.summary.scalar('reconstruction_loss_summary', reconstruction_loss)
+        self.confidence_loss_summary = tf.summary.scalar('confidence_loss_summary', conf_cost)
         self.loss_summary = tf.summary.scalar('loss_summary', self.loss)
         self.accuracy_summary = tf.summary.scalar('accuracy_summary', self.accuracy)
 
         self.summaries = tf.summary.merge_all()
 
     def make_encoder(self):
-        single_channel = tf.expand_dims(self.input, -1)
+        with tf.variable_scope("encoder"):
+            single_channel = tf.expand_dims(self.input, -1)
 
-        l1 = tf.contrib.layers.conv2d(single_channel, num_outputs=50, kernel_size=self.dim_window, stride=1,
-                padding='VALID', activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l1 = tf.contrib.layers.conv2d(single_channel, num_outputs=50, kernel_size=self.dim_window, stride=1,
+                    padding='VALID', activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-        l2 = tf.contrib.layers.conv2d(l1, num_outputs=150, kernel_size=1, stride=1,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l2 = tf.contrib.layers.conv2d(l1, num_outputs=150, kernel_size=1, stride=1,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-        l3 = tf.contrib.layers.conv2d(l2, num_outputs=self.dim_latent, kernel_size=1, stride=1,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l3 = tf.contrib.layers.conv2d(l2, num_outputs=self.dim_latent, kernel_size=1, stride=1,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-        l4 = tf.contrib.layers.conv2d(l3, num_outputs=self.dim_latent, kernel_size=2, stride=1,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
-        l4 = tf.contrib.layers.max_pool2d(l4, kernel_size=2, stride=2)
+            l4 = tf.contrib.layers.conv2d(l3, num_outputs=self.dim_latent, kernel_size=2, stride=1,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l4 = tf.contrib.layers.max_pool2d(l4, kernel_size=2, stride=2)
 
-        l5 = tf.contrib.layers.conv2d(l4, num_outputs=self.dim_latent, kernel_size=2, stride=1,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
-        l5 = tf.contrib.layers.max_pool2d(l5, kernel_size=2, stride=2)
+            l5 = tf.contrib.layers.conv2d(l4, num_outputs=self.dim_latent, kernel_size=2, stride=1,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l5 = tf.contrib.layers.max_pool2d(l5, kernel_size=2, stride=2)
 
-        l6 = tf.contrib.layers.conv2d(l5, num_outputs=self.dim_latent, kernel_size=2, stride=1,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
-        l6 = tf.contrib.layers.max_pool2d(l6, kernel_size=2, stride=2)
+            l6 = tf.contrib.layers.conv2d(l5, num_outputs=self.dim_latent, kernel_size=2, stride=1,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l6 = tf.contrib.layers.max_pool2d(l6, kernel_size=2, stride=2)
 
-        self.latent = tf.contrib.layers.fully_connected(tf.contrib.layers.flatten(l6), self.dim_latent,
-                activation_fn=None, weights_regularizer=self.regularizer)
+            self.latent = tf.contrib.layers.fully_connected(tf.contrib.layers.flatten(l6), self.dim_latent,
+                    activation_fn=None, weights_regularizer=self.regularizer)
 
-        print 'Encoder'
-        print 'Input  ', self.input.shape
-        print 'L1     ', l1.shape
-        print 'L2     ', l2.shape
-        print 'L3     ', l3.shape
-        print 'L4     ', l4.shape
-        print 'L5     ', l5.shape
-        print 'L6     ', l6.shape
-        print 'Latent ', self.latent.shape
+            print 'Encoder'
+            print 'Input  ', self.input.shape
+            print 'L1     ', l1.shape
+            print 'L2     ', l2.shape
+            print 'L3     ', l3.shape
+            print 'L4     ', l4.shape
+            print 'L5     ', l5.shape
+            print 'L6     ', l6.shape
+            print 'Latent ', self.latent.shape
 
     def make_decoder(self):
-        l1 = tf.contrib.layers.fully_connected(self.latent, self.dim_latent*8*8,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+        with tf.variable_scope("decoder"):
+            l1 = tf.contrib.layers.fully_connected(self.latent, self.dim_latent*8*8,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-        l1 = tf.reshape(l1, [-1, 8, 8, self.dim_latent])
+            l1 = tf.reshape(l1, [-1, 8, 8, self.dim_latent])
 
-        l2 = tf.contrib.layers.conv2d_transpose(l1, num_outputs=self.dim_latent, kernel_size=1, stride=2,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l2 = tf.contrib.layers.conv2d_transpose(l1, num_outputs=self.dim_latent, kernel_size=1, stride=2,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-        l3 = tf.contrib.layers.conv2d_transpose(l2, num_outputs=self.dim_latent, kernel_size=1, stride=2,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l3 = tf.contrib.layers.conv2d_transpose(l2, num_outputs=self.dim_latent, kernel_size=1, stride=2,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-        l4 = tf.contrib.layers.conv2d_transpose(l3, num_outputs=150, kernel_size=1, stride=1,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l4 = tf.contrib.layers.conv2d_transpose(l3, num_outputs=150, kernel_size=1, stride=1,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-        l5 = tf.contrib.layers.conv2d_transpose(l4, num_outputs=50, kernel_size=1, stride=1,
-                activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
+            l5 = tf.contrib.layers.conv2d_transpose(l4, num_outputs=50, kernel_size=1, stride=1,
+                    activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-        output = tf.contrib.layers.conv2d_transpose(l5, num_outputs=1, kernel_size=self.dim_window, stride=1,
-                activation_fn=tf.nn.sigmoid, weights_regularizer=self.regularizer)
+            output = tf.contrib.layers.conv2d_transpose(l5, num_outputs=1, kernel_size=self.dim_window, stride=1,
+                    activation_fn=tf.nn.sigmoid, weights_regularizer=self.regularizer)
 
-        self.reconstruction = tf.squeeze(output[:, 0:31, 0:31, :], axis=3)
+            self.reconstruction = tf.squeeze(output[:, 0:31, 0:31, :], axis=3)
 
-        print 'Decoder'
-        print 'L1     ', l1.shape
-        print 'L2     ', l2.shape
-        print 'L3     ', l3.shape
-        print 'L4     ', l4.shape
-        print 'L5     ', l5.shape
-        print 'Output ', output.shape
-        print 'Res    ', self.reconstruction.shape
+            print 'Decoder'
+            print 'L1     ', l1.shape
+            print 'L2     ', l2.shape
+            print 'L3     ', l3.shape
+            print 'L4     ', l4.shape
+            print 'L5     ', l5.shape
+            print 'Output ', output.shape
+            print 'Res    ', self.reconstruction.shape
+
+    def make_classifier(self):
+        with tf.variable_scope("classifier"):
+            self.pred_label = tf.contrib.layers.fully_connected(self.latent, self.n_classes,
+                    activation_fn=None, weights_regularizer=self.regularizer)
 
     def train(self, data_manager, iteration=0):
         # Set up writer
