@@ -6,11 +6,18 @@ namespace app {
 namespace kitti_occ_grids {
 
 OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
- og_builder_(150000, kResolution_, 75.0),
+ og_builder_(150000, kResolution_, 100.0),
  camera_cal_("/home/aushani/data/kittidata/extracted/2011_09_26/"),
  rand_engine(std::chrono::system_clock::now().time_since_epoch().count()),
  save_base_path_(save_base_fn) {
-  og_builder_.ConfigureSizeInPixels(kPixelSize_, kPixelSize_, kPixelSize_); // +- 5 meters
+  // Set size
+  og_builder_.ConfigureSizeInPixels(kXYRangePixels_, kXYRangePixels_, kZRangePixels_);
+
+  // Make sure save path exists
+  if (!fs::exists(save_base_path_)) {
+    printf("Making path: %s\n", save_base_path_.string().c_str());
+    fs::create_directories(save_base_path_);
+  }
 }
 
 void OccGridExtractor::Run() {
@@ -62,12 +69,49 @@ bool OccGridExtractor::ProcessLog(int log_num) {
   return true;
 }
 
+std::string OccGridExtractor::GetClass(kt::Tracklets *tracklets, double x, double y, int frame) const {
+  kt::Tracklets::tPose* pose = nullptr;
+
+  for (int t_id=0; t_id<tracklets->numberOfTracklets(); t_id++) {
+    if (!tracklets->isActive(t_id, frame)) {
+      continue;
+    }
+
+    tracklets->getPose(t_id, frame, pose);
+    auto tt = tracklets->getTracklet(t_id);
+
+    Eigen::Affine3d rx(Eigen::AngleAxisd(pose->rx, Eigen::Vector3d(1, 0, 0)));
+    Eigen::Affine3d ry(Eigen::AngleAxisd(pose->ry, Eigen::Vector3d(0, 1, 0)));
+    Eigen::Affine3d rz(Eigen::AngleAxisd(pose->rz, Eigen::Vector3d(0, 0, 1)));
+    auto r = rx * ry * rz;
+    Eigen::Affine3d t(Eigen::Translation3d(Eigen::Vector3d(pose->tx, pose->ty, pose->tz)));
+    Eigen::Matrix4d X_tw = (t*r).matrix();
+    Eigen::Matrix4d X_wt = X_tw.inverse();
+    Eigen::Vector3d x_w(x, y, 0);
+    Eigen::Vector4d x_th = (X_wt * x_w.homogeneous());
+    Eigen::Vector3d x_t = x_th.hnormalized();
+
+    // Check if we're inside this track, otherwise this is not the track we
+    // are looking for...
+    if (std::fabs(x_t.x())<tt->l/2 && std::fabs(x_t.y())<tt->w/2) {
+        return tt->objectType;
+    }
+  }
+
+  // This is background
+  return "Background";
+}
+
 void OccGridExtractor::ProcessFrameObjects(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame) {
-  // Jitter objects
-  std::uniform_real_distribution<double> xy_unif(-kResolution_/2, kResolution_/2);
+  // Set up random center point in object
+  double range = kResolution_*kXYRangePixels_/3;
+  std::uniform_real_distribution<double> dx(-range, range);
+  std::uniform_real_distribution<double> dy(-range, range);
+
+  // Rotation
   std::uniform_real_distribution<double> theta_unif(-M_PI, M_PI);
 
-  // Go through tracklets and see which ones have hits
+  // Go through tracklets
   for (int t_id=0; t_id<tracklets->numberOfTracklets(); t_id++) {
     if (!tracklets->isActive(t_id, frame)) {
       continue;
@@ -82,104 +126,76 @@ void OccGridExtractor::ProcessFrameObjects(kt::Tracklets *tracklets, const kt::V
     kt::Tracklets::tPose* pose;
     tracklets->getPose(t_id, frame, pose);
 
-    // Sample objects in different orientations
+    // Sample objects in different orientations and positions
     for (int i = 0; i < kObjectInstances_; i++) {
-      // Get jitter
-      double dx = xy_unif(rand_engine);
-      double dy = xy_unif(rand_engine);
+      // Get sample position
+      double x = pose->tx;
+      double y = pose->ty;
+
+      // Add jitter (but skip first instance to make sure we get at least one
+      // sample of object)
+      if (i != 0) {
+        x += dx(rand_engine);
+        y += dy(rand_engine);
+      }
 
       // Angle offset
       double dt = theta_unif(rand_engine);
 
-      og_builder_.SetPose(Eigen::Vector3d(pose->tx + dx, pose->ty + dy, 0), pose->rz + dt);
-      library::timer::Timer t;
-      //rt::FeatureOccGrid fog = og_builder_.GenerateFeatureOccGrid(scan.GetHits(), scan.GetIntensities());
+      // Figure out class
+      std::string label = GetClass(tracklets, x, y, frame);
+
+      // Get occ grid
+      og_builder_.SetPose(Eigen::Vector3d(x, y, 0), pose->rz + dt);
       rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
-      //printf("Took %5.3f ms to get fog\n", t.GetMs());
 
-      // Save OccGrid
-      if (!fs::exists(save_base_path_)) {
-        printf("Making path: %s\n", save_base_path_.string().c_str());
-        fs::create_directories(save_base_path_);
-      }
-
+      // Save occ grid
       char fn[1000];
-      sprintf(fn, "%s_%04d_%04d_%04d_%04d.og", tt->objectType.c_str(), log_num, frame, t_id, i);
+      sprintf(fn, "%s_%04d_%04d_%04d_%04d.og", label.c_str(), log_num, frame, t_id, i);
       fs::path path = save_base_path_ / fs::path(fn);
 
-      t.Start();
-      //og.Save(path.string().c_str());
       DumpBin(og, path);
-      //printf("Took %5.3f ms to save fog\n", t.GetMs());
     }
   }
 }
 
-/*
 void OccGridExtractor::ProcessFrameBackground(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame) {
-  double lower_bound = -75.0;
-  double upper_bound = 75.0;
+  double lower_bound = -100.0;
+  double upper_bound = 100.0;
   std::uniform_real_distribution<double> xy_unif(lower_bound, upper_bound);
-  std::uniform_real_distribution<double> theta_unif(-kAngleRes_/2, kAngleRes_/2);
+  std::uniform_real_distribution<double> theta_unif(-M_PI, M_PI);
 
-  for (int angle_bin = 0; angle_bin < kAngleBins_; angle_bin++) {
-    int bg_sample = 0;
-    while (bg_sample < kJittersPerObject_) {
-      double x = xy_unif(rand_engine);
-      double y = xy_unif(rand_engine);
-      double t = theta_unif(rand_engine) + angle_bin * kAngleRes_;
+  int bg_sample = 0;
+  while (bg_sample < kObjectInstances_) {
+    double x = xy_unif(rand_engine);
+    double y = xy_unif(rand_engine);
+    double t = theta_unif(rand_engine);
 
-      // Make sure this is in camera view
-      if (!camera_cal_.InCameraView(x, y, 0)) {
-        continue;
-      }
-
-      // Make sure this isn't too close to any object
-      bool too_close = false;
-      for (int t_id=0; t_id<tracklets->numberOfTracklets(); t_id++) {
-        if (!tracklets->isActive(t_id, frame)) {
-          continue;
-        }
-
-        kt::Tracklets::tPose* pose;
-        tracklets->getPose(t_id, frame, pose);
-
-        if ( std::abs(pose->tx - x) < kPosRes_/2 &&
-             std::abs(pose->ty - y) < kPosRes_/2) {
-          too_close = true;
-          break;
-        }
-      }
-
-      if (too_close) {
-        continue;
-      }
-
-      og_builder_.SetPose(Eigen::Vector3d(x, y, 0), t);
-      //rt::FeatureOccGrid fog = og_builder_.GenerateFeatureOccGrid(scan.GetHits(), scan.GetIntensities());
-      rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
-
-      // Save FeatureOccGrid
-      char fn[1000];
-      sprintf(fn, "angle_bin_%02d", angle_bin);
-
-      fs::path dir = save_base_path_ / fs::path("Background") / fs::path(fn);
-      if (!fs::exists(dir)) {
-        printf("Making path: %s\n", dir.string().c_str());
-        fs::create_directories(dir);
-      }
-
-      //sprintf(fn, "%04d_%04d_%04d.fog", log_num, frame, bg_sample);
-      sprintf(fn, "%04d_%04d_%04d.og", log_num, frame, bg_sample);
-      fs::path path = dir / fs::path(fn);
-      //fog.Save(path.string().c_str());
-      DumpBin(og, path);
-
-      bg_sample++;
+    // Make sure this is in camera view
+    if (!camera_cal_.InCameraView(x, y, 0)) {
+      continue;
     }
+
+    // Make sure this is background
+    std::string label = GetClass(tracklets, x, y, frame);
+
+    if (label != "Background") {
+      continue;
+    }
+
+    // Get occ grid
+    og_builder_.SetPose(Eigen::Vector3d(x, y, 0), t);
+    rt::OccGrid og = og_builder_.GenerateOccGrid(scan.GetHits());
+
+    // Save OccGrid
+    char fn[1000];
+    sprintf(fn, "Background_%04d_%04d_%04d.og", log_num, frame, bg_sample);
+    fs::path path = save_base_path_ / fs::path(fn);
+    DumpBin(og, path);
+
+    bg_sample++;
   }
 }
-*/
 
 bool OccGridExtractor::ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame) {
   char fn[1000];
@@ -196,7 +212,7 @@ bool OccGridExtractor::ProcessFrame(kt::Tracklets *tracklets, int log_num, int f
   //printf("Loaded scan %d in %5.3f sec, has %ld hits\n", frame, t.GetSeconds(), scan.GetHits().size());
 
   ProcessFrameObjects(tracklets, scan, log_num, frame);
-  //ProcessFrameBackground(tracklets, scan, log_num, frame);
+  ProcessFrameBackground(tracklets, scan, log_num, frame);
 
   // Try to continue to the next frame
   return true;
@@ -210,10 +226,10 @@ bool OccGridExtractor::FileExists(const char* fn) const {
 void OccGridExtractor::DumpBin(const rt::OccGrid &og, const fs::path &path) const {
   std::ofstream file(path.string(), std::ios::out | std::ios::binary);
 
-  for (int i=-kPixelSize_+1; i<kPixelSize_; i++) {
-    for (int j=-kPixelSize_+1; j<kPixelSize_; j++) {
-      for (int k=-kPixelSize_+1; k<kPixelSize_; k++) {
-        float p = og.GetProbability(rt::Location(i, j, 0));
+  for (int i=-kXYRangePixels_; i<=kXYRangePixels_; i++) {
+    for (int j=-kXYRangePixels_; j<=kXYRangePixels_; j++) {
+      for (int k=-kZRangePixels_; k<=kZRangePixels_; k++) {
+        float p = og.GetProbability(rt::Location(i, j, k));
 
         // gross
         file.write((const char*)(&p), sizeof(float));

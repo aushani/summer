@@ -29,9 +29,10 @@ class OccGridExtractor {
 
  private:
   const char* kKittiBaseFilename = "/home/aushani/data/kittidata/extracted/";
-  static constexpr double kResolution_ = 0.50;                // 50 cm
-  static constexpr int kPixelSize_ = 10;                      // +- 5 m
-  static constexpr int kObjectInstances_ = 3;
+  static constexpr double kResolution_ = 0.30;                // 30 cm
+  static constexpr int kXYRangePixels_ = 16*3;                // +- 4.8 * 3 m
+  static constexpr int kZRangePixels_ = 16;                   // +- 4.8 m
+  static constexpr int kObjectInstances_ = 10;
 
   rt::OccGridBuilder og_builder_;
   kt::CameraCal camera_cal_;
@@ -40,7 +41,7 @@ class OccGridExtractor {
   fs::path save_base_path_;
 
   void ProcessFrameObjects(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame);
-  //void ProcessFrameBackground(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame);
+  void ProcessFrameBackground(kt::Tracklets *tracklets, const kt::VelodyneScan &scan, int log_num, int frame);
 
   bool ProcessFrame(kt::Tracklets *tracklets, int log_num, int frame);
   bool ProcessLog(int log_num);
@@ -48,6 +49,8 @@ class OccGridExtractor {
   bool FileExists(const char* fn) const;
 
   void DumpBin(const rt::OccGrid &og, const fs::path &path) const;
+
+  std::string GetClass(kt::Tracklets *tracklets, double x, double y, int frame) const;
 };
 
 } // namespace kitti

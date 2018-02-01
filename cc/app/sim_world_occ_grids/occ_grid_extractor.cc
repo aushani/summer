@@ -21,10 +21,6 @@ OccGridExtractor::OccGridExtractor(const std::string &save_base_fn) :
 }
 
 void OccGridExtractor::Run() {
-  // Sampling jitter
-  std::uniform_real_distribution<double> jitter_pos(-kPosRes_/2, kPosRes_/2);
-  std::uniform_real_distribution<double> jitter_angle(-kAngleRes_/2, kAngleRes_/2);
-
   // Sampling positions
   double lower_bound = -20.0;
   double upper_bound = 20.0;
