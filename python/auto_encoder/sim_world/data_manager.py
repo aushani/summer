@@ -17,22 +17,13 @@ class BatchMaker:
         self.dirname = dirname
         self.batch_size = batch_size
 
-        self.full_dim_xy = 16*3*2 - 1
-        self.full_dim_z = 16*2 - 1
-        self.n_full = self.full_dim_xy**2 * self.full_dim_z
-
-        self.dim_xy = 30
-        self.dim_z = 20
-        self.n_x = self.dim_xy**2 * self.dim_z
-
-        print 'Savings of %d / %d = %5.3f %%' % (self.n_x, self.n_full, 100.0*self.n_x/self.n_full)
+        self.dim_data = 16*3*2 - 1
+        self.n_classes = 3
 
         self.labels = {}
-        self.labels['Bac'] = 0
-        self.labels['Car'] = 1
-        self.labels['Cyc'] = 2
-        self.labels['Ped'] = 3
-        self.n_classes = len(self.labels)
+        self.labels['BAC'] = 0
+        self.labels['BOX'] = 1
+        self.labels['STA'] = 2
 
         files = [f for f in os.listdir(dirname) if os.path.isfile(os.path.join(dirname, f))]
         #files = [f for f in files if not 'BACKGROUND' in f]
@@ -60,17 +51,15 @@ class BatchMaker:
         print 'Loading test data...'
         n_test_samples = len(self.test_files)
 
-        self.test_samples = np.zeros((n_test_samples, self.dim_xy, self.dim_xy, self.dim_z))
+        self.test_samples = np.zeros((n_test_samples, self.dim_data, self.dim_data))
         self.test_labels_oh = np.zeros((n_test_samples, self.n_classes))
         self.test_labels = np.zeros((n_test_samples))
         for i in range(n_test_samples):
             filename = self.test_files[i]
             sample, label = self.load_filename(filename)
-            self.test_samples[i, :, :, :] = sample
+            self.test_samples[i, :, :] = sample
             self.test_labels_oh[i, label] = 1 #one hot
             self.test_labels[i] = label
-            print 'Test sample %d / %d' % (i, n_test_samples)
-
         print 'Loaded test data'
         print 'Class statistics = ', np.sum(self.test_labels_oh, axis=0)
 
@@ -86,31 +75,15 @@ class BatchMaker:
 
     def load_filename(self, filename):
         path = self.dirname + filename
-        num_voxels = self.n_full
+        num_voxels = self.dim_data*self.dim_data
 
         grid = np.fromfile(path, dtype=np.float32, count=num_voxels)
-        grid[grid<0.49] = 0.0
-        grid[grid>0.51] = 1.0
+        grid[grid<0.5] = 0.0
+        grid[grid>0.5] = 1.0
 
-        grid = np.reshape(grid, [self.full_dim_xy, self.full_dim_xy, self.full_dim_z])
-
-        x0 = self.full_dim_xy/2 - self.dim_xy/2
-        x1 = x0 + self.dim_xy
-
-        y0 = x0
-        y1 = x1
-
-        z0 = self.full_dim_z/2 - self.dim_z/2
-        z1 = z0 + self.dim_z
-
-        grid = grid[x0:x1, y0:y1, z0:z1]
+        grid = np.reshape(grid, [self.dim_data, self.dim_data])
 
         classname = filename[0:3]
-
-        # If no label, call it background
-        if not classname in self.labels:
-            classname = 'Bac'
-
         return grid, self.labels[classname]
 
     def load_idx(self, idx):
@@ -124,13 +97,13 @@ class BatchMaker:
         return res
 
     def make_next_batch(self):
-        samples = np.zeros((self.batch_size, self.dim_xy, self.dim_xy, self.dim_z))
+        samples = np.zeros((self.batch_size, self.dim_data, self.dim_data))
         labels = np.zeros((self.batch_size, self.n_classes))
 
         for i in range(self.batch_size):
             sample, label = self.load_next()
 
-            samples[i, :, :, :] = sample
+            samples[i, :, :] = sample
             labels[i, label] = 1
 
         return samples, labels
@@ -149,8 +122,6 @@ class BatchMaker:
             np.save(labels_filename, labels)
 
             self.last_batch_loaded = batch_idx
-
-            print 'Batch %d / %d' % (batch_idx, self.n_batches)
 
 
 class DataManager:

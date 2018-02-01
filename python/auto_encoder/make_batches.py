@@ -1,6 +1,6 @@
 from data_manager import *
 
-batch_dir = '/home/aushani/data/batches/'
+batch_dir = '/home/aushani/data/batches_ae_kitti/'
 
-bm = BatchMaker('/home/aushani/data/auto_encoder_data_bin_buffer/', batch_size=100, n_test_samples=1000)
+bm = BatchMaker('/home/aushani/data/ae_kitti/', batch_size=100, n_test_samples=10000)
 bm.generate_data_files(batch_dir)
