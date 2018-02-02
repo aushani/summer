@@ -11,28 +11,41 @@ class AutoEncoder:
 
         self.sess = tf.Session(config=config)
 
+        # Intermediate layers
+        self.n_layers_1 = 30
+        self.n_layers_2 = 60
+
         # Size of data we're given
-        self.dim_data = 16*3*2 - 1
+        self.dim_xy = 30
+        self.dim_z = 20
+        self.n_x = self.dim_xy**2 * self.dim_z
 
         # Size of data we care about reconstructing
-        self.dim_window = 31
+        self.dim_window_xy = 15
+        self.dim_window_z = 20
 
-        # Classes (BOX, STAR, BACKGROUND)
-        self.n_classes = 3
+        # Classes (Background, Car, Cyclist, Pedestrian
+        self.n_classes = 4
 
         self.dim_latent = 10
 
         reg_scale = 1e-7
         self.regularizer = tf.contrib.layers.l2_regularizer(reg_scale)
 
-        #self.input = tf.placeholder(tf.float32, shape=[None, dim_data])
-        self.input = tf.placeholder(tf.float32, shape=[None, self.dim_data, self.dim_data])
+        self.input = tf.placeholder(tf.float32, shape=[None, self.dim_xy, self.dim_xy, self.dim_z])
         self.label = tf.placeholder(tf.float32, shape=[None, self.n_classes])
 
         # Get the window we're interested in
-        x0 = self.dim_data/2 - self.dim_window/2
-        x1 = x0 + self.dim_window
-        window = self.input[:, x0:x1, x0:x1]
+        x0 = self.dim_xy/2 - self.dim_window_xy/2
+        x1 = x0 + self.dim_window_xy
+
+        y0 = self.dim_xy/2 - self.dim_window_xy/2
+        y1 = y0 + self.dim_window_xy
+
+        z0 = self.dim_z/2 - self.dim_window_z/2
+        z1 = z0 + self.dim_window_z
+
+        window = self.input[:, x0:x1, y0:y1, z0:z1]
 
         # Encoder
         self.make_encoder()
@@ -52,15 +65,15 @@ class AutoEncoder:
         free_mask = tf.less(window, 0.5)
         occu_mask = tf.greater(window, 0.5)
 
-        n_free = tf.reduce_sum(tf.reduce_sum(tf.cast(free_mask, tf.float32), axis=1), axis=1)
-        n_occu = tf.reduce_sum(tf.reduce_sum(tf.cast(occu_mask, tf.float32), axis=1), axis=1)
+        n_free = tf.reduce_sum(tf.reduce_sum(tf.reduce_sum(tf.cast(free_mask, tf.float32), axis=1), axis=1), axis=1)
+        n_occu = tf.reduce_sum(tf.reduce_sum(tf.reduce_sum(tf.cast(occu_mask, tf.float32), axis=1), axis=1), axis=1)
 
         self.cost_free = tf.where(free_mask, self.reconstruction, zero_cost)
         self.cost_occu = tf.where(occu_mask, 1-self.reconstruction, zero_cost)
 
         # add a tiny something to denominator in case it's 0
-        self.cost_free = tf.reduce_sum(tf.reduce_sum(self.cost_free, axis=1), axis=1) / (n_free + 1e-20)
-        self.cost_occu = tf.reduce_sum(tf.reduce_sum(self.cost_occu, axis=1), axis=1) / (n_occu + 1e-20)
+        self.cost_free = tf.reduce_sum(tf.reduce_sum(tf.reduce_sum(self.cost_free, axis=1), axis=1), axis=1) / (n_free + 1e-20)
+        self.cost_occu = tf.reduce_sum(tf.reduce_sum(tf.reduce_sum(self.cost_occu, axis=1), axis=1), axis=1) / (n_occu + 1e-20)
 
         self.sample_reconstruction_loss = (self.cost_free + self.cost_occu) / 2
 
@@ -68,7 +81,7 @@ class AutoEncoder:
         reconstruction_loss = tf.reduce_mean(self.sample_reconstruction_loss)
 
         # Some cost for confidence (ie, try to say unknown if truly unknown)
-        sample_conf_cost = tf.reduce_sum(tf.reduce_sum(tf.abs(self.reconstruction - 0.5), axis=1), axis=1)
+        sample_conf_cost = tf.reduce_sum(tf.reduce_sum(tf.reduce_sum(tf.abs(self.reconstruction - 0.5), axis=1), axis=1), axis=1)
         conf_cost = tf.reduce_mean(sample_conf_cost)
 
         # Loss
@@ -94,12 +107,12 @@ class AutoEncoder:
 
     def make_encoder(self):
         with tf.variable_scope("encoder"):
-            single_channel = tf.expand_dims(self.input, -1)
+            #single_channel = tf.expand_dims(self.input, -1)
 
-            l1 = tf.contrib.layers.conv2d(single_channel, num_outputs=50, kernel_size=self.dim_window, stride=1,
+            l1 = tf.contrib.layers.conv2d(self.input, num_outputs=self.n_layers_1, kernel_size=self.dim_window_xy, stride=1,
                     padding='VALID', activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-            l2 = tf.contrib.layers.conv2d(l1, num_outputs=150, kernel_size=1, stride=1,
+            l2 = tf.contrib.layers.conv2d(l1, num_outputs=self.n_layers_2, kernel_size=1, stride=1,
                     activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
             l3 = tf.contrib.layers.conv2d(l2, num_outputs=self.dim_latent, kernel_size=1, stride=1,
@@ -143,16 +156,20 @@ class AutoEncoder:
             l3 = tf.contrib.layers.conv2d_transpose(l2, num_outputs=self.dim_latent, kernel_size=1, stride=2,
                     activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-            l4 = tf.contrib.layers.conv2d_transpose(l3, num_outputs=150, kernel_size=1, stride=1,
+            l4 = tf.contrib.layers.conv2d_transpose(l3, num_outputs=self.n_layers_2, kernel_size=1, stride=1,
                     activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-            l5 = tf.contrib.layers.conv2d_transpose(l4, num_outputs=50, kernel_size=1, stride=1,
+            l5 = tf.contrib.layers.conv2d_transpose(l4, num_outputs=self.n_layers_1, kernel_size=1, stride=1,
                     activation_fn=tf.nn.tanh, weights_regularizer=self.regularizer)
 
-            output = tf.contrib.layers.conv2d_transpose(l5, num_outputs=1, kernel_size=self.dim_window, stride=1,
+            output = tf.contrib.layers.conv2d_transpose(l5, num_outputs=self.dim_window_z,
+                    kernel_size=self.dim_window_xy, stride=1,
                     activation_fn=tf.nn.sigmoid, weights_regularizer=self.regularizer)
 
-            self.reconstruction = tf.squeeze(output[:, 0:31, 0:31, :], axis=3)
+            n_xy = self.dim_window_xy
+            n_z = self.dim_window_z
+
+            self.reconstruction = output[:, 0:n_xy, 0:n_xy, 0:n_z]
 
             print 'Decoder'
             print 'L1     ', l1.shape
@@ -182,7 +199,28 @@ class AutoEncoder:
         iter_summaries = 100
         iter_plots = 1000
 
+        #hack
+        test_size = 2000
+
         test_samples, test_labels = data_manager.test_samples, data_manager.test_labels_oh
+
+        # Car samples
+        idx_car = test_labels[:, 1] == 1
+        test_samples_car = test_samples[idx_car, :, :, :]
+        test_labels_car = test_labels[idx_car, :]
+        fd_car = {self.input:test_samples_car, self.label:test_labels_car}
+        n_car = test_samples_car.shape[0]
+
+        # Cyclist samples
+        idx_cyclist = test_labels[:, 2] == 1
+        test_samples_cyclist = test_samples[idx_cyclist, :, :, :]
+        test_labels_cyclist = test_labels[idx_cyclist, :]
+        fd_cyclist = {self.input:test_samples_cyclist, self.label:test_labels_cyclist}
+        n_cyclist = test_samples_cyclist.shape[0]
+
+        # Overall samples
+        test_samples = test_samples[0:test_size, :, :, :]
+        test_labels = test_labels[0:test_size, :]
         fd_test = {self.input:test_samples, self.label:test_labels}
 
         tic_step = time.time()
@@ -200,6 +238,10 @@ class AutoEncoder:
                 print '\t%5.3f sec per for step' % (toc_step - tic_step)
                 print '\tOverall accuracy', self.accuracy.eval(feed_dict = fd_test, session=self.sess)
 
+                print '\tCar accuracy (%d samples)' % (n_car), self.accuracy.eval(feed_dict = fd_car, session=self.sess)
+
+                print '\tCyclist accuracy (%d samples)' % (n_cyclist), self.accuracy.eval(feed_dict = fd_cyclist, session=self.sess)
+
                 # Summaries
                 summary, _ = self.sess.run([self.summaries, self.accuracy], feed_dict=fd_test)
                 self.writer.add_summary(summary, iteration)
@@ -211,8 +253,8 @@ class AutoEncoder:
 
             if iteration % iter_plots == 0:
                 tic_plots = time.time()
-                self.render_examples(data_manager, fn='autoencoder_examples_%08d.png' % iteration)
-                self.render_latent(data_manager, fn='autoencoder_latent_%08d.png' % iteration)
+                #self.render_examples(data_manager, fn='autoencoder_examples_%08d.png' % iteration)
+                #self.render_latent(data_manager, fn='autoencoder_latent_%08d.png' % iteration)
                 toc_plots = time.time()
                 print '\tPlots in %f sec' % (toc_plots - tic_plots)
 

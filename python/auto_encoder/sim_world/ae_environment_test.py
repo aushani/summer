@@ -28,14 +28,14 @@ y1 = y0 + ncols
 samples, coords = grid.get_samples(x0, x1, y0, y1)
 
 ae = AutoEncoder()
-#ae.restore("koopa_trained/model_01070000.ckpt")
+ae.restore("koopa_trained/model_00609000.ckpt")
 #ae.restore("jan25/model_00550000.ckpt")
-ae.restore("model_00160000.ckpt")
+#ae.restore("model_00160000.ckpt")
 
 print 'Sample shape', samples.shape
 
 tic = time.time()
-sample_reconstructions, pred_label, losses = ae.reconstruct_and_classify(samples)
+sample_reconstructions, pred_label, losses = ae.reconstruct_and_classify_2(samples, chunk=500)
 #sample_reconstructions, pred_label, losses = ae.reconstruct_and_classify_2(samples)
 toc = time.time()
 print 'Took %5.3f ms' % ((toc - tic)*1e3)

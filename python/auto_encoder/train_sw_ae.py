@@ -3,7 +3,7 @@ from data_manager import *
 import matplotlib.pyplot as plt
 import sys
 
-batch_dir = '/home/aushani/data/batches_around_clamp'
+batch_dir = '/home/aushani/data/batches_ae_kitti'
 
 plt.switch_backend('agg')
 
