@@ -41,5 +41,27 @@ PointCloud::PointCloud(const kt::VelodyneScan &scan) :
   state->setAttribute(new osg::Point(3), osg::StateAttribute::ON);
 }
 
+PointCloud::PointCloud(const pcl::PointCloud<pcl::PointXYZRGB> &cloud) :
+ osg::Geometry(),
+ vertices_(new osg::Vec3Array),
+ colors_(new osg::Vec4Array) {
+  for (const auto &point : cloud) {
+    vertices_->push_back(osg::Vec3(point.x, point.y, point.z));
+    colors_->push_back(osg::Vec4(point.r/255.0, point.g/255.0, point.b/255.0, 0));
+  }
+
+  setVertexArray(vertices_);
+  setColorArray(colors_);
+  setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+
+  draw_arrays_ = new osg::DrawArrays(osg::PrimitiveSet::POINTS, 0, vertices_->size());
+  addPrimitiveSet(draw_arrays_);
+
+  //_geode->addDrawable(this);
+  osg::ref_ptr<osg::StateSet> state = getOrCreateStateSet();
+  state->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+  state->setAttribute(new osg::Point(1), osg::StateAttribute::ON);
+}
+
 } // osg_nodes
 } // library

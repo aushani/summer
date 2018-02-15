@@ -9,6 +9,7 @@ cc_library(
             "//library/kitti",
             "//library/ray_tracing",
             "//library/util",
-            "@openscenegraph//:openscenegraph"
+            "@openscenegraph//:openscenegraph",
+            "@pcl//:pcl",
            ],
 )

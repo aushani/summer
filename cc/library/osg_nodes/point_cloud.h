@@ -5,6 +5,9 @@
 #include <osg/Drawable>
 #include <osg/MatrixTransform>
 
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+
 #include "library/kitti/velodyne_scan.h"
 
 namespace kt = library::kitti;
@@ -15,6 +18,7 @@ namespace osg_nodes {
 class PointCloud : public osg::Geometry {
  public:
   PointCloud(const kt::VelodyneScan &scan);
+  PointCloud(const pcl::PointCloud<pcl::PointXYZRGB> &cloud);
 
  private:
   static constexpr double kColorMapZMin = -2.5;
