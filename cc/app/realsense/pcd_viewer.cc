@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
   // Read params
   std::string home_dir = getenv("HOME");
   std::string pcd_fn = home_dir + "/qut_data/lab/pcd_000001.pcd";
-  if (!args.read("--pcd-log-dir", pcd_fn)) {
+  if (!args.read("--pcd", pcd_fn)) {
     printf("Using default PCD file: %s\n", pcd_fn.c_str());
   }
 

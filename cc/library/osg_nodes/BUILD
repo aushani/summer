@@ -11,5 +11,6 @@ cc_library(
             "//library/util",
             "@openscenegraph//:openscenegraph",
             "@pcl//:pcl",
+            "@sophus//:sophus",
            ],
 )

@@ -82,13 +82,13 @@ void ViewerWindow::Init(osg::ArgumentParser *args) {
 
   // rotate by x until z down
   // car RH coordinate frame has x forward, z down
-  osg::Matrixd H(osg::Quat(ut::DegreesToRadians(180), osg::Vec3d(1, 0, 0)));
-  // osg::Matrixd H(osg::Quat(0, osg::Vec3d(1, 0, 0)));
+  //osg::Matrixd H(osg::Quat(ut::DegreesToRadians(180), osg::Vec3d(1, 0, 0)));
+  osg::Matrixd H(osg::Quat(0, osg::Vec3d(1, 0, 0)));
   osg::ref_ptr<osg::MatrixTransform> xform = new osg::MatrixTransform(H);
 
-  osg::Matrixd D(osg::Quat(M_PI, osg::Vec3d(1, 0, 0)));
-  D.postMultTranslate(osg::Vec3d(0, 0, 0));
-  xform_car_->setMatrix(D);
+  //osg::Matrixd D(osg::Quat(M_PI, osg::Vec3d(1, 0, 0)));
+  //D.postMultTranslate(osg::Vec3d(0, 0, 0));
+  //xform_car_->setMatrix(D);
   // xform_car->addChild(new osg::Axes());
   xform->addChild(xform_car_);
 

@@ -28,6 +28,12 @@ new_local_repository(
     build_file = "tools/pcl.BUILD",
 )
 
+new_local_repository(
+    name = "sophus",
+    path = "/usr/local/",
+    build_file = "tools/sophus.BUILD",
+)
+
 new_http_archive(
     name = "boost",
     build_file = "tools/boost.BUILD",

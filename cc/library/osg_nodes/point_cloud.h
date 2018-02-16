@@ -8,6 +8,8 @@
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 
+#include <sophus/se3.hpp>
+
 #include "library/kitti/velodyne_scan.h"
 
 namespace kt = library::kitti;
@@ -19,6 +21,7 @@ class PointCloud : public osg::Geometry {
  public:
   PointCloud(const kt::VelodyneScan &scan);
   PointCloud(const pcl::PointCloud<pcl::PointXYZRGB> &cloud);
+  PointCloud(const pcl::PointCloud<pcl::PointXYZRGB> &cloud, const Sophus::SE3d &t, float decimate=1.0);
 
  private:
   static constexpr double kColorMapZMin = -2.5;
