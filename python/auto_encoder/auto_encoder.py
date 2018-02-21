@@ -196,11 +196,11 @@ class AutoEncoder:
             self.sess.run(tf.global_variables_initializer())
 
         #iter_step = n_iterations / 100
-        iter_summaries = 100
-        iter_plots = 1000
+        iter_summaries = 1000
+        iter_plots = 10000
 
         #hack
-        test_size = 2000
+        test_size = 5000
 
         test_samples, test_labels = data_manager.test_samples, data_manager.test_labels_oh
 
