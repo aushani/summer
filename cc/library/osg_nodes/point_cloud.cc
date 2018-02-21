@@ -75,6 +75,11 @@ PointCloud::PointCloud(const pcl::PointCloud<pcl::PointXYZRGB> &cloud, const Sop
       continue;
     }
     Eigen::Vector3d p(point.x, point.y, point.z);
+    double mag = p.norm();
+    if (mag > 5) {
+      continue;
+    }
+
     Eigen::Vector3d p_w = t*p;
 
     vertices_->push_back(osg::Vec3(p_w.x(), p_w.y(), p_w.z()));

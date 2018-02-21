@@ -111,53 +111,44 @@ int main(int argc, char** argv) {
   int idx1, idx2, time, iter;
 
   std::vector<Sophus::SE3d> transformations;
-  transformations.push_back(Sophus::SE3<double>::trans(0, 0, 0));
+
+  for (int i=0; i<200; i++) {
+    transformations.push_back(Sophus::SE3<double>::trans(0, 0, 0));
+  }
 
   while (getline(&line, &len, f_t) != -1) {
     relpose_t res = LoadFactor(line);
 
-    auto last = transformations[transformations.size() - 1];
+    int this_idx = res.idx2;
+    int prev_idx = res.idx1;
+
+    auto last = transformations[prev_idx];
     auto next = last * res.pose;
 
-    transformations.push_back(next);
+    transformations[this_idx] = next;
   }
 
   fclose(f_t);
 
   fs::path dir(pcd_dir);
-  int i=0;
 
-  std::vector<rs::Node> nodes;
-
-  while(true) {
+  vw::Viewer v(&args);
+  for (int pcd=85; pcd<96; pcd++) {
     char fn[1000];
-    sprintf(fn, "pcd_%06d.pcd", i);
+    sprintf(fn, "pcd_%06d.pcd", pcd);
 
     fs::path path = dir / fs::path(fn);
-
-    if (!fs::exists(path) || i>=transformations.size()) {
-      break;
-    }
-
-    printf("Loading scan %i\n", i);
+    printf("Loading scan %i\n", pcd);
 
     pcl::PointCloud<pcl::PointXYZRGB> cloud;
     pcl::io::loadPCDFile<pcl::PointXYZRGB>(path.c_str(), cloud);
 
-    nodes.emplace_back(cloud, transformations[i]);
+    auto t0 = Sophus::SE3<double>::rotX(M_PI/4);
 
-    i++;
-  }
+    rs::Node node(cloud, t0 * transformations[pcd]);
 
-  // Load PCD scan
-  vw::Viewer v(&args);
+    v.AddChild(node.GetOsg());
 
-  i=0;
-  for (const auto &node : nodes) {
-    printf("Making osg %d\n", i++);
-    osg::ref_ptr<osgn::PointCloud> pc = new osgn::PointCloud(node.GetPointCloud());
-
-    v.AddChild(pc);
   }
 
   v.Start();

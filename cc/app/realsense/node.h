@@ -3,6 +3,7 @@
 #include <pcl/point_types.h>
 #include <pcl/common/projection_matrix.h>
 #include <pcl/io/pcd_io.h>
+#include <osg/MatrixTransform>
 
 #include <sophus/se3.hpp>
 
@@ -19,7 +20,7 @@ class Node {
 
   void SetPose(const Sophus::SE3d &se3);
 
-  osgn::PointCloud GetPointCloud() const;
+  osg::ref_ptr<osg::Node> GetOsg() const;
 
  private:
   pcl::PointCloud<pcl::PointXYZRGB> cloud_;
