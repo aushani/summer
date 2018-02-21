@@ -20,23 +20,23 @@ class AutoEncoder:
 
         # Encoder
         l1 = tf.contrib.layers.fully_connected(self.input, 50,
-                activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='autoencoder/l1')
+                activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='encoder/l1')
 
         l2 = tf.contrib.layers.fully_connected(l1, 50,
-                activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='autoencoder/l2')
+                activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='encoder/l2')
 
         self.latent = tf.contrib.layers.fully_connected(l2, 2,
-                activation_fn=None, weights_regularizer=regularizer, scope='autoencoder/latent')
+                activation_fn=None, weights_regularizer=regularizer, scope='encoder/latent')
 
         # Decoder
         l3 = tf.contrib.layers.fully_connected(self.latent, 50,
-                activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='autoencoder/l3')
+                activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='decoder/l3')
 
         l4 = tf.contrib.layers.fully_connected(l3, 50,
-                activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='autoencoder/l4')
+                activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='decoder/l4')
 
         self.reconstruction = tf.contrib.layers.fully_connected(l4, dim_data,
-                activation_fn=tf.nn.sigmoid, weights_regularizer=regularizer, scope='autoencoder/rec')
+                activation_fn=tf.nn.sigmoid, weights_regularizer=regularizer, scope='decoder/rec')
 
         # Classifier
         self.pred_label = tf.contrib.layers.fully_connected(self.latent, n_classes,
@@ -44,30 +44,44 @@ class AutoEncoder:
 
         # Losses
         self.classification_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.label, logits=self.pred_label))
-        self.classification_loss += tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope='classifier')
+        #self.classification_loss += tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope='classifier')
 
         self.reconstruction_loss = tf.reduce_mean(tf.squared_difference(self.reconstruction, self.input))
-        self.reconstruction_loss += tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope='autoencoder')
+        #self.reconstruction_loss += tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope='autoencoder')
 
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
-    def train(self, n_iterations=10000, autoencoder=False, classifier=False, exp_name='exp', iteration0=0):
-        loss = 0
-        var_list = []
-        if autoencoder:
-            loss += self.reconstruction_loss
-            var_list += tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='autoencoder')
+    def train(self, n_iterations=10000, loss='None', variables=['None'], exp_name='exp', iteration0=0):
 
-        if classifier:
-            loss += self.classification_loss
-            var_list += tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='classifier')
+        if loss is 'autoencoder':
+            loss = self.reconstruction_loss
+        elif loss is 'classifier':
+            loss = self.classification_loss
+        elif loss is 'both':
+            loss = self.reconstruction_loss + self.classification_loss
+        else:
+            raise ValueError('Unknown loss')
+
+        if not type(variables) is list:
+            variables = [variables]
+
+        var_list = []
+        for v in variables:
+            if v is 'encoder':
+                var_list += tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='encoder')
+            elif v is 'decoder':
+                var_list += tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='decoder')
+            elif v is 'classifier':
+                var_list += tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='classifier')
+            else:
+                raise ValueError('Unknown variable')
+
+        print 'Variables', var_list
+        print 'Cost Function', loss
 
         opt = tf.train.AdamOptimizer(1e-3)
         train_step = opt.minimize(loss, var_list = var_list)
-
-        #opt_vars = [v for v in tf.global_variables() if 'beta' in v.name]
-        #tf.initialize_variables(opt_vars)
 
         uninit_vars = self.sess.run(tf.report_uninitialized_variables())
 
@@ -87,8 +101,8 @@ class AutoEncoder:
                 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
                 print '\tOverall accuracy', accuracy.eval(feed_dict = {self.input: mnist.test.images, self.label: mnist.test.labels}, session=self.sess)
 
-                self.render_examples(fn='ae_ex_%s_%08d.png' % (exp_name, iteration))
-                self.render_latent(fn='ae_latent_%s_%08d.png' % (exp_name, iteration))
+                self.render_examples(fn='%s/ae_ex_%08d.png' % (exp_name, iteration))
+                self.render_latent(fn='%s/ae_latent_%08d.png' % (exp_name, iteration))
 
                 print '\tRendered plots'
 

@@ -25,9 +25,9 @@ new_local_repository(
 new_http_archive(
     name = "boost",
     build_file = "tools/boost.BUILD",
-    sha256 = "beae2529f759f6b3bf3f4969a19c2e9d6f0c503edcb2de4a61d1428519fcb3b0",
+    sha256 = "5721818253e6a0989583192f96782c4a98eb6204965316df9f5ad75819225ca9",
     type = "tar.bz2",
-    url = "https://robots.engin.umich.edu/~aushani/boost_1_63_0.tar.bz2",
+    url = "https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.tar.bz2",
 )
 
 # Latest Eigen, 3.3.4

@@ -13,6 +13,46 @@ namespace vw = library::viewer;
 
 
 // XXX Hack
+rt::OccGrid LoadAe(const char* fn) {
+  std::ifstream file(fn, std::ios::in | std::ios::binary);
+
+  int dim_x = 0;
+  int dim_y = 0;
+  int dim_z = 0;
+
+  file.read((char*) &(dim_x), sizeof(int));
+  file.read((char*) &(dim_y), sizeof(int));
+  file.read((char*) &(dim_z), sizeof(int));
+
+  printf("Occ Grid is %d x %d x %d\n", dim_x, dim_y, dim_z);
+
+  std::vector<rt::Location> locs;
+  std::vector<float> log_odds;
+
+  for (int i=0; i<dim_x; i++) {
+    for (int j=0; j<dim_y; j++) {
+      for (int k=0; k<dim_z_; k++) {
+        float p = -1.0;
+
+        // gross
+        file.read((char*)(&p), sizeof(float));
+
+        if (p > 0.51 || p < 0.49) {
+          printf("p: %5.3f\n", p);
+          float lo = p > 0.5 ? 1:-1;
+
+          locs.emplace_back(i, j, k);
+          log_odds.push_back(lo);
+        }
+      }
+    }
+  }
+
+  file.close();
+
+  return rt::OccGrid(locs, log_odds, res);
+}
+
 rt::OccGrid LoadBin(const char* fn) {
   std::ifstream file(fn, std::ios::in | std::ios::binary);
 
@@ -61,6 +101,7 @@ int main(int argc, char** argv) {
   au->setCommandLineUsage( args.getApplicationName() + " [options]");
   au->setDescription(args.getApplicationName() + " viewer");
 
+  au->addCommandLineOption("--ae <dirname>", "Auto-encoder reconstruction", "");
   au->addCommandLineOption("--og <dirname>", "Occ Grid Filename", "");
   au->addCommandLineOption("--fog <dirname>", "Occ Grid Filename", "");
   au->addCommandLineOption("--bin <dirname>", "Occ Grid Bin Filename", "");
@@ -84,6 +125,13 @@ int main(int argc, char** argv) {
     v.Start();
   } else if (args.read("--bin", fn)) {
     rt::OccGrid og = LoadBin(fn.c_str());
+
+    vw::Viewer v(&args);
+    osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);
+    v.AddChild(ogn);
+    v.Start();
+  } else if (args.read("--ae", fn)) {
+    rt::OccGrid og = LoadAe(fn.c_str());
 
     vw::Viewer v(&args);
     osg::ref_ptr<osgn::OccGrid> ogn = new osgn::OccGrid(og);

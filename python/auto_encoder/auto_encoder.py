@@ -304,8 +304,8 @@ class AutoEncoder:
         plt.savefig(fn)
 
     def reconstruct_and_classify(self, sample):
-        if len(sample.shape) == 2:
-            sample = np.reshape(sample, [1, self.dim_window, self.dim_window])
+        if len(sample.shape) == 3:
+            sample = np.reshape(sample, [1, self.dim_xy, self.dim_xy, self.dim_z])
 
         fd = {self.input:sample}
 
