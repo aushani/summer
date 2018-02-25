@@ -12,14 +12,14 @@ class AutoEncoder:
         dim_data = 784
         n_classes = 10
 
-        reg_scale = 1e-7
-        regularizer = tf.contrib.layers.l2_regularizer(reg_scale)
+        #reg_scale = 1e-3
+        #regularizer = tf.contrib.layers.l2_regularizer(reg_scale)
 
         self.input = tf.placeholder(tf.float32, shape=[None, dim_data])
         self.label = tf.placeholder(tf.float32, shape=[None, n_classes])
 
         # Encoder
-        l1 = tf.contrib.layers.fully_connected(self.input, 50,
+        l1 = tf.contrib.layers.fully_connected(self.input, 150,
                 activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='encoder/l1')
 
         l2 = tf.contrib.layers.fully_connected(l1, 50,
@@ -32,7 +32,7 @@ class AutoEncoder:
         l3 = tf.contrib.layers.fully_connected(self.latent, 50,
                 activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='decoder/l3')
 
-        l4 = tf.contrib.layers.fully_connected(l3, 50,
+        l4 = tf.contrib.layers.fully_connected(l3, 150,
                 activation_fn=tf.nn.tanh, weights_regularizer=regularizer, scope='decoder/l4')
 
         self.reconstruction = tf.contrib.layers.fully_connected(l4, dim_data,
@@ -52,14 +52,14 @@ class AutoEncoder:
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
-    def train(self, n_iterations=10000, loss='None', variables=['None'], exp_name='exp', iteration0=0):
+    def train(self, n_iterations=10000, loss='None', variables=['None'], exp_name='exp', iteration0=0, cw = 1e-1):
 
         if loss is 'autoencoder':
             loss = self.reconstruction_loss
         elif loss is 'classifier':
             loss = self.classification_loss
         elif loss is 'both':
-            loss = self.reconstruction_loss + self.classification_loss
+            loss = self.reconstruction_loss + cw * self.classification_loss
         else:
             raise ValueError('Unknown loss')
 
@@ -101,8 +101,8 @@ class AutoEncoder:
                 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
                 print '\tOverall accuracy', accuracy.eval(feed_dict = {self.input: mnist.test.images, self.label: mnist.test.labels}, session=self.sess)
 
-                self.render_examples(fn='%s/ae_ex_%08d.png' % (exp_name, iteration))
-                self.render_latent(fn='%s/ae_latent_%08d.png' % (exp_name, iteration))
+                #self.render_examples(fn='%s/ae_ex_%08d.png' % (exp_name, iteration))
+                #self.render_latent(fn='%s/ae_latent_%08d.png' % (exp_name, iteration))
 
                 print '\tRendered plots'
 
@@ -113,6 +113,16 @@ class AutoEncoder:
         correct_prediction = tf.equal(tf.argmax(self.label, 1), tf.argmax(self.pred_label, 1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         print 'Overall accuracy', accuracy.eval(feed_dict = {self.input: mnist.test.images, self.label: mnist.test.labels}, session=self.sess)
+
+    def process_all(self):
+        test_images = mnist.test.images
+        test_labels = mnist.test.labels
+
+        reconstructed_images = self.reconstruction.eval(feed_dict = {self.input:test_images}, session=self.sess)
+        latent = self.latent.eval(feed_dict = {self.input:test_images}, session=self.sess)
+        pred_labels = self.pred_label.eval(feed_dict = {self.input:test_images}, session=self.sess)
+
+        return test_images, test_labels, reconstructed_images, latent, pred_labels
 
     def render_examples(self, n_images=20, fn='examples.png'):
         test_images = mnist.test.images
