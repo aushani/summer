@@ -1,5 +1,6 @@
 from auto_encoder import *
 import os
+import argparse
 
 parser = argparse.ArgumentParser(description='MNIST Autoencoder')
 parser.add_argument('-c','--classification_weight', default=1.0, help ='The weight for classification loss.', type=float)

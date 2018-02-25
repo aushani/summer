@@ -12,8 +12,8 @@ class AutoEncoder:
         dim_data = 784
         n_classes = 10
 
-        #reg_scale = 1e-3
-        #regularizer = tf.contrib.layers.l2_regularizer(reg_scale)
+        reg_scale = 1e-3
+        regularizer = tf.contrib.layers.l2_regularizer(reg_scale)
 
         self.input = tf.placeholder(tf.float32, shape=[None, dim_data])
         self.label = tf.placeholder(tf.float32, shape=[None, n_classes])
