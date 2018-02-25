@@ -17,6 +17,8 @@ if not os.path.exists(exp_name):
 ae = AutoEncoder()
 ae.train(n_iterations, loss='both', variables=['encoder', 'decoder', 'classifier'], exp_name=exp_name)
 
+test_images, test_labels, reconstructed_images, latent, pred_labels = ae.process_all()
+
 np.save('%s/test_images.npy' % (exp_name), test_images)
 np.save('%s/test_labels.npy' % (exp_name), test_labels)
 np.save('%s/reconstructed_images.npy' % (exp_name), reconstructed_images)

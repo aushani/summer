@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import colorsys
 
-exp_name = 'ae_first'
+#exp_name = 'ae_first'
+exp_name = 'simultaneous_0.01000'
 
 test_images = np.load('%s/test_images.npy' % (exp_name))
 test_labels = np.load('%s/test_labels.npy' % (exp_name))
@@ -10,13 +11,17 @@ reconstructed_images = np.load('%s/reconstructed_images.npy' % (exp_name))
 latent = np.load('%s/latent.npy' % (exp_name))
 pred_labels = np.load('%s/pred_labels.npy' % (exp_name))
 
+sum_exp = np.expand_dims(np.sum(np.exp(pred_labels), axis=1), axis=1)
+p_class = np.exp(pred_labels) / (sum_exp * np.ones((1, 10)))
+
 true_num = np.argmax(test_labels, 1)
-pred_num = np.argmax(pred_labels, 1)
+pred_num = np.argmax(p_class, 1)
 
 wrong = true_num != pred_num
 print np.sum(wrong), len(pred_num)
 
-plotted = []
+bad_p_plotted = {}
+bad_idx_plotted = {}
 
 plt.figure(3)
 for num in range(10):
@@ -36,10 +41,14 @@ for i in range(len(pred_num)):
     tl = true_num[i]
     pl = pred_num[i]
 
-    if tl in plotted:
+    if not tl in bad_p_plotted:
+        bad_p_plotted[tl] = 1.0
+
+    if bad_p_plotted[tl] < p_class[i, tl] and p_class[i, tl] > 0.3:
         continue
 
-    plotted.append(tl)
+    bad_p_plotted[tl] = p_class[i, tl]
+    bad_idx_plotted[tl] = i
 
     im0 = test_images[i, :]
     im1 = reconstructed_images[i, :]
@@ -59,10 +68,7 @@ for i in range(len(pred_num)):
     plt.title(pl)
     plt.axis('off')
 
-    plt.figure(3)
-    plt.plot(latent[i, 0], latent[i, 1], 'kx', markersize=16.0, markeredgewidth=4.0)
-
-plotted = []
+good_rc_plotted = {}
 for i in range(len(pred_num)):
     if wrong[i]:
         continue
@@ -70,13 +76,18 @@ for i in range(len(pred_num)):
     tl = true_num[i]
     pl = pred_num[i]
 
-    if tl in plotted:
-        continue
-
-    plotted.append(tl)
-
     im0 = test_images[i, :]
     im1 = reconstructed_images[i, :]
+
+    rc = np.mean((im0 - im1)**2)
+
+    if not tl in good_rc_plotted:
+        good_rc_plotted[tl] = 9999.9
+
+    if good_rc_plotted[tl] < rc:
+        continue
+
+    good_rc_plotted[tl] = rc
 
     im0 = np.reshape(im0, [28, 28])
     im1 = np.reshape(im1, [28, 28])
@@ -92,5 +103,10 @@ for i in range(len(pred_num)):
     plt.imshow(im1)
     plt.title(pl)
     plt.axis('off')
+
+plt.figure(3)
+for i in bad_idx_plotted:
+    idx = bad_idx_plotted[i]
+    plt.plot(latent[idx, 0], latent[i, 1], 'kx', markersize=16.0, markeredgewidth=4.0)
 
 plt.show()
